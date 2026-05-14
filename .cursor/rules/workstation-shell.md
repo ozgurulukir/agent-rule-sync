@@ -1,0 +1,1 @@
+../../ssot/build/cursor/workstation-shell.md

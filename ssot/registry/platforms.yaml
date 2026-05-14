@@ -1,0 +1,168 @@
+---
+opencode:
+  type: directory
+  scope: user
+  display_name: OpenCode
+  base_path: "~/.config/opencode/"
+  rules_dir: rules/
+  skills_dir: skills/
+  docs_dir: docs/
+  rule_install:
+    type: symlink
+  skill_install:
+    type: copy
+  :prerequisites:
+    :tools:
+    - ruby
+crush:
+  type: skill
+  scope: user
+  display_name: Crush
+  base_path: "/usr/local/share/crush/"
+  skill_file: crush.md
+  rule_install:
+  skill_install:
+    type: copy
+  :prerequisites:
+    :tools:
+    - ruby
+gemini-cli:
+  type: import
+  scope: user
+  display_name: Gemini CLI
+  base_path: "~/.config/gemini/"
+  config_file: cli_config.yaml
+  rule_install:
+    type: inject
+    directive: "@import"
+  skill_install:
+    type: inject
+    directive: "@import"
+  :prerequisites:
+    :tools:
+    - python
+goose:
+  type: skill
+  scope: user
+  display_name: Goose
+  base_path: "~/.local/share/goose/"
+  skill_file: goose.md
+  rule_install:
+  skill_install:
+    type: copy
+  :prerequisites:
+    :tools:
+    - ruby
+droid:
+  type: skill
+  scope: user
+  display_name: Droid
+  base_path: "~/.config/droid/"
+  skill_file: droid.md
+  rule_install:
+  skill_install:
+    type: copy
+  :prerequisites:
+    :tools:
+    - ruby
+qwen-code:
+  type: import
+  scope: user
+  display_name: Qwen Code
+  base_path: "~/.config/qwen/"
+  config_file: config.yaml
+  rule_install:
+    type: inject
+    directive: "@import"
+  skill_install:
+    type: inject
+    directive: "@import"
+  :prerequisites:
+    :tools:
+    - python
+oh-my-pi:
+  type: directory
+  scope: user
+  display_name: Oh My Pi
+  base_path: "~/.config/oh-my-pi/"
+  rules_dir: rules/
+  skills_dir: skills/
+  docs_dir: docs/
+  rule_install:
+    type: symlink
+  skill_install:
+    type: copy
+  :prerequisites:
+    :tools:
+    - bash
+    - curl
+cursor:
+  type: directory
+  scope: project
+  display_name: Cursor
+  base_path: "."
+  rules_dir: ".cursor/rules/"
+  skills_dir: ".cursor/skills/"
+  docs_dir: ".cursor/docs/"
+  rule_install:
+    type: symlink
+  skill_install:
+    type: copy
+  :prerequisites:
+    :tools:
+    - ruby
+windsurf:
+  type: directory
+  scope: project
+  display_name: Windsurf
+  base_path: "."
+  rules_dir: ".windsurf/rules/"
+  skills_dir: ".windsurf/skills/"
+  docs_dir: ".windsurf/docs/"
+  rule_install:
+    type: symlink
+  skill_install:
+    type: copy
+  :prerequisites:
+    :tools:
+    - ruby
+github-copilot:
+  type: import
+  scope: project
+  display_name: GitHub Copilot
+  base_path: ".github/"
+  config_file: copilot-instructions.md
+  rule_install:
+    type: copy
+  skill_install:
+    type: copy
+  :prerequisites:
+    :tools:
+    - node
+claude-code:
+  type: directory
+  scope: project
+  display_name: Claude Code
+  base_path: "."
+  rules_dir: ".claude/rules/"
+  skills_dir: ".claude/skills/"
+  docs_dir: ".claude/docs/"
+  rule_install:
+    type: symlink
+  skill_install:
+    type: copy
+  :prerequisites:
+    :tools:
+    - ruby
+codex:
+  type: skill
+  scope: project
+  display_name: Codex CLI
+  base_path: "."
+  skill_file: AGENTS.md
+  rule_install:
+  skill_install:
+    type: copy
+  :prerequisites:
+    :tools:
+    - ruby

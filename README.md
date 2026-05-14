@@ -1,171 +1,268 @@
-# Agent Rule Sync — SSoT v3 Distribution Toolkit
+# Agent Rule Sync — PKGBUILD-based SSoT v4
 
-Standalone toolkit for distributing Single Source of Truth (SSoT) v3 rule sets to multiple AI coding agent configurations.
+Package-based Single Source of Truth management for AI agent rules and skills.
 
 ## What Is This?
 
-This repository contains the **distribution layer** of the SSoT v3 architecture:
+A **PKGBUILD-inspired package manager** for agent rules and skills:
 
-- **Fetch** upstream sources (URL or local-path) → `ssot/vendor/`
-- **Transform** upstream content → `ssot/rules/`, `ssot/docs/`, `ssot/skills/`
-- **Generate** vendor skill files (concatenated rules + skills per agent)
-- **Sync** all agent configs (directory symlinks, import lines, or skill copies)
-- **Validate** that all agents match the SSoT
+- **Package format**: Each rule/skill is a package with a `PKGBUILD` descriptor
+- **Build pipeline**: Fetch → Transform → Build artifacts per platform → Aggregate vendor skills → Install
+- **Multi-platform**: One source → multiple target platforms (OpenCode, Crush, Gemini CLI, etc.)
+- **Change detection**: SHA256 checksums track source and built artifacts
+- **Index database**: `ssot/index.yaml` tracks package state, versions, and installations
 
-It is designed to be used as a **git submodule** in projects that maintain their own SSoT.
+> **Note**: PKGBUILD/pacman is used as **architectural inspiration** (package descriptor format, versioning scheme, build pipeline). SSoT does not track Arch Linux packages or use pacman as a dependency.
+
+## Quick Start
+
+```bash
+# Build all packages
+bin/ssot build
+
+# Aggregate vendor skills (for skill-based agents)
+bin/ssot aggregate  # or: ruby ssot/aggregate-skills.rb
+
+# Install to a user-level platform
+bin/ssot install opencode          # real install
+bin/ssot install opencode --dry-run  # preview
+
+# Install to a project-level platform (run from project root)
+bin/ssot install cursor --project .   # install to current project
+bin/ssot install cursor --project ~/projects/myapp
+
+# Uninstall from a platform
+bin/ssot uninstall opencode         # user-level
+bin/ssot uninstall cursor --project .  # project-level
+
+# Query package database
+bin/ssot list
+bin/ssot show memory
+bin/ssot search security
+```
 
 ## Project Structure
 
 ```
 agent-rule-sync/
-├── scripts/              # Ruby distribution scripts (entry points)
-│   ├── fetch-upstream.rb
-│   ├── transform.rb
-│   ├── generate-index.rb
-│   ├── vendor-skills.rb
-│   └── sync-workstation-rules.rb
-├── example/              # Minimal working SSoT example
-│   ├── schema.yaml
-│   └── rules/
-│       ├── 00-memory.md
-│       └── 01-shell.md
-├── docs/agents/          # SSoT documentation (reusable)
-│   ├── ssot-architecture.md
-│   ├── transforms.md
-│   ├── agent-rules.md
-│   ├── upstream-sources.md
-│   └── coding-agents.md
-└── README.md
+├── ssot/
+│   ├── packages/           # Package definitions (each has PKGBUILD + src/)
+│   │   ├── memory/PKGBUILD
+│   │   │   └── src/00-memory.md
+│   │   ├── shell/PKGBUILD
+│   │   └── vibe-security/PKGBUILD
+│   ├── registry/
+│   │   └── platforms.yaml  # Platform configurations
+│   ├── transformers/       # Custom transformer scripts
+│   ├── build.rb            # Build orchestrator
+│   ├── aggregate-skills.rb # Vendor skill aggregator
+│   ├── install.rb          # Platform installer
+│   ├── uninstall.rb        # Platform uninstaller
+│   ├── query.rb            # Package database queries
+│   ├── index.yaml          # Master package database
+│   └── build/              # Build artifacts (generated)
+│       ├── index.yaml
+│       ├── opencode/
+│       ├── crush/
+│       └── gemini-cli/
+├── README.md
+└── AGENTS.md               # Developer guidelines
 ```
 
-## Quick Start (As Submodule)
+## Package Dependencies
 
-In your project:
+Skills and rules are **text files** — they are inherently independent. A skill may reference external tools (e.g., `awk`, `python`) but these are **system-level dependencies**, not package dependencies. SSoT documents tool requirements but does not manage them; installation of system tools is the **user's responsibility**.
 
-```bash
-# Add as submodule
-git submodule add <url-to-agent-rule-sync> scripts
-git submodule update --init --recursive
-```
+- **No inter-package dependencies**: Skills/rules do not depend on each other.
+- **No hierarchical resolution**: There is no package hierarchy; users control install order.
+- **No dependency resolution**: The system does not perform topological sorting or cycle detection.
+- **Tool prerequisites**: If a skill requires a system tool, it is documented in the package description. SSoT does not verify or install system packages.
 
-Create your `ssot/schema.yaml` and rule files, then:
+## Creating a New Package
 
-```bash
-make fetch-upstream   # Download upstream sources (if any)
-make transform        # Transform to SSoT
-make index            # Generate INDEX.md + index.json
-make vendor-skills    # Build vendor skill files
-make sync             # Distribute to all agent configs
-make check            # Verify all agents in sync
-```
+1. Create package directory: `ssot/packages/<pkgname>/`
+2. Add source file: `ssot/packages/<pkgname>/src/<filename>.md`
+3. Write `PKGBUILD` descriptor
+4. Build and install: `ruby ssot/build.rb && ruby ssot/install.rb <platform>`
 
-The Makefile in your project should call the scripts from the submodule:
+## PKGBUILD Example
 
-```makefile
-fetch-upstream:
-	@ruby scripts/fetch-upstream.rb
-
-transform:
-	@ruby scripts/transform.rb
-
-index:
-	@ruby scripts/generate-index.rb
-
-vendor-skills:
-	@ruby scripts/vendor-skills.rb
-
-sync:
-	@ruby scripts/sync-workstation-rules.rb
-
-check:
-	@ruby scripts/sync-workstation-rules.rb --check --vendored
-```
-
-## Agent Formats Supported
-
-| Format | Agents | Mechanism |
-|--------|--------|-----------|
-| `directory` | OpenCode, Claurst, Oh My Pi | Symlink each rule file |
-| `import` | Gemini, Qwen | Write `@/abs/path` import lines |
-| `skill` | Droid, Goose, Crush | Copy vendored skill file |
-
-## Schema Configuration
-
-Your `ssot/schema.yaml` defines:
-
-- **rules**: workstation constraint rules (local or upstream)
-- **docs**: reference documentation (upstream)
-- **skills**: common + agent-specific skills
-- **agents**: target agent configs (format, path, rules, skills, header/footer)
-- **sources**: upstream source definitions (local-path or url)
-- **platforms**: per-platform transformers (for format conversion)
-
-See `example/schema.yaml` for a minimal configuration.
-
-## Upstream Sources
-
-Two patterns supported:
-
-**Pattern A (legacy, deprecated):**
 ```yaml
-rules:
-  - id: security
-    filename: 05-security.md
-    upstream:
-      source: https://...
-      filename: vibe-security.md
-```
+---
+pkgname: my-rule
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: My custom rule
+arch: any
+order: 0
 
-**Pattern B (recommended):**
-```yaml
-rules:
-  - id: vibe-security
-    filename: vibe-security.md
-    source: vibe-security
-    upstream_path: vibe-security/SKILL.md
+source:
+  - type: local
+    path: src/my-rule.md
+
+targets:
+  - platform: opencode
+    format: directory
+    output: 00-my-rule.md
     transformer: copy
+    install:
+      type: symlink
+
+  - platform: crush
+    format: skill
+    output: my-rule-skill.md
+    transformer: copy
+
+checksums:
+  source: null
+  built: {}
+
+dependencies: []
+conflicts: []
+provides: []
+tags: []
+maintainer: null
+license: MIT
 ```
 
-Pattern B is canonical — it works with both `fetch-upstream` and `transform`.
+## Transformer Pattern
 
-## Transformers
-
-Built-in:
-- `copy` — pass through unchanged
+Built-in transformers:
+- `copy` — identity (no change)
 - `strip-frontmatter` — remove YAML frontmatter (`---` blocks)
 
-Custom transformers are Ruby scripts that implement a `Transform` class with a `#transform` method. Place them in your project (e.g., `scripts/transforms/`) and reference in `schema.yaml` under `platforms[].transforms.custom`.
+Custom transformers: Ruby script defining `Transform` class with `.transform(content, pkgname: nil)` method. Reference in PKGBUILD as `transformer: custom:path/to/transformer.rb`. Paths are resolved relative to repo root (`ssot/`), validated with `realpath` to prevent symlink attacks.
 
-## Documentation
+**Example Custom Transformers** (in `ssot/transformers/`):
+- `add-header.rb` — prepend title/header from frontmatter
+- `strip-comments.rb` — remove HTML comments and normalize whitespace
+- `format-code.rb` — auto-detect and tag code blocks (Ruby/Python)
 
-- **SSoT Architecture**: `docs/agents/ssot-architecture.md` — full v3 architecture
-- **Transforms**: `docs/agents/transforms.md` — platform-based transform system
-- **Agent Rules**: `docs/agents/agent-rules.md` — workflow and agent formats
-- **Upstream Sources**: `docs/agents/upstream-sources.md` — fetch process
-- **Coding Agents**: `docs/agents/coding-agents.md` — comprehensive agent reference
+## skill-bundle Format
 
-## Development
+For multi-skill repositories (e.g. `cc-skills-golang`), use `format: skill-bundle` to deploy an entire skill directory tree as one package:
+
+```yaml
+pkgname: cc-skills-golang
+pkgver: '2026.05'
+pkgdesc: Collection of Go security skills
+arch: any
+order: 10
+
+source:
+  - type: local
+    path: skills   # cloned repo's skills/ directory
+
+targets:
+  - platform: opencode
+    format: skill-bundle
+    output: .                # directory marker (must be exactly ".")
+    transformer: copy
+    install:
+      type: copy
+      target_dir: cc-skills-golang/   # → ~/.config/opencode/skills/cc-skills-golang/
+```
+
+**Requirements**: `output` must be `.`, `install.target_dir` required, `install.type` must be `copy`. Supported on `directory`-type platforms (OpenCode, Cursor, Windsurf, Claude Code). Git source is also supported. See [Reference](docs/agents/REFERENCE.md) for full details.
+
+## Quick Links
+
+- **[Architecture](docs/agents/ARCHITECTURE.md)** — System design, pipeline, data flow
+- **[Platforms](docs/agents/PLATFORMS.md)** — All supported agents and their configuration
+- **[Usage](docs/agents/USAGE.md)** — Commands, workflows, installation guide
+- **[Reference](docs/agents/REFERENCE.md)** — PKGBUILD format, transformer API, index schema
+- **[Transforms](docs/agents/TRANSFORMS.md)** — Transformer system (built-in + custom)
+- **[Upstream](docs/agents/UPSTREAM.md)** — Upstream source tracking
+- **[Agent Guides](docs/agents/agents/README.md)** — Per-agent detailed reference
+
+## Supported Platforms
+
+| Agent | Type | Scope | Config | Guide |
+|-------|------|-------|--------|-------|
+| OpenCode | directory | user | `~/.config/opencode/rules/` | [OpenCode](docs/agents/agents/opencode.md) |
+| Oh My Pi | directory | user | `~/.config/oh-my-pi/rules/` | [Oh My Pi](docs/agents/agents/oh-my-pi.md) |
+| Crush | skill | user | `/usr/local/share/crush/crush.md` | [Crush](docs/agents/agents/crush.md) |
+| Goose | skill | user | `~/.local/share/goose/goose.md` | [Goose](docs/agents/agents/goose.md) |
+| Droid | skill | user | `~/.config/droid/droid.md` | [Droid](docs/agents/agents/droid.md) |
+| Gemini CLI | import | user | `~/.config/gemini/GEMINI.md` | [Gemini CLI](docs/agents/agents/gemini-cli.md) |
+| Qwen Code | import | user | `~/.config/qwen/QWEN.md` | [Qwen Code](docs/agents/agents/qwen-code.md) |
+| Cursor | directory | project | `.cursor/rules/` | [Cursor](docs/agents/agents/cursor.md) |
+| Windsurf | directory | project | `.windsurf/rules/` | [Windsurf](docs/agents/agents/windsurf.md) |
+| GitHub Copilot | import | project | `.github/copilot-instructions.md` | [GitHub Copilot](docs/agents/agents/github-copilot.md) |
+| Claude Code | directory | project | `.claude/rules/` | [Claude Code](docs/agents/agents/claude-code.md) |
+| Codex CLI | skill | project | `AGENTS.md` | [Codex CLI](docs/agents/agents/codex.md) |
+
+**Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
+
+See [Platforms](docs/agents/PLATFORMS.md) for the complete reference.
+
+## Query Tool
 
 ```bash
-# Run all steps
-make setup
+# List all packages
+bin/ssot list
 
-# Individual steps
-make fetch-upstream
-make transform
-make index
-make vendor-skills
-make sync
-make check
+# Show package details
+bin/ssot show memory
 
-# Clean generated vendor files
-make clean
+# Search by tag
+bin/ssot search security
+
+# List installed packages on a platform
+bin/ssot installed --platform opencode   # or: ruby ssot/query.rb installed --platform opencode
+
+# List available platforms
+bin/ssot platforms
 ```
+
+## Validation
+
+```bash
+# Dry-run install (no filesystem changes)
+bin/ssot install opencode --dry-run
+
+# Uninstall dry-run
+bin/ssot uninstall opencode --dry-run
+
+# Verify installed state matches index
+bin/ssot check opencode
+
+# Full rebuild
+rm -rf ssot/build/ && bin/ssot build
+```
+
+The system validates:
+- PKGBUILD required fields (pkgname, pkgver, pkgrel, epoch, source, targets)
+- Output path traversal (no `..`, no absolute paths)
+- Transformer existence and symlink safety (realpath check)
+- Platform configuration (required fields per type)
+- SHA256 checksums for URL sources
+- Platform prerequisites (system tools: ruby, python, bash, node — warns if missing)
+- Empty content after transform (warns on build)
+
+## Version Management & Upgrades
+
+Packages use a three-component version scheme inspired by pacman:
+
+- `epoch` — overrides upstream versioning scheme changes (default: 0)
+- `pkgver` — upstream version string (e.g., `'1.0.0'`, `'2026.05'`)
+- `pkgrel` — package release increment for repackaging (default: 1)
+
+**Comparison**: epoch → pkgver (alphanumeric segments) → pkgrel. Higher wins.
+
+**Upgrade**: Re-installing automatically upgrades if newer version detected.  
+**Downgrade**: Blocked by default; use `--force` to allow.
+
+```bash
+# Force downgrade (not recommended unless necessary)
+ruby ssot/install.rb opencode --force
+```
+
+## Deprecated: Old System
+
+Old system files (`scripts/`, `ssot/schema.yaml`, `ssot/rules/`, `ssot/docs/`, `ssot/vendor/`) are from the previous schema-driven pipeline. They are **deprecated** and no longer used. The new PKGBUILD-based workflow (`ssot/` directory) is the canonical implementation.
 
 ## License
 
-MIT — same as the upstream TCI project and vibe-security skill.
-
-## Origin
-
-This toolkit implements the SSoT v3 distribution layer: fetch, transform, generate vendor skills, sync to agents, and validate. It was originally developed for the debian-sid workstation configuration and is now reusable across any project.
+MIT

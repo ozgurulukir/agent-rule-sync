@@ -1,0 +1,1 @@
+../../ssot/build/cursor/workstation-rules.md

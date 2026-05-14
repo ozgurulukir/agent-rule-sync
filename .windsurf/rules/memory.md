@@ -1,0 +1,1 @@
+../../ssot/build/windsurf/memory.md

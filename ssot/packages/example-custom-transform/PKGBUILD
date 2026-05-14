@@ -1,0 +1,37 @@
+---
+pkgname: example-custom-transform
+pkgver: 1.0.0
+pkgdesc: Example using custom transformers
+arch: any
+order: 0
+source:
+- type: local
+  path: src/example.md
+targets:
+- platform: opencode
+  format: directory
+  output: example-header.md
+  transformer: custom:transformers/add-header.rb
+- platform: opencode
+  format: directory
+  output: example-clean.md
+  transformer: custom:transformers/strip-comments.rb
+- platform: opencode
+  format: directory
+  output: example-formatted.md
+  transformer: custom:transformers/format-code.rb
+checksums:
+  source:
+  built: {}
+dependencies: []
+conflicts: []
+provides: []
+tags:
+- example
+- custom
+maintainer:
+license: MIT
+:pkgrel: 1
+:epoch: 0
+:requires:
+  :ruby: ">=2.7"

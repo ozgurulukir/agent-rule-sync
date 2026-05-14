@@ -1,0 +1,50 @@
+---
+version: '2.0'
+last_updated: '2026-05-14'
+rules:
+- id: memory
+  title: Workstation Memory Constraints
+  order: 0
+  filename: 00-memory.md
+- id: shell
+  title: Non-Interactive Shell Strategy
+  order: 1
+  filename: 01-shell.md
+- id: vibe-security
+  title: Vibe Security Skill
+  order: 2
+  filename: vibe-security.md
+  source: vibe-security
+  upstream_path: vibe-security/SKILL.md
+  transformer: copy
+skills:
+  common: []
+agents:
+  opencode:
+    display_name: OpenCode
+    format: directory
+    path: "~/.config/opencode/rules/"
+    rules: all
+    skills: []
+    platform: opencode
+sources:
+  local:
+    platform: generic
+    type: local
+    default_transformer: copy
+  vibe-security:
+    platform: generic
+    type: url
+    base_url: https://github.com/raroque/vibe-security-skill/raw/main/
+    default_transformer: copy
+platforms:
+  opencode:
+    format: directory
+    rules_dir: rules/
+    skills_dir: skills/
+    docs_dir: docs/
+    transforms:
+      from:
+      - opencode
+      - generic
+      custom: {}

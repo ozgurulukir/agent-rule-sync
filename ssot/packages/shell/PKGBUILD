@@ -1,0 +1,85 @@
+---
+pkgname: shell
+pkgver: 1.0.0
+pkgdesc: Non-Interactive Shell Strategy rule
+arch: any
+order: 1
+source:
+- type: local
+  path: src/01-shell.md
+targets:
+- platform: opencode
+  format: directory
+  output: 01-shell.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: gemini-cli
+  format: import
+  output: shell-rule.md
+  transformer: strip-frontmatter
+  install:
+    type: copy
+- platform: qwen-code
+  format: import
+  output: shell-rule.md
+  transformer: copy
+  install:
+    type: copy
+- platform: crush
+  format: skill
+  output: 01-shell.md
+  transformer: copy
+- platform: goose
+  format: skill
+  output: 01-shell.md
+  transformer: copy
+- platform: droid
+  format: skill
+  output: 01-shell.md
+  transformer: copy
+- platform: cursor
+  format: directory
+  output: workstation-shell.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: windsurf
+  format: directory
+  output: shell.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: github-copilot
+  format: import
+  output: shell-instructions.md
+  transformer: copy
+  install:
+    type: copy
+- platform: claude-code
+  format: directory
+  output: shell.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: codex
+  format: skill
+  output: 01-shell.md
+  transformer: copy
+checksums:
+  source:
+  built: {}
+dependencies: []
+conflicts: []
+provides:
+- shell-strategy
+tags:
+- shell
+- non-interactive
+- strategy
+maintainer:
+license: MIT
+:pkgrel: 1
+:epoch: 0
+:requires:
+  :python: ">=3.8"

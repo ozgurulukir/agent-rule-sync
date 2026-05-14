@@ -1,0 +1,120 @@
+#!/usr/bin/env ruby
+# SSoT CLI — single entry point for all SSoT operations
+# Usage: ssot <command> [options]
+
+require "pathname"
+require "fileutils"
+require "yaml"
+
+ROOT = Pathname.new(__dir__).parent.expand_path
+$LOAD_PATH.unshift(ROOT.to_s)
+
+require "ssot/lib/common"
+require "ssot/query"
+
+module Ssot
+  class Error < StandardError; end
+
+  module CLI
+    def self.run(argv)
+      command = argv.shift || "help"
+      case command
+      when "build"
+        require "ssot/build"
+        Ssot::Build.run
+        require "ssot/aggregate-skills"
+        Ssot::AggregateSkills.run
+        0
+      when "install"
+        system(RbConfig.ruby, ROOT.join("ssot/install.rb").to_s, *argv)
+        0
+      when "uninstall"
+        system(RbConfig.ruby, ROOT.join("ssot/uninstall.rb").to_s, *argv)
+        0
+      when "query"
+        Ssot::Query.run(argv)
+      when "list"
+        Ssot::Query.run(["list-packages"] + argv)
+      when "show"
+        Ssot::Query.run(["show"] + argv)
+      when "search"
+        Ssot::Query.run(["search"] + argv)
+      when "status"
+        print_status
+        0
+      when "check"
+        system(RbConfig.ruby, ROOT.join("ssot/install.rb").to_s, "--check", *argv)
+        0
+      when "platforms"
+        Ssot::Query.run(["list-platforms"])
+      when "help"
+        print_help
+        0
+      else
+        warn "Unknown command: #{command}"
+        print_help
+        1
+      end
+    rescue Ssot::Error => e
+      warn "Error: #{e.message}"
+      exit 1
+    end
+
+    def self.print_help
+      puts <<~HELP
+        SSoT — Single Source of Truth for Agent Rules & Skills
+
+        Usage: ssot <command> [options]
+
+        Commands:
+          build                  Build all packages (fetch → transform → artifacts)
+          install <platform>     Install packages to a platform
+          uninstall <platform>   Remove packages from a platform
+          query <cmd>            Query package database (see ssot/query.rb)
+          list                   List all packages
+          show <pkgname>         Show package details
+          search <tag>           Search packages by tag
+          status                 Show overall system status
+          check <platform>       Verify installed state matches index
+          platforms              List all platforms
+          help                   Show this help
+
+        Examples:
+          ssot build && ssot install opencode
+          ssot install opencode --dry-run
+          ssot uninstall opencode
+          ssot status
+          ssot search security
+      HELP
+    end
+
+    def self.print_status
+      index_path = ROOT.join("ssot", "index.yaml")
+      unless File.exist?(index_path)
+        puts "  No index found. Run `ssot build` first."
+        return
+      end
+      index = YAML.load_file(index_path) || {}
+      total = index[:packages]&.size || 0
+      installed_platforms = {}
+      index[:packages]&.each do |name, pkg|
+        Array(pkg[:installed]).each do |rec|
+          platform = rec[:platform]
+          installed_platforms[platform] ||= []
+          installed_platforms[platform] << name.to_s
+        end
+      end
+
+      puts "📦 SSoT Status"
+      puts "  Total packages: #{total}"
+      puts "  Platforms: #{installed_platforms.size}"
+      puts
+      installed_platforms.each do |platform, pkgs|
+        puts "  #{platform}: #{pkgs.size} package(s)"
+        pkgs.each { |p| puts "    - #{p}" }
+      end
+    end
+  end
+end
+
+exit Ssot::CLI.run(ARGV)

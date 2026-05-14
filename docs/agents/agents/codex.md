@@ -1,0 +1,33 @@
+# Codex CLI
+
+- **Type**: skill
+- **Scope**: project
+- **Base path**: project root (`.`)
+- **Skill file**: `AGENTS.md`
+- **Install method**: copy (vendor skill aggregation)
+- **Provider**: OpenAI (Codex models)
+- **Rules loading**: Searches up directory tree for `AGENTS.md`; supports `AGENTS.override.md` and `project_doc_fallback_filenames` config; truncates at 32 KiB by default
+- **Features**: Terminal agent, project-aware, supports subagents (general, Explore, code-reviewer)
+
+## Update
+
+```bash
+codex update  # npm
+```
+
+## SSoT Integration
+
+```bash
+cd /path/to/project
+ruby ssot/install.rb codex --project .
+# Generates vendor skill (build/codex/skills/vendor/codex.md) and copies to AGENTS.md
+```
+
+## Notes
+
+Codex CLI uses the same `AGENTS.md` format as OpenCode but as a single concatenated skill file rather than individual rule files. The SSoT system aggregates all rule fragments and skills into one file for Codex.
+
+## See Also
+
+- [Platforms](PLATFORMS.md#codex-cli)
+- [Usage](USAGE.md)
