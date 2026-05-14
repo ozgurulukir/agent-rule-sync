@@ -263,12 +263,31 @@
 - **Note**: `vercmp` itself was already correct (P2.1); this was purely cosmetic display fix.
 - **Impact**: All version displays now match pacman convention.
 
-### M3.2 Query Tool — Orphans & Leaves
-**Status**: ⏳ PENDING
+### ✅ M3.2 Query Tool — Orphans, Depends, Provides
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
 
-### M3.3 PKGBUILD Examples — Update All
-**Status**: ⏳ PENDING
-**Note**: Some existing PKGBUILDs may still lack `pkgrel`/`epoch`; will audit and fix.
+**Slop**: `query.rb` eksik komutlar.
+- **Added**:
+  - `orphans`: lists packages installed on platforms not in their `available_targets`
+  - `depends <pkg>`: shows dependencies from PKGBUILD `dependencies:` field
+  - `provides <cap>`: shows packages providing a virtual capability
+- **Files**: `ssot/query.rb` (run method, print_help, list_orphans, show_depends, show_provides)
+- **Impact**: Better package query capabilities.
+- **Note**: `leaves` command (packages with no dependents) requires a dependency graph — deferred.
+
+### ✅ M3.3 PKGBUILD Audit — pkgrel/epoch Present
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: Bazı PKGBUILD'lar `pkgrel`/`epoch` eksik.
+- **Fix**: Audited all 5 PKGBUILDs in `ssot/packages/`:
+  - `example-custom-transform`: `pkgrel: 1`, `epoch: 0` ✅
+  - `golang-security-bundle`: `pkgrel: 1`, `epoch: 0` ✅
+  - `memory`: `pkgrel: 1`, `epoch: 0` ✅
+  - `shell`: `pkgrel: 1`, `epoch: 0` ✅
+  - `vibe-security`: `pkgrel: 1`, `epoch: 0` ✅
+- **Impact**: All packages have consistent PKGBUILD format with pkgrel/epoch fields.
 
 ---
 
@@ -364,7 +383,7 @@
 
 **Week 4+ (Priority 3 & 4 — Medium/Long)**:
 16. ✅ M3.1 Version string formatting (format_version)
-17. M3.2 Query tool orphans/leaves
+17. ✅ M3.2 Query tool orphans/depends/provides
 18. L4.1 Test suite
 19. ✅ L4.3 Transaction rollback (backup + restore)
 20. L4.4 Skill-bundle manifest
@@ -382,4 +401,4 @@
 ---
 
 **Last Updated**: 2026-05-14 (Priority 0, 1 & 2 completed)
-**Status**: In Progress (P0.1-P0.4 done; P1.1-P1.5 done; P2.1, P2.3, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred; M3.1 done; L4.3 done; M3.2, M3.3, L4.1, L4.2, L4.4, L4.5, L4.6 pending)
+**Status**: In Progress (P0.1-P0.4 done; P1.1-P1.5 done; P2.1, P2.3, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred; M3.1 done; M3.2 done; M3.3 done; L4.3 done; L4.1, L4.2, L4.4, L4.5, L4.6 pending)

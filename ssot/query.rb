@@ -32,6 +32,14 @@ module Ssot
         search(keyword)
       when "check", "c"
         check_consistency
+      when "orphans", "o"
+        list_orphans
+      when "depends", "d"
+        pkgname = argv.shift
+        show_depends(pkgname)
+      when "provides", "p"
+        capability = argv.shift
+        show_provides(capability)
       when "help", "h"
         print_help
       else
@@ -59,6 +67,9 @@ module Ssot
           show, info <package>     Show detailed package info
           search, s <keyword>      Search packages by name/description/tags
           check, c                 Check database consistency
+          orphans, o               List orphaned packages (installed but no target)
+          depends, d <package>     Show package dependencies
+          provides, p <capability> Show packages providing a capability
           help, h                  Show this help
 
         Examples:
@@ -164,6 +175,64 @@ module Ssot
         puts "🔍 Search results for '#{keyword}':"
         results.each do |name, pkg|
           puts "  #{name} (#{Ssot::Lib::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver], pkg[:pkgrel] || 1)}): #{pkg[:pkgdesc]}"
+        end
+      end
+    end
+
+    def list_orphans
+      index = load_index
+      pkgs = index[:packages] || {}
+      orphans = []
+      
+      pkgs.each do |name, pkg|
+        Array(pkg[:installed]).each do |rec|
+          platform = rec[:platform]
+          unless Array(pkg[:available_targets]).include?(platform)
+            orphans << { name: name, platform: platform, output: rec[:output] }
+          end
+        end
+      end
+      
+      if orphans.empty?
+        puts "✅ No orphaned packages."
+      else
+        puts "⚠️  Orphaned packages (#{orphans.size}):"
+        orphans.each do |o|
+          puts "  • #{o[:name]} on #{o[:platform]} (output: #{o[:output]})"
+        end
+      end
+    end
+
+    def show_depends(pkgname)
+      index = load_index
+      pkg = index[:packages][pkgname.to_sym] || index[:packages][pkgname]
+      unless pkg
+        warn "Package not found: #{pkgname}"
+        exit 1
+      end
+      
+      deps = Array(pkg[:dependencies])
+      if deps.empty?
+        puts "#{pkgname} has no dependencies."
+      else
+        puts "#{pkgname} depends on:"
+        deps.each { |d| puts "  • #{d}" }
+      end
+    end
+
+    def show_provides(capability)
+      index = load_index
+      pkgs = index[:packages] || {}
+      providers = pkgs.filter_map do |name, pkg|
+        [name, pkg] if Array(pkg[:provides]).include?(capability)
+      end
+      
+      if providers.empty?
+        puts "No packages provide: #{capability}"
+      else
+        puts "Packages providing '#{capability}':"
+        providers.each do |name, pkg|
+          puts "  • #{name} (#{Ssot::Lib::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver], pkg[:pkgrel] || 1)})"
         end
       end
     end
