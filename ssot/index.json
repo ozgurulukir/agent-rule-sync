@@ -1,6 +1,6 @@
 {
   "version": 3.0,
-  "generated": "2026-05-14T13:33:26Z",
+  "generated": "2026-05-14T14:23:44Z",
   "packages": {
     "example-custom-transform": {
       "pkgver": "1.0.0",
@@ -176,7 +176,9 @@
             "target_dir": "golang-security-bundle/"
           }
         }
-      ]
+      ],
+      "source_dir": "/home/aristo/Projects/agent-rule-sync/ssot/build/git-sources/golang-security-bundle",
+      "source_sha256": "6cda62ec2e4fc155c406b68666034d8bc96f7395"
     },
     "memory": {
       "pkgver": "1.0.0",

@@ -176,10 +176,20 @@
 - Ekstra kod karmaşıklığı, test, edge case'ler → fayda/maliyet dengesi düşük.
 - Gelecekte eklenecekse sadece uyarı modu (kullanıcı onayı ile) yeterli olacaktır.
 
-### ⏳ P2.3 Build Cache Mechanism
-**Status**: ⏳ PENDING
-**Reason**: Cache infrastructure (cache dir, keying by checksum) not yet implemented. Future optimization.
-**Plan**: Cache key = source checksum (sha256 for url, commit_hash for git). Cache dir: `ssot/cache/<source_hash>/`. On build, check cache first → skip fetch if hit. On checksum change → invalidate.
+### ✅ P2.3 Build Cache Mechanism
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: Every build re-fetches URL and git sources from scratch. Slow, wasteful, upstream can disappear.
+- **Fix**: Build cache in `ssot/cache/<source_hash>/`:
+  - **URL**: cached by SHA256 (`ssot/cache/<sha256>/extracted/`)
+  - **Git file**: cached by commit hash (`ssot/cache/<commit>/extracted/`)
+  - **Git directory** (skill-bundle): cached by commit hash (`ssot/cache/<commit>/extracted/`)
+  - **Local**: not cached (already on disk)
+  - Cache functions in `ssot/lib/common.rb`: `cache_key_for_source`, `cache_dir`, `source_cached?`, `cache_source`, `get_cached_source`, `get_cached_git_source`, `cached_fetch_url`, `cached_fetch_git_file`, `cached_fetch_git_dir`
+- **Files**: `ssot/lib/common.rb` (cache functions), `ssot/build.rb` (cache-aware fetch: `cached_fetch_url`, `cached_fetch_git_file`, `cached_fetch_git_dir`).
+- **Impact**: Second build is instant for cached sources. Upstream backup: `ssot/cache/` contains packaged upstream versions.
+- **Cache layout**: `ssot/cache/<key>/extracted/<content>` (single file) or `ssot/cache/<key>/extracted/<dir>/` (skill-bundle).
 
 ### ✅ P2.4 Common Uninstall Function (DRY)
 **Status**: ✅ COMPLETED
@@ -424,7 +434,7 @@
 **Week 3 (Priority 2 — High)**: ✅ COMPLETED
 9. ✅ P2.1 Dynamic pkgver from git (pkgver_func)
 10. ⏳ P2.2 Dependency resolution — DEFERRED (not needed: skills/rules are independent, user controls install order)
-11. ⏳ P2.3 Build cache mechanism
+11. ✅ P2.3 Build cache mechanism
 12. ✅ P2.4 Common uninstall function (DRY)
 13. ✅ P2.5 Logging levels (--verbose)
 14. ✅ P2.6 User-friendly CLI commands (ssot list, ssot status, ssot check)
@@ -450,4 +460,4 @@
 ---
 
 **Last Updated**: 2026-05-14 (Priority 0, 1 & 2 completed)
-**Status**: In Progress (P0.1–P0.4 done; P1.1–P1.5 done; P2.1, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred — not needed; P2.3, P3, P4 pending)
+**Status**: In Progress (P0.1–P0.4 done; P1.1–P1.5 done; P2.1, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred — not needed; P2.3 done; P3, P4 pending)
