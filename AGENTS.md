@@ -499,7 +499,24 @@ See `ssot/transformers/` for implementations.
 
 ## Testing & QA
 
-No automated test suite. Validate with:
+### Automated Test Suite
+
+Run the full test suite with `rake test` (Minitest):
+
+```bash
+rake test              # All tests (36 tests)
+rake test_unit         # Unit tests only (25 tests)
+rake test_integration  # Integration tests only (11 tests)
+```
+
+**Test coverage** (36 tests, 62 assertions, all passing):
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `test/test_common.rb` | 25 | `compare_versions`, `format_version`, `validate_output_filename`, `validate_target_dir`, `expand_user_path`, `strip_frontmatter` |
+| `test/test_integration.rb` | 11 | Build index, skill-bundle manifest, version comparison, index schema migration (pkgrel/epoch), transaction rollback (backup/restore/cleanup), cache integration |
+
+### Manual Validation
 
 ```bash
 # Dry-run install to preview changes

@@ -241,6 +241,20 @@ The system validates:
 - Platform prerequisites (system tools: ruby, python, bash, node — warns if missing)
 - Empty content after transform (warns on build)
 
+## Testing
+
+Run the automated test suite with `rake test` (Minitest):
+
+```bash
+rake test              # All tests (36 tests, 62 assertions)
+rake test_unit         # Unit tests only (25 tests)
+rake test_integration  # Integration tests only (11 tests)
+```
+
+**Test coverage**:
+- **Unit** (25 tests): `compare_versions`, `format_version`, `validate_output_filename`, `validate_target_dir`, `expand_user_path`, `strip_frontmatter`
+- **Integration** (11 tests): Build index creation, skill-bundle manifest, version comparison, index schema migration, transaction rollback (backup/restore/cleanup), cache integration
+
 ## Version Management & Upgrades
 
 Packages use a three-component version scheme inspired by pacman:
