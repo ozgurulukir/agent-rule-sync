@@ -553,17 +553,25 @@ See `ssot/transformers/` for implementations.
 Run the full test suite with `rake test` (Minitest):
 
 ```bash
-rake test              # All tests (36 tests)
-rake test_unit         # Unit tests only (25 tests)
-rake test_integration  # Integration tests only (11 tests)
+rake test              # All tests (172 tests)
+rake test_unit         # Unit tests only (48 tests)
+rake test_integration  # Integration tests only (29 tests)
+rake test_cache        # Cache tests (24 tests)
+rake test_pkgbuild     # PKGBUILD validation tests (23 tests)
+rake test_platform     # Platform registry tests (22 tests)
+rake test_uninstall    # Uninstall tests (7 tests)
 ```
 
-**Test coverage** (36 tests, 62 assertions, all passing):
+**Test coverage** (172 tests, 399 assertions, 0 failures, 0 errors):
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `test/test_common.rb` | 25 | `compare_versions`, `format_version`, `validate_output_filename`, `validate_target_dir`, `expand_user_path`, `strip_frontmatter` |
-| `test/test_integration.rb` | 11 | Build index, skill-bundle manifest, version comparison, index schema migration (pkgrel/epoch), transaction rollback (backup/restore/cleanup), cache integration |
+| `test/test_common.rb` | 48 | `compare_versions`, `vercmp`, `format_version`, `validate_output_filename`, `validate_target_dir`, `expand_user_path`, `strip_frontmatter` |
+| `test/test_integration.rb` | 29 | Build index, skill-bundle manifest generation (6 tests), version comparison, schema migration (idempotent), transaction rollback, cache integration |
+| `test/test_cache.rb` | 24 | Cache key (url/git/local), cache dir, source_cached?, cache_source (content/file), get_cached_source, cached_fetch_url errors |
+| `test/test_pkgbuild_validation.rb` | 23 | `load_pkgbuild` (valid, missing file/fields, invalid formats), `validate_pkgbuild` (valid, all invalid fields, nil guards, skill-bundle constraints) |
+| `test/test_platform.rb` | 22 | Platform registry loading/validation, `platform_config` lookup, `resolve_install_path` (all types), `safe_relative`, `build_dir_for_platform`, `check_prerequisites` |
+| `test/test_uninstall.rb` | 7 | Index mutation (in-place removal, dry-run safety, dedup), disk write verification, skip-not-installed |
 
 ### Manual Validation
 

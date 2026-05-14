@@ -293,22 +293,48 @@
 
 ## 📋 Priority 4 — Low (Long-term)
 
-### ✅ L4.1 Test Suite
+### ✅ L4.1 Test Suite (Expanded)
 **Status**: ✅ COMPLETED
 **Date**: 2026-05-14
 
-**Slop**: Hiç test yok.
-- **Plan**: RSpec/Minitest.
-- **Unit tests** (25): `compare_versions`, `format_version`, `validate_output_filename`,
-  `validate_target_dir`, `expand_user_path`, `strip_frontmatter`.
-- **Integration tests** (11): Build index creation, skill-bundle manifest generation,
-  version comparison, index schema migration (pkgrel/epoch), transaction rollback
-  (backup/restore/cleanup), cache integration (key, dir, source_cached?).
-- **Files**: `test/helper.rb`, `test/test_common.rb`, `test/test_integration.rb`, `Rakefile`.
-- **Impact**: 36 tests, all passing. Regression prevention.
+**Slop**: Minimal test coverage (36 tests, limited to basic happy paths).
 
-- **Fix**: `backup_index` uses counter suffix to prevent overwrite when called
-  within same second; `require 'json'` added for manifest parsing.
+**Test Coverage Expansion** (172 tests, 399 assertions):
+- **test_common.rb** (48): compare_versions, vercmp, format_version, validate_output_filename,
+  validate_target_dir, expand_user_path, strip_frontmatter — plus edge cases (empty strings,
+  nil inputs, alphanumeric segments, epoch/pkgrel priority, pacman-style versioning).
+- **test_integration.rb** (29): Build index creation + metadata verification, skill-bundle manifest
+  generation (6 manifest tests: subskills, root files, empty bundle, JSON roundtrip, checksums,
+  mixed layout), version comparison integration, index schema migration (idempotency, nil/empty
+  edge cases), transaction rollback (backup/restore, cleanup safety, nonexistent backup),
+  cache integration (key types, SHA256 mismatch error, cache miss detection).
+- **test_cache.rb** (24): cache_key_for_source (url/git/local, raise paths), cache_dir, source_cached?,
+  cache_source (content/file/git_archive), get_cached_source (specific/default/missing/cache-miss),
+  get_cached_git_source, cached_fetch_url error paths (HTTP failure, SHA256 mismatch).
+- **test_pkgbuild_validation.rb** (23): load_pkgbuild (valid, missing file, missing fields,
+  empty arrays, invalid formats, skill-bundle constraints), validate_pkgbuild (valid package,
+  invalid pkgname/pkgver/pkgrel/epoch/pkgdesc/arch/order, nil source/targets guard, unknown source
+  types, missing target fields, skill-bundle install constraints, multi-error aggregation).
+- **test_platform.rb** (22): load_platform_registry, validate_platform_config (directory/import/skill
+  + error cases), platform_config (string/symbol/hyphenated lookup + unknown), resolve_install_path
+  (directory/import/skill + base_override), safe_relative, build_dir_for_platform, check_prerequisites.
+- **test_uninstall.rb** (7): Index mutation (in-place record removal, dry-run safety, dedup),
+  filesystem removal (directory/skill-bundle/file), not-installed platform skip, disk write
+  verification.
+
+**Files**: `test/helper.rb`, `test/test_common.rb`, `test/test_integration.rb`, `test/test_cache.rb`,
+`test/test_pkgbuild_validation.rb`, `test/test_platform.rb`, `test/test_uninstall.rb`, `Rakefile`.
+
+**Impact**: 172 tests, 399 assertions, 0 failures, 0 errors, 0 skips.
+
+**Bugs fixed during testing**:
+- `validate_pkgbuild`: nil source/targets crash (`each_with_index` on nil) → safe navigation guard
+- `validate_pkgbuild`: skill-bundle `target_dir` check inside `if t[:install]` → moved outside,
+  now catches missing install block
+- `generate_skill_bundle_manifest`: `Dir.glob("path/*/", FNM_DOTMATCH)` returns `path/./` on Linux
+  → skip `.` and `..` in subdir loop
+- `build.rb`: manifest generation extracted to `generate_skill_bundle_manifest` in `common.rb`
+  (testable without full build pipeline)
 
 ### L4.2 Dependency Resolution Implementation
 **Status**: ⏳ PENDING

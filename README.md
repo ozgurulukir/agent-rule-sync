@@ -263,14 +263,22 @@ The system validates:
 Run the automated test suite with `rake test` (Minitest):
 
 ```bash
-rake test              # All tests (36 tests, 62 assertions)
-rake test_unit         # Unit tests only (25 tests)
-rake test_integration  # Integration tests only (11 tests)
+rake test              # All tests (172 tests, 399 assertions)
+rake test_unit         # Unit tests only (48 tests)
+rake test_integration  # Integration tests only (29 tests)
+rake test_cache        # Cache tests (24 tests)
+rake test_pkgbuild     # PKGBUILD validation tests (23 tests)
+rake test_platform     # Platform registry tests (22 tests)
+rake test_uninstall    # Uninstall tests (7 tests)
 ```
 
-**Test coverage**:
-- **Unit** (25 tests): `compare_versions`, `format_version`, `validate_output_filename`, `validate_target_dir`, `expand_user_path`, `strip_frontmatter`
-- **Integration** (11 tests): Build index creation, skill-bundle manifest, version comparison, index schema migration, transaction rollback (backup/restore/cleanup), cache integration
+**Test coverage** (172 tests, 399 assertions, 0 failures):
+- **test_common.rb** (48): version comparison, format_version, filename/dir validation, user path expansion, frontmatter stripping
+- **test_integration.rb** (29): build index, skill-bundle manifest (6 tests), version comparison, schema migration, transaction rollback, cache integration
+- **test_cache.rb** (24): cache key generation, cache dir, source_cached?, cache_source, get_cached_source, fetch errors
+- **test_pkgbuild_validation.rb** (23): load_pkgbuild, validate_pkgbuild (valid + all invalid field types)
+- **test_platform.rb** (22): platform registry, path resolution, safe_relative, prerequisites
+- **test_uninstall.rb** (7): index mutation, dry-run, dedup, disk write verification
 
 ## Version Management & Upgrades
 

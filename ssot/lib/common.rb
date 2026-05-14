@@ -5,6 +5,7 @@ require 'tempfile'
 require 'yaml'
 require 'pathname'
 require 'digest'
+require 'json'
 
 module Ssot
   module Lib
@@ -525,6 +526,64 @@ module Ssot
         File.open(path.to_s, 'a') { |f| f.write(content) }
       end
 
+      # Generate skill-bundle manifest JSON for a built package directory.
+      # build_pkg_dir: Pathname to the built package directory
+      # pkgname: package name (string)
+      # platform_id: platform identifier (string)
+      # Returns the parsed manifest hash.
+      def generate_skill_bundle_manifest(build_pkg_dir, pkgname, platform_id)
+        build_pkg_dir = Pathname.new(build_pkg_dir)
+        manifest = {
+          generated_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+          pkgname: pkgname.to_s,
+          platform: platform_id.to_s,
+          sub_skills: []
+        }
+        seen_paths = {}
+
+        # Collect root-level files (not in a subdir)
+        Dir.glob("#{build_pkg_dir}/*", File::FNM_DOTMATCH).each do |entry_path|
+          entry = Pathname.new(entry_path)
+          next unless entry.file?
+          next if entry.basename.to_s == 'manifest.json'
+          rel_path = entry.basename.to_s
+          sub = manifest[:sub_skills].find { |s| s[:path] == '.' }
+          unless sub
+            sub = { path: '.', name: '.', sha256: '', files: {} }
+            manifest[:sub_skills] << sub
+          end
+          sub[:files][rel_path] = Digest::SHA256.hexdigest(entry.read)
+        end
+        if (sub = manifest[:sub_skills].find { |s| s[:path] == '.' })
+          sub[:sha256] = Digest::SHA256.hexdigest(sub[:files].sort.to_h.to_s)
+          seen_paths['.'] = true
+        end
+
+        # Each top-level subdirectory is a sub-skill
+        Dir.glob("#{build_pkg_dir}/*/", File::FNM_DOTMATCH).each do |subdir_path|
+          subdir = Pathname.new(subdir_path)
+          sub_name = subdir.basename.to_s
+          next unless subdir.directory?
+          next if sub_name == '.' || sub_name == '..'  # skip FNM_DOTMATCH artifacts
+          sub_name = subdir.basename.to_s
+          next if seen_paths[sub_name]
+          sub_files = {}
+          Dir.glob("#{subdir}/**/*", File::FNM_DOTMATCH).each do |file_path|
+            file = Pathname.new(file_path)
+            next unless file.file?
+            rel_path = file.relative_path_from(build_pkg_dir).to_s
+            sub_files[rel_path] = Digest::SHA256.hexdigest(file.read)
+          end
+          agg_sha = Digest::SHA256.hexdigest(sub_files.sort.to_h.to_s)
+          manifest[:sub_skills] << { path: sub_name, name: sub_name, sha256: agg_sha, files: sub_files }
+          seen_paths[sub_name] = true
+        end
+
+        manifest_path = build_pkg_dir.join('manifest.json')
+        manifest_path.write(JSON.pretty_generate(manifest))
+        manifest
+      end
+
       # Load platform registry
       def load_platform_registry
         # __dir__ points to ssot/lib, go up one level to ssot/
@@ -665,10 +724,11 @@ module Ssot
           errors << "source must be a non-empty array"
         end
 
-        pkg[:source].each_with_index do |src, i|
-          unless src[:type] && (src[:path] || src[:url])
-            errors << "source[#{i}] missing type or path/url"
-          end
+        # Guard each_with_index against nil source; empty arrays still iterate (zero times)
+        pkg[:source]&.each_with_index do |src, i|
+            unless src[:type] && (src[:path] || src[:url])
+              errors << "source[#{i}] missing type or path/url"
+            end
           case src[:type]
           when 'local'
             unless src[:path].is_a?(String) && !src[:path].empty?
@@ -698,15 +758,16 @@ module Ssot
           else
             errors << "source[#{i}] unknown type: #{src[:type]}"
           end
-        end
+        end  # each_with_index
 
         # targets: array, at least one
         unless pkg[:targets].is_a?(Array) && !pkg[:targets].empty?
           errors << "targets must be a non-empty array"
         end
 
-        valid_formats = %w[directory import skill skill-bundle]
-        pkg[:targets].each_with_index do |t, i|
+        if pkg[:targets].is_a?(Array)
+          valid_formats = %w[directory import skill skill-bundle]
+          pkg[:targets].each_with_index do |t, i|
           unless t[:platform] && t[:platform].is_a?(String)
             errors << "targets[#{i}]: missing platform"
           end
@@ -736,19 +797,22 @@ module Ssot
             unless %w[symlink copy inject append].include?(inst[:type])
               errors << "targets[#{i}]: invalid install.type '#{inst[:type]}'"
             end
-            if t[:format] == 'skill-bundle'
-              unless inst[:target_dir] && inst[:target_dir].is_a?(String) && !inst[:target_dir].empty?
-                errors << "targets[#{i}]: skill-bundle requires install.target_dir"
-              end
-              unless inst[:type] == 'copy'
-                errors << "targets[#{i}]: skill-bundle install.type must be 'copy'"
-              end
-            end
             if inst[:target_dir]
               validate_target_dir(inst[:target_dir], pkg[:pkgname])
             end
           end
-        end
+          # skill-bundle requires install.target_dir even when no install block present
+          if t[:format] == 'skill-bundle'
+            inst = t[:install] || {}
+            unless inst[:target_dir] && inst[:target_dir].is_a?(String) && !inst[:target_dir].empty?
+              errors << "targets[#{i}]: skill-bundle requires install.target_dir"
+            end
+            unless (inst[:type] || 'copy') == 'copy'
+              errors << "targets[#{i}]: skill-bundle install.type must be 'copy'"
+            end
+          end
+        end  # each_with_index
+      end  # if pkg[:targets].is_a?(Array)
 
         # checksums: auto, skip
 

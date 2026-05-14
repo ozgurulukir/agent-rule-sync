@@ -2,9 +2,12 @@
 
 # Integration tests for SSoT build/install pipeline
 # Tests end-to-end: build → install → check → uninstall
+# Plus unit-level tests for extracted helper functions (manifest generation)
 
 require_relative 'helper'
 require 'json'
+
+# ─── Build Integration ────────────────────────────────────────────────────────
 
 class TestBuildIntegration < Minitest::Test
   def setup
@@ -13,7 +16,6 @@ class TestBuildIntegration < Minitest::Test
     @ssot_root = @build_root.join('ssot')
     @build_dir = @ssot_root.join('build')
     FileUtils.cp_r(ROOT.join('ssot').to_s, @ssot_root.to_s, preserve: false)
-    # Remove existing build dir to start clean
     FileUtils.rm_rf(@build_dir)
     @build_dir.mkpath
   end
@@ -23,61 +25,169 @@ class TestBuildIntegration < Minitest::Test
   end
 
   def test_build_creates_index
-    # Run build
     build_script = @ssot_root.join('build.rb')
-    system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), build_script.to_s, chdir: @ssot_root.to_s)
+    result = system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), build_script.to_s, chdir: @ssot_root.to_s)
+    assert result, 'Build script should exit successfully'
 
     index_path = @build_dir.join('index.yaml')
-    assert index_path.exist?, "Build index should exist"
+    assert index_path.exist?, 'Build index should exist after build'
 
     index = Ssot::Lib::Common.load_yaml(index_path)
-    assert index[:packages], "Index should have packages"
-    assert index[:packages].key?(:memory), "Index should include memory package"
-  end
+    assert index[:packages], 'Index should have packages key'
+    assert index[:packages].key?(:memory), 'Index should include memory package'
+    assert index[:packages].key?(:shell), 'Index should include shell package'
 
-  def test_build_skill_bundle_creates_manifest
-    # Run build
-    build_script = @ssot_root.join('build.rb')
-    system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), build_script.to_s, chdir: @ssot_root.to_s)
-
-    # Check for skill-bundle manifests
-    manifest_path = @build_dir.join('opencode', 'golang-security-bundle', 'manifest.json')
-    if manifest_path.exist?
-      manifest = JSON.parse(manifest_path.read)
-      assert manifest['sub_skills'], "Manifest should have sub_skills"
-      assert manifest['sub_skills'].any?, "Manifest should have at least one sub-skill"
-      assert manifest['pkgname'], "Manifest should have pkgname"
-      assert manifest['platform'], "Manifest should have platform"
-      # Verify each sub-skill has required fields
-      manifest['sub_skills'].each do |ss|
-        assert ss['path'], "Sub-skill should have path"
-        assert ss['name'], "Sub-skill should have name"
-        assert ss['sha256'], "Sub-skill should have sha256"
-        assert ss['files'], "Sub-skill should have files"
-      end
-    else
-      skip "No skill-bundle manifest found (golang-security-bundle may not be built)"
+    # Verify each package entry has required fields
+    index[:packages].each do |pkgname, pkg_data|
+      assert pkg_data[:pkgver], "Package #{pkgname} should have pkgver"
+      assert pkg_data[:pkgdesc], "Package #{pkgname} should have pkgdesc"
+      assert pkg_data[:available_targets], "Package #{pkgname} should have available_targets"
+      assert_kind_of Array, pkg_data[:available_targets], "available_targets should be an Array"
     end
+
+    # Verify index metadata
+    assert index[:version], 'Index should have a version'
+    assert index[:generated], 'Index should have a generated timestamp'
+  end
+
+  def test_build_creates_platform_directories
+    build_script = @ssot_root.join('build.rb')
+    result = system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), build_script.to_s, chdir: @ssot_root.to_s)
+    assert result, 'Build script should exit successfully'
+
+    assert(Dir.glob("#{@build_dir}/*").any?, 'At least one platform build directory should exist after build')
   end
 end
 
-class TestVersionComparisonIntegration < Minitest::Test
-  def test_compare_versions_handles_real_world_versions
-    # Test pacman-style version comparison
-    assert_equal 1, Ssot::Lib::Common.compare_versions('1.10.0', '1.9.0')  # numeric segments
-    assert_equal -1, Ssot::Lib::Common.compare_versions('1.0.0', '2.0.0')
-    assert_equal 0, Ssot::Lib::Common.compare_versions('1.0.0', '1.0.0')
-    assert_equal 1, Ssot::Lib::Common.compare_versions('2026.05', '2026.04')
+# ─── Skill-bundle Manifest Generation ─────────────────────────────────────────
+
+class TestSkillBundleManifestGeneration < Minitest::Test
+  def setup
+    @tmpdir = Dir.mktmpdir('ssot-manifest-test-')
+    @base = Pathname.new(@tmpdir)
   end
 
-  def test_format_version_pacman_style
-    # epoch 0: omit epoch
-    assert_equal '1.0.0-1', Ssot::Lib::Common.format_version(0, '1.0.0', 1)
-    # epoch > 0: include epoch
-    assert_equal '1:1.0.0-1', Ssot::Lib::Common.format_version(1, '1.0.0', 1)
-    assert_equal '5:2.0.0-3', Ssot::Lib::Common.format_version(5, '2.0.0', 3)
+  def teardown
+    FileUtils.rm_rf(@tmpdir)
+  end
+
+  def test_generate_manifest_with_subskills
+    pkg_dir = @base.join('my-bundle')
+    pkg_dir.mkpath
+    (pkg_dir / 'auth').mkpath
+    (pkg_dir / 'auth' / 'SKILL.md').write('# Auth Skill')
+    (pkg_dir / 'auth' / 'rules.md').write('auth rules')
+    (pkg_dir / 'sql').mkpath
+    (pkg_dir / 'sql' / 'SKILL.md').write('# SQL Skill')
+
+    manifest = Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'my-bundle', 'opencode')
+
+    assert manifest[:pkgname] == 'my-bundle', 'pkgname should match'
+    assert manifest[:platform] == 'opencode', 'platform should match'
+    assert manifest[:generated_at], 'should have generated_at timestamp'
+    assert manifest[:sub_skills].size >= 2, "should have at least 2 sub-skills, got #{manifest[:sub_skills].size}"
+
+    auth_sub = manifest[:sub_skills].find { |s| s[:path] == 'auth' }
+    assert auth_sub, 'should have auth sub-skill'
+    assert auth_sub[:sha256], 'auth should have sha256'
+    assert auth_sub[:files], 'auth should have files map'
+    assert_equal 2, auth_sub[:files].size, 'auth should have 2 files'
+
+    sql_sub = manifest[:sub_skills].find { |s| s[:path] == 'sql' }
+    assert sql_sub, 'should have sql sub-skill'
+    assert_equal 1, sql_sub[:files].size, 'sql should have 1 file'
+  end
+
+  def test_generate_manifest_with_root_files
+    pkg_dir = @base.join('root-files-bundle')
+    pkg_dir.mkpath
+    (pkg_dir / 'README.md').write('# Readme')
+    (pkg_dir / 'SKILL.md').write('# Skill')
+
+    manifest = Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'root-bundle', 'opencode')
+
+    root_sub = manifest[:sub_skills].find { |s| s[:path] == '.' }
+    assert root_sub, 'should have root-level sub-skill entry (path: ".")'
+    assert_equal '.', root_sub[:name]
+    assert root_sub[:sha256], 'root sub-skill should have sha256'
+    assert_equal 2, root_sub[:files].size, 'root should have 2 files'
+  end
+
+  def test_generate_manifest_with_empty_bundle
+    pkg_dir = @base.join('empty-bundle')
+    pkg_dir.mkpath
+    (pkg_dir / '.gitkeep').delete if (pkg_dir / '.gitkeep').exist?
+
+    manifest = Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'empty-bundle', 'opencode')
+
+    assert manifest[:sub_skills].empty?, "empty bundle should have no sub-skills, got: #{manifest[:sub_skills].inspect}"
+    assert manifest[:pkgname] == 'empty-bundle'
+  end
+
+  def test_generate_manifest_writes_json_file
+    pkg_dir = @base.join('write-test')
+    pkg_dir.mkpath
+    (pkg_dir / 'SKILL.md').write('# Skill')
+
+    Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'write-test', 'cursor')
+
+    manifest_file = pkg_dir.join('manifest.json')
+    assert manifest_file.exist?, 'manifest.json should be written'
+
+    parsed = JSON.parse(manifest_file.read)
+    assert parsed['pkgname'] == 'write-test'
+    assert parsed['platform'] == 'cursor'
+    assert parsed['sub_skills'].is_a?(Array)
+  end
+
+  def test_manifest_subskill_files_have_correct_checksums
+    pkg_dir = @base.join('checksum-test')
+    pkg_dir.mkpath
+    (pkg_dir / 'auth').mkpath
+    (pkg_dir / 'auth' / 'SKILL.md').write('hello world')
+
+    manifest = Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'checksum-test', 'opencode')
+    auth_sub = manifest[:sub_skills].find { |s| s[:path] == 'auth' }
+
+    expected_sha = Digest::SHA256.hexdigest('hello world')
+    assert_equal expected_sha, auth_sub[:files]['auth/SKILL.md']
+  end
+
+  def test_generate_manifest_with_mixed_root_and_subskill_files
+    pkg_dir = @base.join('mixed-bundle')
+    pkg_dir.mkpath
+    (pkg_dir / 'README.md').write('# Readme')
+    (pkg_dir / 'auth').mkpath
+    (pkg_dir / 'auth' / 'SKILL.md').write('# Auth Skill')
+
+    manifest = Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'mixed-bundle', 'cursor')
+
+    root_sub = manifest[:sub_skills].find { |s| s[:path] == '.' }
+    assert root_sub, 'should have root sub-skill for README.md'
+    assert_includes root_sub[:files], 'README.md'
+
+    auth_sub = manifest[:sub_skills].find { |s| s[:path] == 'auth' }
+    assert auth_sub, 'should have auth sub-skill'
+    assert_includes auth_sub[:files], 'auth/SKILL.md'
+  end
+
+  def test_manifest_json_roundtrip
+    pkg_dir = @base.join('json-roundtrip')
+    pkg_dir.mkpath
+    (pkg_dir / 'SKILL.md').write('# Skill')
+
+    Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'json-roundtrip', 'opencode')
+    raw = (pkg_dir / 'manifest.json').read
+    parsed = JSON.parse(raw)
+
+    assert parsed['pkgname'] == 'json-roundtrip'
+    assert parsed['platform'] == 'opencode'
+    assert_kind_of Array, parsed['sub_skills']
+    assert parsed['generated_at'], 'should have generated_at timestamp'
   end
 end
+
+# ─── Schema Migration ─────────────────────────────────────────────────────────
 
 class TestIndexSchemaIntegration < Minitest::Test
   def test_migrate_installed_records_adds_missing_fields
@@ -90,7 +200,6 @@ class TestIndexSchemaIntegration < Minitest::Test
           epoch: 0,
           installed: [
             { platform: 'opencode', version: '1.0.0', output: 'memory.md', checksum: 'abc123' }
-            # Missing pkgrel and epoch
           ]
         }
       }
@@ -99,10 +208,63 @@ class TestIndexSchemaIntegration < Minitest::Test
     Ssot::Lib::Common.migrate_installed_records(index[:packages][:memory])
 
     record = index[:packages][:memory][:installed].first
-    assert_equal 1, record[:pkgrel], "Should add pkgrel=1"
-    assert_equal 0, record[:epoch], "Should add epoch=0"
+    assert_equal 1, record[:pkgrel], 'Should add pkgrel=1'
+    assert_equal 0, record[:epoch], 'Should add epoch=0'
+  end
+
+  def test_migrate_installed_records_idempotent
+    index = {
+      packages: {
+        memory: {
+          pkgver: '1.0.0',
+          pkgrel: 1,
+          epoch: 0,
+          installed: [
+            { platform: 'opencode', version: '1.0.0', output: 'memory.md', checksum: 'abc123', pkgrel: 2, epoch: 1 }
+          ]
+        }
+      }
+    }
+
+    Ssot::Lib::Common.migrate_installed_records(index[:packages][:memory])
+    Ssot::Lib::Common.migrate_installed_records(index[:packages][:memory])
+
+    record = index[:packages][:memory][:installed].first
+    assert_equal 2, record[:pkgrel], 'existing pkgrel should be preserved'
+    assert_equal 1, record[:epoch], 'existing epoch should be preserved'
+  end
+
+  def test_migrate_handles_empty_installed_list
+    index = { packages: { memory: { installed: [] } } }
+    Ssot::Lib::Common.migrate_installed_records(index[:packages][:memory])
+    assert index[:packages][:memory][:installed].empty?, 'empty list should remain empty'
+  end
+
+  def test_migrate_handles_nil_installed
+    index = { packages: { memory: { installed: nil } } }
+    Ssot::Lib::Common.migrate_installed_records(index[:packages][:memory])
+    assert_nil index[:packages][:memory][:installed]
   end
 end
+
+# ─── Version Comparison ───────────────────────────────────────────────────────
+
+class TestVersionComparisonIntegration < Minitest::Test
+  def test_pacman_style_numeric_comparison
+    assert_equal 1, Ssot::Lib::Common.compare_versions('1.10.0', '1.9.0')
+    assert_equal -1, Ssot::Lib::Common.compare_versions('1.0.0', '2.0.0')
+    assert_equal 0, Ssot::Lib::Common.compare_versions('1.0.0', '1.0.0')
+    assert_equal 1, Ssot::Lib::Common.compare_versions('2026.05', '2026.04')
+  end
+
+  def test_format_version_pacman_style
+    assert_equal '1.0.0-1', Ssot::Lib::Common.format_version(0, '1.0.0', 1)
+    assert_equal '1:1.0.0-1', Ssot::Lib::Common.format_version(1, '1.0.0', 1)
+    assert_equal '5:2.0.0-3', Ssot::Lib::Common.format_version(5, '2.0.0', 3)
+  end
+end
+
+# ─── Transaction Rollback ─────────────────────────────────────────────────────
 
 class TestTransactionRollbackIntegration < Minitest::Test
   def test_backup_and_restore_index
@@ -110,18 +272,26 @@ class TestTransactionRollbackIntegration < Minitest::Test
       index_path = tmpdir.join('index.yaml')
       index_path.write("version: 3.0\npackages: {}\n")
 
-      # Backup
       backup = Ssot::Lib::Common.backup_index(index_path)
-      assert backup.exist?, "Backup should exist"
+      assert backup.exist?, 'Backup should exist'
 
-      # Modify original
       index_path.write("version: 3.0\npackages:\n  test:\n    pkgver: 2.0.0\n")
 
-      # Restore
-      assert Ssot::Lib::Common.restore_index(backup), "Restore should succeed"
+      assert Ssot::Lib::Common.restore_index(backup), 'Restore should return true'
 
       restored = YAML.load_file(index_path)
-      assert_nil restored[:packages]&.key?(:test), "Should restore to backup state"
+      assert_nil restored[:packages]&.key?(:test), 'Should restore to backup state'
+    end
+  end
+
+  def test_backup_contains_same_content_as_original
+    with_tmpdir do |tmpdir|
+      index_path = tmpdir.join('index.yaml')
+      original_content = "version: 3.0\npackages:\n  foo:\n    pkgver: 1.0.0\n"
+      index_path.write(original_content)
+
+      backup = Ssot::Lib::Common.backup_index(index_path)
+      assert_equal original_content, backup.read, 'Backup content should match original'
     end
   end
 
@@ -133,27 +303,70 @@ class TestTransactionRollbackIntegration < Minitest::Test
       3.times { Ssot::Lib::Common.backup_index(index_path) }
 
       backups = Pathname.glob("#{index_path}.bak.*")
-      assert_equal 3, backups.size, "Should have 3 backups"
+      assert_equal 3, backups.size, 'Should have 3 backups'
 
       Ssot::Lib::Common.cleanup_backups(index_path)
 
       remaining = Pathname.glob("#{index_path}.bak.*")
-      assert_equal 0, remaining.size, "All backups should be cleaned up"
+      assert_equal 0, remaining.size, 'All backups should be cleaned up'
+    end
+  end
+
+  def test_cleanup_backups_safe_when_no_backups_exist
+    with_tmpdir do |tmpdir|
+      index_path = tmpdir.join('index.yaml')
+      index_path.write("test\n")
+      assert Ssot::Lib::Common.cleanup_backups(index_path), 'cleanup should succeed with no backups'
+    end
+  end
+
+  def test_restore_nonexistent_backup_returns_false
+    with_tmpdir do |tmpdir|
+      fake_backup = tmpdir.join('nonexistent.bak')
+      result = Ssot::Lib::Common.restore_index(fake_backup, tmpdir.join('index.yaml'))
+      refute result, 'Restore should return false for nonexistent backup'
     end
   end
 end
 
+# ─── Cache Integration ────────────────────────────────────────────────────────
+
 class TestCacheIntegration < Minitest::Test
+  def setup
+    @cache_test_key = 'test-cache-key'
+    @cache_dir = SSOT_ROOT.join('cache', @cache_test_key)
+  end
+
+  def teardown
+    FileUtils.rm_rf(@cache_dir)
+  end
+
   def test_cache_key_for_url_is_sha256
     source = { type: 'url', url: 'https://example.com/test', sha256: 'abc123' }
     key = Ssot::Lib::Common.cache_key_for_source(source, 'abc123')
     assert_equal 'abc123', key
   end
 
+  def test_cache_key_for_url_uses_sha256_when_provided
+    source = { type: 'url', url: 'https://example.com/test', sha256: 'deadbeef' * 8 }
+    key = Ssot::Lib::Common.cache_key_for_source(source)
+    assert_equal 'deadbeef' * 8, key
+  end
+
+  def test_cache_key_for_url_raises_without_sha256
+    source = { type: 'url', url: 'https://example.com/test' }
+    assert_raises(RuntimeError) { Ssot::Lib::Common.cache_key_for_source(source) }
+  end
+
   def test_cache_key_for_git_is_commit_hash
     source = { type: 'git', url: 'https://github.com/owner/repo.git' }
-    key = Ssot::Lib::Common.cache_key_for_source(source, 'deadbeef')
-    assert_equal 'deadbeef', key
+    key = Ssot::Lib::Common.cache_key_for_source(source, 'deadbeef' * 8)
+    assert_equal 'deadbeef' * 8, key
+  end
+
+  def test_cache_key_for_git_raises_without_commit_hash
+    source = { type: 'git', url: 'https://github.com/owner/repo.git' }
+    assert_raises(RuntimeError) { Ssot::Lib::Common.cache_key_for_source(source) }
   end
 
   def test_cache_dir_format
@@ -161,18 +374,19 @@ class TestCacheIntegration < Minitest::Test
     assert_equal SSOT_ROOT.join('cache', 'abc123'), dir
   end
 
-  def test_source_cached_detection
-    with_tmpdir do |tmpdir|
-      cache_dir = SSOT_ROOT.join('cache', 'test-key')
-      cache_dir.mkpath
-      cache_dir.join('extracted').mkdir
+  def test_source_cached_detection_hit
+    @cache_dir.mkpath
+    @cache_dir.join('extracted').mkdir
 
-      assert Ssot::Lib::Common.source_cached?('test-key'), "Should detect cached source"
+    assert Ssot::Lib::Common.source_cached?(@cache_test_key), 'Should detect cached source'
+  end
 
-      cache_dir.join('extracted').rmtree
-      refute Ssot::Lib::Common.source_cached?('test-key'), "Should not detect missing cache"
+  def test_source_cached_detection_miss_no_extracted_dir
+    @cache_dir.mkpath
+    refute Ssot::Lib::Common.source_cached?(@cache_test_key), 'Should not detect cache without extracted/ dir'
+  end
 
-      cache_dir.rmtree
-    end
+  def test_source_cached_detection_miss_no_cache_dir
+    refute Ssot::Lib::Common.source_cached?(@cache_test_key), 'Should not detect cache without cache dir'
   end
 end
