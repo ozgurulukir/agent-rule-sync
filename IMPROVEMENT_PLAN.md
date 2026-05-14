@@ -349,23 +349,39 @@
   ```
 - **Impact**: Skill-bundle deployments have full integrity verification — tampered or missing files are detected at install and check time.
 
-### L4.5 Cache Invalidation & TTL
-**Status**: ⏳ PENDING
-**Date**: TBD
+### 🔬 L4.5 Cache Invalidation & TTL — ANALYSIS
+**Status**: 🔬 ANALYSIS (implemented differently)
+**Date**: 2026-05-14
 
-**Slop**: Cache mechanics yok.
-- **Plan**: Cache key = source checksum (sha256 for url, commit_hash for git). Auto-invalidate on checksum change.
-- **Files**: `ssot/lib/common.rb`
-- **Impact**: Efficient rebuilds.
+**Original plan**: TTL-based cache expiry.  
+**What we actually have** (P2.3 Build Cache):
 
-### L4.6 Platform Registry Extensibility
-**Status**: ⏳ PENDING
-**Date**: TBD
+**Cache key design** (already implemented):
+- **URL sources**: SHA256 of fetched content (`ssot/cache/<sha256>/extracted/`)
+- **Git sources** (file): commit hash (`ssot/cache/<commit>/extracted/`)
+- **Git sources** (dir/skill-bundle): commit hash (`ssot/cache/<commit>/extracted/`)
+- **Local sources**: not cached (already on disk)
 
-**Slop**: Registry'de `skill-bundle` için özel alan yok.
-- **Plan**: Add `bundle_install` config to platforms (default `copy`).
-- **Files**: `ssot/registry/platforms.yaml`, `ssot/lib/common.rb`
-- **Impact**: Cleaner skill-bundle handling via registry.
+**Invalidation strategy** (content-addressed, NOT TTL):
+- Cache is **auto-invalidated on checksum change** — if upstream changes, new SHA256/commit hash → new cache entry.
+- Old cache entries are **never automatically purged** (manual cleanup needed).
+- This is actually **better than TTL** for this use case: immutable skill bundles don't need expiry; changed content naturally gets new cache key.
+
+**What's missing**:
+- No cache size limit or cleanup policy.
+- No explicit `ssot cache clean` command.
+- No cache statistics (`ssot cache stats`).
+
+**Conclusion**: TTL unnecessary for content-addressed cache. Cache invalidation is implicit via checksum. Deferred to future if cache cleanup command needed.
+
+**Files**: `ssot/lib/common.rb` (cache functions), `ssot/build.rb` (cache-aware fetch)
+
+### ⏳ L4.6 Platform Registry Extensibility — DEFERRED
+**Status**: ⏳ DEFERRED
+**Reason**: 
+- `skill-bundle` install is hardcoded in `install.rb` (lines 415–471). 
+- Adding `bundle_install` to registry adds complexity without clear benefit — current approach works fine.
+- No bug in current bundle implementation; deferring per user preference.
 
 ---
 
@@ -413,4 +429,4 @@
 ---
 
 **Last Updated**: 2026-05-14 (Priority 0, 1 & 2 completed)
-**Status**: In Progress (P0.1-P0.4 done; P1.1-P1.5 done; P2.1, P2.3, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred; M3.1 done; M3.2 done; M3.3 done; L4.3 done; L4.4 done; L4.1, L4.2, L4.5, L4.6 pending)
+**Status**: In Progress (P0.1-P0.4 done; P1.1-P1.5 done; P2.1, P2.3, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred; M3.1 done; M3.2 done; M3.3 done; L4.3 done; L4.4 done; L4.1, L4.5, L4.6 deferred)
