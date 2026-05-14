@@ -330,41 +330,6 @@
 
 ---
 
-## 📋 Priority 3 — Medium (Nice to Have)
-
-### M3.1 Full Pacman vercmp
-**Status**: ⏳ PENDING
-**Date**: TBD
-
-**Slop**: Mevcut `vercmp` basit, pacman'in kompleks kurallarını (tilde, hyphen, alphanumeric segments) implement etmiyor.
-- **Fix**: Port pacman's `vercmp` from C to Ruby (or adopt simpler semver with pre-release: `~` < `-` < alphanumeric).
-- **Files**: `ssot/lib/common.rb` (`vercmp` method)
-- **Impact**: More accurate version comparisons for complex version strings.
-
-### M3.2 Query Tool — Orphans & Leaves
-**Status**: ⏳ PENDING
-**Date**: TBD
-
-**Slop**: `query.rb` eksik komutlar.
-- **Add**:
-  - `orphans`: installed but not in available_targets
-  - `depends <pkg>`: list dependencies (from PKGBUILD `dependencies:` field)
-  - `provides <cap>`: list providers
-- **Files**: `ssot/query.rb`
-- **Impact**: Better package query capabilities.
-- **Note**: `leaves` command (packages with no dependents) requires a dependency graph which is not implemented — deferred.
-
-### M3.3 PKGBUILD Examples — Update All
-**Status**: ⏳ PENDING
-**Date**: TBD
-
-**Slop**: Bazı PKGBUILD'lar `pkgrel`/`epoch` yok.
-- **Fix**: Tüm `ssot/packages/*/PKGBUILD` dosyalarına `pkgrel: 1`, `epoch: 0` ekle.
-- **Files**: All PKGBUILD files in `ssot/packages/`
-- **Impact**: Consistent PKGBUILD format across all packages.
-
----
-
 ## 📋 Priority 4 — Low (Long-term)
 
 ### L4.1 Test Suite
