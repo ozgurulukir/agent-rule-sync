@@ -101,3 +101,7 @@
 [2026-05-14 18:08:04]   ✓ Skill-bundle directory: /home/aristo/.config/opencode/skills/golang-security-bundle
 [2026-05-14 18:08:04]   ✓ Skill-bundle manifest: 2 file(s) verified
 [2026-05-14 18:08:04] ✅ All installed packages are valid
+[2026-05-14 18:08:40] 🔍 Checking installed state for platform: opencode
+[2026-05-14 18:08:40]   ✓ Skill-bundle directory: /home/aristo/.config/opencode/skills/golang-security-bundle
+[2026-05-14 18:08:40]   ✓ Skill-bundle manifest: 2 file(s) verified
+[2026-05-14 18:08:40] ✅ All installed packages are valid
