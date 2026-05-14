@@ -1,0 +1,33 @@
+---
+pkgname: windsurf-rules
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: Windsurf-specific rules configuration (.windsurfrules)
+arch: any
+order: 20
+
+source:
+- type: local
+  path: src/.windsurfrules
+
+targets:
+- platform: windsurf
+  format: directory
+  output: .windsurfrules
+  transformer: copy
+  install:
+    type: copy
+checksums:
+  source:
+  built: {}
+dependencies: []
+conflicts: []
+provides:
+- windsurf-config
+tags:
+- windsurf
+- ide
+- config
+maintainer:
+license: MIT

@@ -1,0 +1,39 @@
+---
+pkgname: ast-grep
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: Structural code search rule for OpenCode — prefers ast-grep over text grep
+arch: any
+order: 10
+
+source:
+- type: local
+  path: src/ast-grep.md
+
+targets:
+- platform: opencode
+  format: directory
+  output: ast-grep.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: agents
+  format: directory
+  output: ast-grep.md
+  transformer: copy
+  install:
+    type: symlink
+checksums:
+  source:
+  built: {}
+dependencies: []
+conflicts: []
+provides:
+- ast-grep-rule
+tags:
+- code-search
+- ast-grep
+- structural-search
+maintainer:
+license: MIT

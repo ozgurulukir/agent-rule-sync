@@ -166,3 +166,15 @@ codex:
   :prerequisites:
     :tools:
     - ruby
+agents:
+  type: directory
+  scope: user
+  display_name: Shared Agent Skills
+  base_path: "~/.config/agents/"
+  rules_dir: rules/
+  skills_dir: skills/
+  docs_dir: docs/
+  rule_install:
+    type: symlink
+  skill_install:
+    type: copy

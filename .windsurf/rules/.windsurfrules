@@ -1,13 +1,1 @@
----
-title: Workstation Rules for Windsurf
----
-
-# Agent Rules
-
-These rules apply to Windsurf IDE Cascade.
-
-## Core Constraints
-
-- Memory isolation for heavy commands
-- Non-interactive shell mode
-- Security-first coding practices
+../../ssot/build/windsurf/.windsurfrules

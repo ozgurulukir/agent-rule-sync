@@ -1,1 +1,0 @@
-../../ssot/build/cursor/AGENTS.md

@@ -1,0 +1,1 @@
+/home/aristo/Projects/debian-sid/ssot/skills/ast-grep.md

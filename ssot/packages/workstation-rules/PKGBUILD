@@ -1,0 +1,43 @@
+---
+pkgname: workstation-rules
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: Combined workstation memory and shell strategy rules (memory + shell + security)
+arch: any
+order: 0
+
+source:
+- type: local
+  path: src/workstation-rules.md
+
+targets:
+- platform: opencode
+  format: directory
+  output: workstation-rules.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: agents
+  format: directory
+  output: workstation-rules.md
+  transformer: copy
+  install:
+    type: symlink
+checksums:
+  source:
+  built: {}
+dependencies:
+- memory
+- shell
+conflicts: []
+provides:
+- workstation-constraints
+- shell-strategy
+tags:
+- constraints
+- memory
+- shell
+- workstation
+maintainer:
+license: MIT
