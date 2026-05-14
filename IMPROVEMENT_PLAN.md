@@ -293,16 +293,22 @@
 
 ## 📋 Priority 4 — Low (Long-term)
 
-### L4.1 Test Suite
-**Status**: ⏳ PENDING
-**Date**: TBD
+### ✅ L4.1 Test Suite
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
 
 **Slop**: Hiç test yok.
 - **Plan**: RSpec/Minitest.
-- **Unit tests**: `compare_versions`, `vercmp`, `fetch_git_source`, `validate_output_filename`, `resolve_install_path`.
-- **Integration tests**: Full pipeline (build→install→check→uninstall) for simple, git, skill-bundle packages; upgrade/downgrade scenarios.
-- **Files**: `test/` directory, sample PKGBUILDs fixtures.
-- **Impact**: Regression prevention.
+- **Unit tests** (25): `compare_versions`, `format_version`, `validate_output_filename`,
+  `validate_target_dir`, `expand_user_path`, `strip_frontmatter`.
+- **Integration tests** (11): Build index creation, skill-bundle manifest generation,
+  version comparison, index schema migration (pkgrel/epoch), transaction rollback
+  (backup/restore/cleanup), cache integration (key, dir, source_cached?).
+- **Files**: `test/helper.rb`, `test/test_common.rb`, `test/test_integration.rb`, `Rakefile`.
+- **Impact**: 36 tests, all passing. Regression prevention.
+
+- **Fix**: `backup_index` uses counter suffix to prevent overwrite when called
+  within same second; `require 'json'` added for manifest parsing.
 
 ### L4.2 Dependency Resolution Implementation
 **Status**: ⏳ PENDING
@@ -428,5 +434,5 @@
 
 ---
 
-**Last Updated**: 2026-05-14 (Priority 0, 1 & 2 completed)
-**Status**: In Progress (P0.1-P0.4 done; P1.1-P1.5 done; P2.1, P2.3, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred; M3.1 done; M3.2 done; M3.3 done; L4.3 done; L4.4 done; L4.1, L4.5, L4.6 deferred)
+**Last Updated**: 2026-05-14 (Priority 0, 1, 2, 3, 4 partially completed)
+**Status**: In Progress (P0.1-P0.4 done; P1.1-P1.5 done; P2.1, P2.3, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred; M3.1 done; M3.2 done; M3.3 done; L4.1 done; L4.3 done; L4.4 done; L4.5 deferred; L4.6 deferred)
