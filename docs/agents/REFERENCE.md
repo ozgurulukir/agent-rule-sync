@@ -72,6 +72,7 @@ targets:
   - platform: <platform-id>         # Required: platform key from registry
     format: directory|import|skill|skill-bundle  # Required: output format
     output: <filename|.>            # Required: output filename (or "." for skill-bundle)
+    translate: copy|custom:<path>   # Optional: platform-specific content conversion (runs BEFORE transformer)
     transformer: copy\|strip-frontmatter\|custom:<path>  # Optional (default: copy)
     install:                        # Optional: overrides platform defaults
       type: symlink\|copy\|inject\|append
@@ -158,6 +159,126 @@ targets:
 - Path is relative to repo root (`SSOT_ROOT`)
 - Can use `~` expansion (e.g., `custom:~/my-transformers/foo.rb`)
 - Validated with `realpath` to ensure within repo (prevents symlink attacks)
+
+---
+
+## Translator API (Translate Layer)
+
+The **translate step** runs *before* the transform step. It converts content from one format family to another — e.g., flat rule files into skill format, markdown into import-ready format.
+
+### Pipeline Order
+
+```
+Source (fetched)
+    ↓
+TRANSLATE  ← platform-specific content conversion (format family change)
+    ↓
+TRANSFORM  ← structural/format changes (copy, strip-frontmatter, custom)
+    ↓
+Build artifact → Install → Target platform
+```
+
+### When to Use `translate`
+
+Use `translate` when the target platform needs a fundamentally different content structure:
+
+| Scenario | Translate Needed? |
+|----------|-----------------|
+| OpenCode rule → Crush skill (flat file → aggregated skill) | ✅ `rule-to-skill` |
+| Markdown → Gemini CLI import file | ✅ `markdown-to-import` |
+| Raw upstream format → local normalized format | ✅ `normalize-markdown` |
+| Just strip frontmatter | ❌ Use `strip-frontmatter` transformer instead |
+| Just copy as-is | ❌ Omit `translate` (default: no-op) |
+
+### Built-in Translators
+
+#### `copy` / `identity`
+No conversion — content passes through unchanged. This is the default.
+
+```yaml
+translate: copy    # or omit entirely
+```
+
+### Custom Translators
+
+Create a Ruby script in `ssot/translators/`:
+
+```ruby
+# ssot/translators/example.rb
+# Converts markdown heading style from ## to # for platforms that prefer atx
+
+class Translator
+  def self.translate(content, args: {})
+    pkgname = args[:pkgname]
+    # Transform content
+    content.gsub(/^## /, '# ')
+  end
+end
+```
+
+**Requirements**:
+- Class name must be `Translator`
+- `.translate(content, args: {})` returns transformed content as string
+- `args[:pkgname]` provides the package name for context
+
+**Reference in PKGBUILD**:
+```yaml
+targets:
+  - platform: crush
+    format: skill
+    output: SKILL.md
+    translate: custom:translators/rule-to-skill.rb  # runs first
+    transformer: strip-frontmatter                  # runs second
+```
+
+**Pipeline for this target**: fetch → `rule-to-skill.rb` → `strip-frontmatter` → `SKILL.md`
+
+**Path resolution**:
+- Path is relative to repo root (`SSOT_ROOT`)
+- Can use `~` expansion (e.g., `custom:~/my-translators/foo.rb`)
+- Validated with `realpath` to ensure within repo (prevents symlink attacks)
+
+### Standalone Script
+
+Run a translator from the command line:
+
+```bash
+# Read from stdin, write to stdout
+echo "# Title\n\nContent" | ruby ssot/translate.rb copy
+
+# Read from file, write to file
+ruby ssot/translate.rb custom:translators/normalize.rb input.md output.md
+```
+
+### Platform Format Profiles
+
+Each platform has a format profile in `ssot/platforms/<agent>.yaml`. These describe what the platform expects for rules, skills, content type, heading style, bullet style, etc. **These are informational — for LLM reference when writing translators, not enforced by the build system.**
+
+Example: `ssot/platforms/crush.yaml`
+```yaml
+skills:
+  format: single_file
+  file_name: "crush.md"
+  frontmatter: strip
+  bullet_style: dash
+  code_block: fenced
+  emoji_policy: strip
+```
+
+Available profiles:
+- `ssot/platforms/opencode.yaml`
+- `ssot/platforms/crush.yaml`
+- `ssot/platforms/goose.yaml`
+- `ssot/platforms/gemini-cli.yaml`
+- `ssot/platforms/codex.yaml`
+- `ssot/platforms/cursor.yaml`
+- `ssot/platforms/windsurf.yaml`
+- `ssot/platforms/claude-code.yaml`
+- `ssot/platforms/oh-my-pi.yaml`
+- `ssot/platforms/qwen-code.yaml`
+- `ssot/platforms/github-copilot.yaml`
+- `ssot/platforms/droid.yaml`
+- `ssot/platforms/agents.yaml`
 
 ---
 

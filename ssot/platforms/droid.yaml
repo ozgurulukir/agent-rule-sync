@@ -1,0 +1,23 @@
+# Droid Platform Format Profile
+# LLM Reference: describes what Droid expects for skills.
+# NOT enforced by build system — informational for translator authoring.
+
+rules:
+  format: none                   # Droid has no separate rules
+  note: "All content is embedded in the single droid.md skill file"
+
+skills:
+  format: single_file
+  content_type: markdown
+  file_name: "droid.md"
+  frontmatter: strip
+  bullet_style: dash
+  code_block: fenced
+
+aggregation: |
+  Droid uses a single droid.md. SSoT vendor aggregation (ssot/aggregate-skills.rb)
+  writes all skill/rule fragments into this file via "---\n\n" separator.
+
+notes: |
+  Droid reads ~/.config/droid/droid.md.
+  Same aggregation model as Crush and Goose.

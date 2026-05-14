@@ -1,0 +1,24 @@
+# GitHub Copilot Platform Format Profile
+# LLM Reference: describes what GitHub Copilot expects for instructions.
+# NOT enforced by build system — informational for translator authoring.
+
+rules:
+  format: import_file            # rules are appended to copilot-instructions.md
+  content_type: markdown
+  config_file: ".github/copilot-instructions.md"
+  injection_method: "append"     # SSoT uses copy/append, not @import
+  frontmatter: strip
+  heading_style: atx
+  bullet_style: dash
+  note: "Copilot reads copilot-instructions.md from project .github/"
+
+skills:
+  format: import_file            # skills are also appended
+  content_type: markdown
+  injection_method: "append"
+  frontmatter: strip
+
+notes: |
+  GitHub Copilot uses .github/copilot-instructions.md in the project root.
+  SSoT appends skill/rule content to this file.
+  Project-scoped.

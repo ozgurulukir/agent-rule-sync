@@ -288,6 +288,7 @@ pkgbuilds.each do |pkgbuild_path|
     platform_id = tgt[:platform]
     format = tgt[:format]
     output = tgt[:output]
+    translate = tgt[:translate] || nil   # optional translate step (before transformer)
     transformer = tgt[:transformer] || 'copy'
     install_cfg = tgt[:install] || {}
 
@@ -336,7 +337,24 @@ pkgbuilds.each do |pkgbuild_path|
         next
       end
 
-      # Transform
+      # ─── TRANSLATE step ────────────────────────────────────────────────────────
+      # Platform-specific content conversion (markdown dialect, format family).
+      # Runs BEFORE transformer. No-op if translate is nil or 'copy'.
+      if translate
+        log "  → Translating for #{platform_id} (#{translate})"
+        puts "  → Translating for #{platform_id} (#{translate})"
+        begin
+          source_content = Ssot::Lib::Common.apply_translator(translate, source_content, pkgname: pkgname)
+        rescue => e
+          log_error "Translator failed for #{pkgname}/#{platform_id}: #{e.message}"
+          next
+        end
+        log "    ✓ Translated (#{translate})"
+        puts "    ✓ Translated (#{translate})"
+      end
+
+      # ─── TRANSFORM step ────────────────────────────────────────────────────────
+      # Structural/format changes (copy, strip-frontmatter, custom)
       begin
         transformed = apply_transformer(source_content, transformer, pkgname: pkgname)
       rescue => e

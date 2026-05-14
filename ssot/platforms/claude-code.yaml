@@ -1,0 +1,29 @@
+# Claude Code Platform Format Profile
+# LLM Reference: describes what Claude Code expects for rules and skills.
+# NOT enforced by build system — informational for translator authoring.
+
+rules:
+  format: markdown
+  heading_style: atx
+  bullet_style: dash
+  code_block: fenced
+  frontmatter: strip
+  max_heading_depth: 3
+  note: "Rules go to .claude/rules/*.md"
+
+skills:
+  format: directory_or_bundle  # single SKILL.md or skill-bundle directory
+  content_type: markdown
+  frontmatter: strip
+  content:
+    - "# Skill Name"
+    - "## Overview"
+    - "## Capabilities"
+    - "## Usage"
+  bullet_style: dash
+  code_block: fenced
+  note: "Skills go to .claude/skills/*/SKILL.md"
+
+notes: |
+  Claude Code reads .claude/rules/*.md and .claude/skills/*/SKILL.md.
+  Project-scoped.

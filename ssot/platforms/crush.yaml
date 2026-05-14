@@ -1,0 +1,32 @@
+# Crush Platform Format Profile
+# LLM Reference: describes what Crush expects for skills.
+# NOT enforced by build system — informational for translator authoring.
+
+rules:
+  format: none                  # Crush has no separate rules — all content is skill
+  note: "Rules are embedded inside the single skill file"
+
+skills:
+  format: single_file
+  content_type: markdown
+  file_name: "crush.md"
+  frontmatter: strip            # skill file is plain markdown
+  content:                      # skill file structure (vendor-aggregated)
+    - "# Skill Name"            # H1 per skill (if aggregated) or single H1
+    - "## Capabilities"         # H2 list
+    - "## Usage"                # H2 usage instructions
+    - "## Examples"             # H2 examples (inline bash)
+  bullet_style: dash
+  code_block: fenced
+  emoji_policy: strip           # Crush renders emojis poorly in some contexts
+  code_highlight: keep
+  no_frontmatter_required: true # skill file should NOT have YAML frontmatter
+
+aggregation: |
+  Crush uses a single crush.md skill file. When multiple SSoT packages
+  target crush, their content is aggregated (concatenated) into one file.
+  Each package's section should be separated by "---".
+
+notes: |
+  Crush reads /usr/local/share/crush/crush.md as its skill file.
+  The install type is `copy` — the entire file is replaced on each install.

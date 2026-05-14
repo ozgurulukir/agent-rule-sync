@@ -81,7 +81,7 @@ See [Platforms](docs/agents/PLATFORMS.md) for full details.
 
 **Key Pipeline Steps**:
 
-1. **Build** (`ssot/build.rb`) — Load all PKGBUILDs from `ssot/packages/`, fetch sources (local/URL with SHA256), apply transformers (copy/strip-frontmatter/custom), write platform-specific artifacts to `ssot/build/<platform>/`, update `ssot/build/index.yaml` and `ssot/index.yaml` with build metadata.
+1. **Build** (`ssot/build.rb`) — Load all PKGBUILDs from `ssot/packages/`, fetch sources (local/URL with SHA256), apply translators (content format conversion, runs first), apply transformers (copy/strip-frontmatter/custom), write platform-specific artifacts to `ssot/build/<platform>/`, update `ssot/build/index.yaml` and `ssot/index.yaml` with build metadata.
 
 2. **Aggregate** (`ssot/aggregate-skills.rb`) — For skill-based agents (Crush, Goose, Droid), collect rule fragments and common/agent-specific skills, concatenate into a single vendored skill file per agent under `ssot/build/<agent>/skills/vendor/`.
 
@@ -513,7 +513,64 @@ packages:
 
 ---
 
-## Transformer Pattern
+## Translate + Transform Pipeline
+
+The build pipeline runs **two** sequential content-processing steps per target:
+
+```
+Source (fetched) → TRANSLATE → TRANSFORM → Build Artifact
+```
+
+### Translate (Content Format Conversion)
+
+Platform-specific content conversion — changes the format family of the content. Runs **before** transform.
+
+| Field | Values | Default |
+|-------|--------|---------|
+| `translate` | `copy`, `custom:<path>` | `nil` (no-op) |
+
+```yaml
+targets:
+  - platform: crush
+    format: skill
+    output: SKILL.md
+    translate: custom:translators/rule-to-skill.rb   # ← runs first
+    transformer: strip-frontmatter                    # ← runs second
+```
+
+**When to use**: Converting between format families (flat rules → skill, markdown → import, raw → normalized).
+
+**When NOT to use**: Just stripping frontmatter → use `strip-frontmatter` transformer. Just copying → omit both `translate` and `transformer`.
+
+### Transform (Structural Changes)
+
+Structure/format changes applied after translation.
+
+| Built-in | Custom |
+|----------|--------|
+| `copy` | `custom:transformers/example.rb` |
+| `strip-frontmatter` | |
+
+### Translator API
+
+Translators live in `ssot/translators/`. Class name: `Translator`. Method: `.translate(content, args: {pkgname:})`.
+
+```ruby
+# ssot/translators/normalize.rb
+class Translator
+  def self.translate(content, args: {})
+    content.gsub(/^## /, '# ')   # normalize headings
+  end
+end
+```
+
+### Platform Format Profiles
+
+Each platform has a format profile at `ssot/platforms/<agent>.yaml`. These describe heading style, bullet style, frontmatter policy, emoji handling, etc. **Informational for LLM reference — not enforced by the build system.**
+
+Profiles exist for all 12 agents: opencode, crush, goose, droid, gemini-cli, qwen-code, oh-my-pi, cursor, windsurf, github-copilot, claude-code, codex, agents.
+
+### Transformer Pattern
 
 Built-in transformers:
 - `copy` — identity (no change)
@@ -534,8 +591,11 @@ See `ssot/transformers/` for implementations.
 
 | `ssot/packages/` | Package source tree (PKGBUILD + src/) |
 | `ssot/registry/platforms.yaml` | Platform definitions |
-| `ssot/transformers/` | Custom transformer implementations |
-| `ssot/build.rb` | Build orchestrator |
+| `ssot/platforms/` | Platform format profiles (informational — heading style, bullet style, content expectations) |
+| `ssot/translators/` | Custom translator scripts (translate step — content format conversion) |
+| `ssot/transformers/` | Custom transformer scripts (transform step — structural changes) |
+| `ssot/build.rb` | Build orchestrator (translate → transform → write) |
+| `ssot/translate.rb` | Standalone translator runner (CLI) |
 | `ssot/aggregate-skills.rb` | Vendor skill aggregation |
 | `ssot/install.rb` | Platform installer |
 | `ssot/uninstall.rb` | Platform uninstaller |

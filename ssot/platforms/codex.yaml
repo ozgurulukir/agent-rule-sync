@@ -1,0 +1,26 @@
+# Codex CLI Platform Format Profile
+# LLM Reference: describes what Codex CLI expects for AGENTS.md.
+# NOT enforced by build system — informational for translator authoring.
+
+rules:
+  format: none                   # Codex has no separate rules
+  note: "All rules are embedded in AGENTS.md via vendor aggregation"
+
+skills:
+  format: single_file
+  content_type: markdown
+  file_name: "AGENTS.md"
+  frontmatter: strip             # AGENTS.md is plain markdown
+  heading_style: atx
+  bullet_style: dash
+  code_block: fenced
+
+aggregation: |
+  Codex reads AGENTS.md from the project root. SSoT vendor aggregation
+  (ssot/aggregate-skills.rb) writes all skill/rule fragments into this file.
+  Each package's content is concatenated with "---\n\n" separator.
+  No per-package headers added by default.
+
+notes: |
+  Codex CLI reads AGENTS.md at the project root.
+  The vendor aggregation is handled by ssot/aggregate-skills.rb.

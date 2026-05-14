@@ -1,0 +1,22 @@
+# Oh My Pi Platform Format Profile
+# LLM Reference: describes what Oh My Pi expects for rules and skills.
+# Same as OpenCode (directory-based, user-scoped).
+# NOT enforced by build system — informational.
+
+rules:
+  format: markdown
+  heading_style: atx
+  bullet_style: dash
+  code_block: fenced
+  frontmatter: strip
+  note: "Same as OpenCode directory format"
+
+skills:
+  format: single_file
+  content_type: markdown
+  frontmatter: strip
+  note: "Same as OpenCode directory format"
+
+notes: |
+  Oh My Pi reads ~/.config/oh-my-pi/rules/*.md and ~/.config/oh-my-pi/skills/*/SKILL.md.
+  User-scoped. Same format as OpenCode.

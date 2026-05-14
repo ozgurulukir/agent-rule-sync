@@ -1,0 +1,30 @@
+# Cursor Platform Format Profile
+# LLM Reference: describes what Cursor IDE expects for rules and skills.
+# NOT enforced by build system — informational for translator authoring.
+
+rules:
+  format: markdown
+  heading_style: atx
+  bullet_style: dash
+  code_block: fenced
+  frontmatter: strip
+  max_heading_depth: 3
+  note: "Rules go to .cursor/rules/*.md, symlinked from build/"
+
+skills:
+  format: directory_or_bundle  # single SKILL.md or skill-bundle directory
+  content_type: markdown
+  frontmatter: strip
+  content:
+    - "# Skill Name"            # H1 title
+    - "## Overview"
+    - "## Capabilities"
+    - "## Usage"
+  bullet_style: dash
+  code_block: fenced
+  note: "Skills go to .cursor/skills/<name>/SKILL.md (copied)"
+
+notes: |
+  Cursor reads .cursor/rules/*.md and .cursor/skills/*/SKILL.md.
+  Similar to OpenCode but project-scoped (not user-scoped).
+  Cursor also supports .cursorrules in project root (SSoT does not use this).

@@ -1,0 +1,22 @@
+# Qwen Code Platform Format Profile
+# LLM Reference: describes what Qwen Code expects for imports.
+# NOT enforced by build system — informational for translator authoring.
+
+rules:
+  format: import_file
+  content_type: markdown
+  config_file: "config.yaml"
+  injection_method: "@import"
+  frontmatter: strip
+  note: "Same import mechanism as Gemini CLI"
+
+skills:
+  format: import_file
+  content_type: markdown
+  injection_method: "@import"
+  frontmatter: strip
+
+import_directive: "@import 'relative/path/to/file.md'"
+notes: |
+  Qwen Code uses @import directives in ~/.config/qwen/config.yaml.
+  Same import mechanism as Gemini CLI.

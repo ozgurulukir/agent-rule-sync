@@ -1,0 +1,29 @@
+# Shared Agents Platform Format Profile
+# LLM Reference: describes what shared agent skills expect.
+# Same as OpenCode (directory-based, user-scoped).
+# NOT enforced by build system — informational for translator authoring.
+
+rules:
+  format: markdown
+  heading_style: atx
+  bullet_style: dash
+  code_block: fenced
+  frontmatter: strip
+  note: "Rules go to ~/.config/agents/rules/*.md"
+
+skills:
+  format: single_file_or_bundle  # SKILL.md file or skill-bundle directory
+  content_type: markdown
+  frontmatter: strip
+  content:
+    - "# Skill Name"
+    - "## Overview"
+    - "## Capabilities"
+    - "## Usage"
+  bullet_style: dash
+  code_block: fenced
+
+notes: |
+  Shared agent skills at ~/.config/agents/skills/.
+  Used by ast-grep, line-repetition-control, vibe-security, workstation-rules.
+  Same format as OpenCode but under agents/ namespace.

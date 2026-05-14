@@ -406,6 +406,41 @@ module Ssot
         content.sub(/\A---\s*\n.*?\n---\s*\n/m, '')
       end
 
+      # ─── Translate Layer ─────────────────────────────────────────────────────
+      # Translator: platform-specific content conversion (markdown dialect, format family).
+      # Runs BEFORE transformer. Translators read content + optional args, return translated content.
+      # Built-in: 'copy' (identity), 'identity'
+      # Custom: 'custom:<relative/path/to/translator.rb>' — must define Translator.translate(content, args: {})
+      def apply_translator(translator_cfg, content, pkgname:)
+        return content unless translator_cfg
+
+        case translator_cfg
+        when 'copy', 'identity', nil
+          content
+        when /^custom:(.+)/
+          custom_rel = Regexp.last_match(1)
+          custom_path = if custom_rel.start_with?('/') || custom_rel.start_with?('~')
+                          expand_user_path(custom_rel)
+                        else
+                          SSOT_ROOT.join(custom_rel)
+                        end.cleanpath
+          unless custom_path.exist?
+            raise "Custom translator not found: #{custom_path}"
+          end
+          real_path = custom_path.realpath
+          unless real_path.to_s.start_with?(SSOT_ROOT.to_s + File::SEPARATOR) || real_path == SSOT_ROOT
+            raise "Custom translator path outside repo (symlink attack?): #{custom_path}"
+          end
+          load custom_path
+          unless defined?(Translator) && Translator.respond_to?(:translate)
+            raise "Custom translator #{custom_path} must define Translator.translate(content, args: {}) method"
+          end
+          Translator.translate(content, args: { pkgname: pkgname })
+        else
+          raise "Unknown translator: #{translator_cfg}"
+        end
+      end
+
       # Expand user home directory in path (~/...)
       def expand_user_path(path)
         path.start_with?('~') ? File.expand_path(path) : path

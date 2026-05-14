@@ -1,23 +1,21 @@
-# Transforms — Transformer System
+# Transforms — Translate + Transform System
 
-Transformer system applies content modifications during the build phase. Each target in a PKGBUILD can specify a transformer to convert source content into the appropriate format for the target platform.
-
----
-
-## Overview
+The content processing pipeline has two sequential steps:
 
 ```
 Source File (src/)
     ↓
-Transformer (copy / strip-frontmatter / custom)
+TRANSLATE  — content format conversion (format family change)
+    ↓
+TRANSFORM  — structural/format changes
     ↓
 Built Artifact (ssot/build/<platform>/)
 ```
 
-**When to use**:
-- `copy` — source already in correct format (most common)
-- `strip-frontmatter` — upstream content has YAML frontmatter to remove
-- `custom` — platform-specific formatting needed (e.g., convert directory rules to import syntax)
+**Translate** converts between format families (e.g., flat rule → skill, markdown → import).
+**Transform** applies structural changes (copy, strip-frontmatter, add-header, etc.).
+
+Both steps are specified per-target in the PKGBUILD. Translate runs first, then transform.
 
 ---
 

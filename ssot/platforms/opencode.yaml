@@ -1,0 +1,38 @@
+# OpenCode Platform Format Profile
+# LLM Reference: describes what OpenCode expects for rules and skills.
+# NOT enforced by build system — informational for translator authoring.
+
+rules:
+  format: markdown
+  heading_style: atx           # #, ##, ###
+  bullet_style: dash           # - item
+  code_block: fenced           # ```lang ... ```
+  frontmatter: strip           # remove YAML frontmatter
+  max_heading_depth: 3
+  section_separator: "---\n\n" # blank line before next rule when aggregated
+  link_style: markdown         # [text](url)
+  emoji_policy: keep
+  code_highlight: keep         # keep fenced code blocks as-is
+
+skills:
+  format: single_file
+  content_type: markdown
+  frontmatter: strip           # skills installed as plain .md files
+  content:                     # skill file structure
+    - "# Skill Name"            # H1 title
+    - "## Overview"             # H2 sections
+    - "## Capabilities"         # H2 list of what it does
+    - "## Usage"                # H2 with examples
+    - "## References"           # H2 with file references
+  sections_order:
+    - overview
+    - capabilities
+    - usage
+    - examples
+    - references
+  references_format: "backtick-quoted file paths"
+
+notes: |
+  OpenCode reads rules from ~/.config/opencode/rules/*.md and skills from
+  ~/.config/opencode/skills/*/SKILL.md. Rules are symlinked files, skills
+  are copied directories. No special dialect beyond standard Markdown.

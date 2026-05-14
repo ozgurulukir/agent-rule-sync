@@ -1,0 +1,30 @@
+# Goose Platform Format Profile
+# LLM Reference: describes what Goose expects for skills.
+# NOT enforced by build system — informational for translator authoring.
+
+rules:
+  format: none                  # Goose has no separate rules
+  note: "All content is embedded in the single goose.md skill file"
+
+skills:
+  format: single_file
+  content_type: markdown
+  file_name: "goose.md"
+  frontmatter: strip
+  content:                      # skill file structure (vendor-aggregated)
+    - "# Goose"                 # Single H1 for the entire skill file
+    - rule fragments embedded inline, no section headers between them
+  bullet_style: dash
+  code_block: fenced
+  emoji_policy: strip
+  code_highlight: keep
+
+aggregation: |
+  Goose uses a single goose.md. SSoT builds this via vendor aggregation:
+  each package's content is concatenated with "---\n\n" separator.
+  Unlike Crush, Goose does NOT add per-package H2 headers — content is
+  pasted inline without structural changes.
+
+notes: |
+  Goose reads ~/.local/share/goose/goose.md.
+  The vendor aggregation is handled by ssot/aggregate-skills.rb.
