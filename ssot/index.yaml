@@ -1,6 +1,6 @@
 ---
 :version: 3.0
-:generated: '2026-05-14T15:06:38Z'
+:generated: '2026-05-14T15:08:03Z'
 :packages:
   :example-custom-transform:
     :pkgver: 1.0.0
@@ -16,21 +16,21 @@
       :epoch: 0
       :output: example-header.md
       :checksum: 85a1b121dd82fbf0a828e12834da068ddeaf115fcd926b8dc2092f03462399f6
-      :installed_at: '2026-05-14T15:06:37Z'
+      :installed_at: '2026-05-14T15:08:03Z'
     - :platform: opencode
       :version: 1.0.0
       :pkgrel: 1
       :epoch: 0
       :output: example-clean.md
       :checksum: ca527648d902f7c3569299b22cf05b36406e2d66ef7449213dc7f179b778d277
-      :installed_at: '2026-05-14T15:06:37Z'
+      :installed_at: '2026-05-14T15:08:03Z'
     - :platform: opencode
       :version: 1.0.0
       :pkgrel: 1
       :epoch: 0
       :output: example-formatted.md
       :checksum: 551940d87dce12d7aadc49b82472e023169109a0e7e74bccf2d021eb945e241f
-      :installed_at: '2026-05-14T15:06:37Z'
+      :installed_at: '2026-05-14T15:08:03Z'
     :available_targets:
     - opencode
     :dependencies: []
@@ -70,7 +70,7 @@
       :epoch: 0
       :output: "."
       :checksum:
-      :installed_at: '2026-05-14T15:06:38Z'
+      :installed_at: '2026-05-14T15:08:03Z'
     :available_targets:
     - opencode
     - cursor
@@ -138,7 +138,7 @@
       :epoch: 0
       :output: 00-memory.md
       :checksum: 5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7
-      :installed_at: '2026-05-14T15:06:38Z'
+      :installed_at: '2026-05-14T15:08:03Z'
     :available_targets:
     - opencode
     - gemini-cli
@@ -246,7 +246,7 @@
       :epoch: 0
       :output: 01-shell.md
       :checksum: 2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57
-      :installed_at: '2026-05-14T15:06:38Z'
+      :installed_at: '2026-05-14T15:08:03Z'
     :available_targets:
     - opencode
     - gemini-cli
@@ -354,7 +354,7 @@
       :epoch: 0
       :output: SKILL.md
       :checksum: f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143
-      :installed_at: '2026-05-14T15:06:38Z'
+      :installed_at: '2026-05-14T15:08:03Z'
     :available_targets:
     - opencode
     - cursor

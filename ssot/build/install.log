@@ -69,3 +69,35 @@
 [2026-05-14 18:07:20]   ✓ Skill-bundle directory: /home/aristo/.config/opencode/skills/golang-security-bundle
 [2026-05-14 18:07:20]   ✓ Skill-bundle manifest: 1 file(s) verified
 [2026-05-14 18:07:20] ✅ All installed packages are valid
+[2026-05-14 18:08:03] 🚀 Installing platform: opencode 
+[2026-05-14 18:08:03]   🗂 Index backed up to index.yaml.bak.20260514T180803
+[2026-05-14 18:08:03] 🏠 Home base: /home/aristo/.config/opencode
+[2026-05-14 18:08:03]   Platform base: /home/aristo/.config/opencode
+[2026-05-14 18:08:03]   Platform type: directory
+[2026-05-14 18:08:03]   ⤷ example-custom-transform (example-header.md) → /home/aristo/.config/opencode/rules/example-header.md [copy]
+[2026-05-14 18:08:03]     ✓ Copied
+[2026-05-14 18:08:03]   ✓ Installed: example-custom-transform
+[2026-05-14 18:08:03]   ⤷ example-custom-transform (example-clean.md) → /home/aristo/.config/opencode/rules/example-clean.md [copy]
+[2026-05-14 18:08:03]     ✓ Copied
+[2026-05-14 18:08:03]   ✓ Installed: example-custom-transform
+[2026-05-14 18:08:03]   ⤷ example-custom-transform (example-formatted.md) → /home/aristo/.config/opencode/rules/example-formatted.md [copy]
+[2026-05-14 18:08:03]     ✓ Copied
+[2026-05-14 18:08:03]   ✓ Installed: example-custom-transform
+[2026-05-14 18:08:03]   ⤷ golang-security-bundle (skill-bundle) → golang-security-bundle/ [copy]
+[2026-05-14 18:08:03]     ✓ Installed skill-bundle
+[2026-05-14 18:08:03]     ✓ Skill-bundle manifest verified: 2 file(s)
+[2026-05-14 18:08:03]   ✓ Installed: golang-security-bundle
+[2026-05-14 18:08:03]   ⤷ memory (00-memory.md) → /home/aristo/.config/opencode/rules/00-memory.md [symlink]
+[2026-05-14 18:08:03]     ✓ Symlinked
+[2026-05-14 18:08:03]   ✓ Installed: memory
+[2026-05-14 18:08:03]   ⤷ shell (01-shell.md) → /home/aristo/.config/opencode/rules/01-shell.md [symlink]
+[2026-05-14 18:08:03]     ✓ Symlinked
+[2026-05-14 18:08:03]   ✓ Installed: shell
+[2026-05-14 18:08:03]   ⤷ vibe-security (SKILL.md) → /home/aristo/.config/opencode/skills/vibe-security/SKILL.md [copy]
+[2026-05-14 18:08:03]     ↺ Already up-to-date
+[2026-05-14 18:08:03]   ✓ Installed: vibe-security
+[2026-05-14 18:08:03] 📝 Index written: /home/aristo/Projects/agent-rule-sync/ssot/index.yaml
+[2026-05-14 18:08:04] 🔍 Checking installed state for platform: opencode
+[2026-05-14 18:08:04]   ✓ Skill-bundle directory: /home/aristo/.config/opencode/skills/golang-security-bundle
+[2026-05-14 18:08:04]   ✓ Skill-bundle manifest: 2 file(s) verified
+[2026-05-14 18:08:04] ✅ All installed packages are valid
