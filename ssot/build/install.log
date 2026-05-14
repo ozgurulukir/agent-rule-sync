@@ -1,0 +1,10 @@
+[2026-05-14 17:40:57] 🚀 Installing platform: opencode 
+[2026-05-14 17:40:57] 🏠 Home base: /home/aristo/.config/opencode
+[2026-05-14 17:40:57]   Platform base: /home/aristo/.config/opencode
+[2026-05-14 17:40:57]   Platform type: directory
+[2026-05-14 17:40:57]   ↺ example-custom-transform already installed (1.0.0-1)
+[2026-05-14 17:40:57]   ↺ golang-security-bundle already installed (1.0.0-1)
+[2026-05-14 17:40:57]   ↺ memory already installed (1.0.0-1)
+[2026-05-14 17:40:57]   ↺ shell already installed (1.0.0-1)
+[2026-05-14 17:40:57]   ↺ vibe-security already installed (0.1.0-1)
+[2026-05-14 17:40:57] 📝 Index written: /home/aristo/Projects/agent-rule-sync/ssot/index.yaml

@@ -115,8 +115,8 @@ pkgbuilds.each do |pkgbuild_path|
     next
   end
 
-  log "Building: #{pkgname} (#{pkg[:pkgver]}:#{pkg[:pkgrel]})"
-  puts "Building: #{pkgname} (#{pkg[:pkgver]}:#{pkg[:pkgrel]})"
+  log "Building: #{pkgname} (#{Ssot::Lib::Common.format_version(pkg[:epoch], pkg[:pkgver], pkg[:pkgrel])})"
+  puts "Building: #{pkgname} (#{Ssot::Lib::Common.format_version(pkg[:epoch], pkg[:pkgver], pkg[:pkgrel])})"
 
   # Initialize package index entry if missing
   pkg_index = index_data[:packages][pkgname] || {

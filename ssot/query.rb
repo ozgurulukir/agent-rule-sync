@@ -89,7 +89,7 @@ module Ssot
       puts "📦 Packages (#{pkgs.size}):"
       pkgs.each do |name, pkg|
         installed = Array(pkg[:installed]).map { |r| r[:platform] }.uniq
-        puts "  #{name} (#{pkg[:pkgver]}) [#{pkg[:status] || 'stable'}]"
+        puts "  #{name} (#{Ssot::Lib::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver], pkg[:pkgrel] || 1)}) [#{pkg[:status] || 'stable'}]"
         puts "    Targets: #{Array(pkg[:available_targets]).join(', ')}"
         puts "    Installed: #{installed.empty? ? 'none' : installed.join(', ')}"
         puts "    Tags: #{Array(pkg[:tags]).join(', ')}"
@@ -121,7 +121,7 @@ module Ssot
       else
         puts "📥 Installed packages on #{platform}:"
         installed.each do |name, rec|
-          puts "  ✓ #{name} (#{rec[:version]})"
+          puts "  ✓ #{name} (#{Ssot::Lib::Common.format_version(rec[:epoch] || 0, rec[:version], rec[:pkgrel] || 1)})"
           puts "    Output: #{rec[:output]}"
           puts "    Checksum: #{rec[:checksum]&.slice(0, 16)}..."
           puts "    Installed: #{rec[:installed_at]}"
@@ -138,7 +138,7 @@ module Ssot
         exit 1
       end
       puts "📦 #{pkgname}"
-      puts "  Version: #{pkg[:pkgver]} (epoch: #{pkg[:epoch] || 0}, pkgrel: #{pkg[:pkgrel] || 1})"
+      puts "  Version: #{Ssot::Lib::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver], pkg[:pkgrel] || 1)}"
       puts "  Description: #{pkg[:pkgdesc]}"
       puts "  Status: #{pkg[:status] || 'stable'}"
       puts "  Targets: #{Array(pkg[:available_targets]).join(', ')}"
@@ -163,7 +163,7 @@ module Ssot
       else
         puts "🔍 Search results for '#{keyword}':"
         results.each do |name, pkg|
-          puts "  #{name} (#{pkg[:pkgver]}): #{pkg[:pkgdesc]}"
+          puts "  #{name} (#{Ssot::Lib::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver], pkg[:pkgrel] || 1)}): #{pkg[:pkgdesc]}"
         end
       end
     end

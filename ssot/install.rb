@@ -325,10 +325,10 @@ build_index[:packages].each do |pkgname, pkgdata|
     )
 
     if cmp == 0
-      log "  ↺ #{pkgname} already installed (#{pkgdata[:pkgver]}:#{pkgdata[:pkgrel]})"
+      log "  ↺ #{pkgname} already installed (#{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])})"
       next  # skip, nothing to do
        elsif cmp > 0
-         log "  🔄 Upgrading #{pkgname} #{existing[:version]}:#{existing[:pkgrel]} → #{pkgdata[:pkgver]}:#{pkgdata[:pkgrel]}"
+         log "  🔄 Upgrading #{pkgname} #{Ssot::Lib::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])} → #{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])}"
          unless dry_run
            unless uninstall_package_from_index!(index, pkgname, platform_id, dry_run: false, project_root: project_root)
              log_error "Failed to uninstall old version of #{pkgname}"
@@ -341,7 +341,7 @@ build_index[:packages].each do |pkgname, pkgdata|
          end
        else # cmp < 0
          if force_mode
-           log_warn "Downgrade forced for #{pkgname}: #{existing[:version]}:#{existing[:pkgrel]} → #{pkgdata[:pkgver]}:#{pkgdata[:pkgrel]}"
+           log_warn "Downgrade forced for #{pkgname}: #{Ssot::Lib::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])} → #{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])}"
            unless dry_run
              unless uninstall_package_from_index!(index, pkgname, platform_id, dry_run: false, project_root: project_root)
                log_error "Failed to uninstall old version of #{pkgname}"
@@ -352,7 +352,7 @@ build_index[:packages].each do |pkgname, pkgdata|
              log "    [DRY-RUN] Would downgrade (force)"
            end
          else
-           log_error "Downgrade detected for #{pkgname}: installed #{existing[:version]}:#{existing[:pkgrel]}, candidate #{pkgdata[:pkgver]}:#{pkgdata[:pkgrel]}"
+           log_error "Downgrade detected for #{pkgname}: installed #{Ssot::Lib::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])}, candidate #{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])}"
            log_error "Use --force to allow downgrade"
            next
          end

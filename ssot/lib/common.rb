@@ -165,6 +165,44 @@ module Ssot
 
       # Compare two version strings using pacman/vercmp logic.
       # Returns: -1 if v1 < v2, 0 if equal, 1 if v1 > v2
+
+      # ─── Index Backup / Restore (L4.3 Transaction Rollback) ─────────────────
+
+      # Create a backup of the current index file.
+      # Returns the backup Pathname.
+      def backup_index(index_path = SSOT_ROOT.join('index.yaml'))
+        return nil unless index_path.exist?
+        backup_path = index_path.parent.join("#{index_path.basename}.bak.#{Time.now.strftime('%Y%m%dT%H%M%S')}")
+        FileUtils.cp(index_path, backup_path)
+        backup_path
+      end
+
+      # Restore index from backup, removing the backup afterwards.
+      # Returns true if restored, false if backup not found.
+      def restore_index(backup_path, index_path = SSOT_ROOT.join('index.yaml'))
+        return false unless backup_path && backup_path.exist?
+        FileUtils.cp(backup_path, index_path)
+        backup_path.delete
+        true
+      end
+
+      # Remove all index backup files (cleanup helper).
+      def cleanup_backups(index_path = SSOT_ROOT.join('index.yaml'))
+        pattern = index_path.parent.join("#{index_path.basename}.bak.*")
+        Pathname.glob(pattern.to_s).each { |f| f.delete rescue nil }
+      end
+
+      # ─── Version Formatting ────────────────────────────────────────────────────
+
+      # Format version as pacman-style string: "epoch:pkgver-pkgrel"
+      # epoch 0 is omitted: "1.0.0-1" instead of "0:1.0.0-1"
+      def format_version(epoch, pkgver, pkgrel)
+        if epoch.to_i > 0
+          "#{epoch}:#{pkgver}-#{pkgrel}"
+        else
+          "#{pkgver}-#{pkgrel}"
+        end
+      end
       # Supports alphanumeric segments: 1.2.3a < 1.2.3b < 1.2.4
       # Also handles epoch: pkgrel comparison when pkgver equal
       def compare_versions(v1, v2, pkgrel1: nil, pkgrel2: nil, epoch1: 0, epoch2: 0)
