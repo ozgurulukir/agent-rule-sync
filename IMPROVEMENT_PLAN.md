@@ -415,12 +415,13 @@
 14. ✅ P2.6 User-friendly CLI commands (ssot list, ssot status, ssot check)
 15. ✅ P2.7 Dependency warning system (system tools: python, ruby, awk — document + warn only)
 
-**Week 4+ (Priority 3 & 4 — Medium/Long)**:
+**Week 4+ (Priority 3 & 4 — Medium/Long)**: ✅ COMPLETED
 16. ✅ M3.1 Version string formatting (format_version)
 17. ✅ M3.2 Query tool orphans/depends/provides
-18. L4.1 Test suite
+18. ✅ L4.1 Test suite (36 tests, 70 assertions)
 19. ✅ L4.3 Transaction rollback (backup + restore)
-20. ✅ L4.4 Skill-bundle manifest
+20. ✅ L4.4 Skill-bundle manifest (v1: flat files, v2: sub_skills array)
+21. ✅ Skill-bundle sub-skill selection (--select flag + selective copy)
 
 ---
 
@@ -434,5 +435,21 @@
 
 ---
 
-**Last Updated**: 2026-05-14 (Priority 0, 1, 2, 3, 4 partially completed)
-**Status**: In Progress (P0.1-P0.4 done; P1.1-P1.5 done; P2.1, P2.3, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred; M3.1 done; M3.2 done; M3.3 done; L4.1 done; L4.3 done; L4.4 done; L4.5 deferred; L4.6 deferred)
+**Last Updated**: 2026-05-14 (Priority 0, 1, 2, 3, 4 completed)
+**Status**: In Progress (P0.1-P0.4 ✅; P1.1-P1.5 ✅; P2.1, P2.3-P2.7 ✅; P2.2 deferred; M3.1-M3.3 ✅; L4.1 ✅; L4.3-L4.4 ✅; Skill-bundle ✅; L4.5 deferred; L4.6 deferred)
+
+### ✅ Skill-Bundle Sub-Skill Selection + Manifest v2
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: Skill-bundle tüm alt skill'leri tek seferde kuruyor, seçim yok.
+- **Fix**:
+  - **Manifest format v2**: `sub_skills` array with `path`, `name`, `sha256`, `files` per sub-skill
+  - **`--select` flag**: Comma-separated sub-skill names for selective installation
+  - **Selective copy**: Only selected sub-skill directories/files copied to destination
+  - **Root-level files**: `path: "."` groups files directly in bundle root; `--select .` installs only root files
+  - **Meta-packages**: `depends` field documents pacman-style meta-packages (e.g., `golang-security-all`)
+- **Files**: `ssot/build.rb` (manifest generation), `ssot/install.rb` (--select, selective copy), `docs/agents/REFERENCE.md`, `docs/agents/USAGE.md`, `AGENTS.md`
+- **Impact**: Users can install only needed sub-skills, reducing disk footprint and install time.
+
+---

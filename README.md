@@ -166,6 +166,23 @@ targets:
 
 **Requirements**: `output` must be `.`, `install.target_dir` required, `install.type` must be `copy`. Supported on `directory`-type platforms (OpenCode, Cursor, Windsurf, Claude Code). Git source is also supported. See [Reference](docs/agents/REFERENCE.md) for full details.
 
+**Sub-skill Selection** (`--select`):
+```bash
+# Install only specific sub-skills
+bin/ssot install golang-security --select auth,sql
+
+# Install all sub-skills (default)
+bin/ssot install golang-security
+```
+
+**Meta-packages** (pacman-style):
+```yaml
+pkgname: golang-security-all
+depends:
+  - golang-security/auth
+  - golang-security/sql-injection
+```
+
 ## Quick Links
 
 - **[Architecture](docs/agents/ARCHITECTURE.md)** — System design, pipeline, data flow
