@@ -94,7 +94,7 @@ module Ssot
         puts "  No index found. Run `ssot build` first."
         return
       end
-      index = YAML.load_file(index_path) || {}
+      index = Ssot::Lib::Common.load_yaml(Pathname.new(index_path)) || {}
       total = index[:packages]&.size || 0
       installed_platforms = {}
       index[:packages]&.each do |name, pkg|

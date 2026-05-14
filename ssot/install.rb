@@ -147,7 +147,7 @@ if check_mode
 
   unless SSOT_ROOT.join('index.yaml').exist?
     log_error "index.yaml not found. Run build first."
-    exit 1
+    raise  # re-raise so outer transaction rescue can rollback
   end
 
   index = Ssot::Lib::Common.load_yaml(INDEX_YAML_PATH)
@@ -173,7 +173,7 @@ if check_mode
     unless vendor_path.exist?
       log_error "Vendor skill missing: #{vendor_path}"
       puts "  ❌ Vendor skill missing: #{vendor_path}"
-      exit 1
+      raise  # re-raise so outer transaction rescue can rollback
     end
     # Verify that the vendor file is up-to-date by comparing with build artifacts
     # Re-run aggregation to a temp location and compare? Simpler: check that vendor mtime >= build index mtime?
@@ -251,7 +251,7 @@ end
     exit 0
   else
     errors.each { |e| log_error e; puts "  ❌ #{e}" }
-    exit 1
+    raise  # re-raise so outer transaction rescue can rollback
   end
 end
 
@@ -276,6 +276,16 @@ end
   index[:packages] ||= {}
 
   (index[:packages] || {}).each_value { |pkg_idx| Ssot::Lib::Common.migrate_installed_records(pkg_idx) }
+
+# ─── Transaction: backup index before any changes ──────────────────────────────
+# L4.3: On failure, restore from backup so index is never left in a partial state.
+backup_path = nil
+unless dry_run
+  backup_path = Ssot::Lib::Common.backup_index
+  log "  🗂 Index backed up to #{backup_path.basename}" if backup_path
+end
+
+begin
 
 platform_cfg = platform_cfg_for(platform_id)
 # Check platform prerequisites (warn only, do not block)
@@ -622,13 +632,27 @@ unless dry_run
     puts "\n📝 Index written: #{INDEX_YAML_PATH}"
   rescue => e
     log_error "Failed to write index: #{e.message}"
-    exit 1
+    raise  # re-raise so outer transaction rescue can rollback
   end
 else
   log "[DRY-RUN] Index write skipped"
   puts "\n[DRY-RUN] Index write skipped"
 end
 
+rescue => e
+  # ─── Transaction rollback ─────────────────────────────────────────────────────
+  if backup_path && Ssot::Lib::Common.restore_index(backup_path)
+    log_error "Transaction failed (#{e.message}). Index restored from backup."
+    puts "  ❌ Transaction failed. Index restored from backup: #{backup_path.basename}"
+  else
+    log_error "Transaction failed (#{e.message}). No backup available."
+    puts "  ❌ Transaction failed: #{e.message}"
+  end
+  exit 1
+ensure
+  # ─── Cleanup backup ──────────────────────────────────────────────────────────
+  Ssot::Lib::Common.cleanup_backups rescue nil
+end
 # ─── Summary ────────────────────────────────────────────────────────────────────
 
 puts "\n✅ Install #{dry_run ? 'preview' : 'complete'}. #{installed_this_run.size} package(s) affected:"

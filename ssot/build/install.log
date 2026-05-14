@@ -1,13 +1,31 @@
-[2026-05-14 17:40:57] 🚀 Installing platform: opencode 
-[2026-05-14 17:40:57] 🏠 Home base: /home/aristo/.config/opencode
-[2026-05-14 17:40:57]   Platform base: /home/aristo/.config/opencode
-[2026-05-14 17:40:57]   Platform type: directory
-[2026-05-14 17:40:57]   ↺ example-custom-transform already installed (1.0.0-1)
-[2026-05-14 17:40:57]   ↺ golang-security-bundle already installed (1.0.0-1)
-[2026-05-14 17:40:57]   ↺ memory already installed (1.0.0-1)
-[2026-05-14 17:40:57]   ↺ shell already installed (1.0.0-1)
-[2026-05-14 17:40:57]   ↺ vibe-security already installed (0.1.0-1)
-[2026-05-14 17:40:57] 📝 Index written: /home/aristo/Projects/agent-rule-sync/ssot/index.yaml
-[2026-05-14 17:42:34] 🔍 Checking installed state for platform: opencode
-[2026-05-14 17:42:34]   ✓ Skill-bundle directory: /home/aristo/.config/opencode/skills/golang-security-bundle
-[2026-05-14 17:42:34] ✅ All installed packages are valid
+[2026-05-14 17:52:47] 🚀 Installing platform: opencode 
+[2026-05-14 17:52:47]   🗂 Index backed up to index.yaml.bak.20260514T175247
+[2026-05-14 17:52:47] 🏠 Home base: /home/aristo/.config/opencode
+[2026-05-14 17:52:47]   Platform base: /home/aristo/.config/opencode
+[2026-05-14 17:52:47]   Platform type: directory
+[2026-05-14 17:52:47]   ⤷ example-custom-transform (example-header.md) → /home/aristo/.config/opencode/rules/example-header.md [copy]
+[2026-05-14 17:52:47]     ↺ Already up-to-date
+[2026-05-14 17:52:47]   ✓ Installed: example-custom-transform
+[2026-05-14 17:52:47]   ⤷ example-custom-transform (example-clean.md) → /home/aristo/.config/opencode/rules/example-clean.md [copy]
+[2026-05-14 17:52:47]     ↺ Already up-to-date
+[2026-05-14 17:52:47]   ✓ Installed: example-custom-transform
+[2026-05-14 17:52:47]   ⤷ example-custom-transform (example-formatted.md) → /home/aristo/.config/opencode/rules/example-formatted.md [copy]
+[2026-05-14 17:52:47]     ↺ Already up-to-date
+[2026-05-14 17:52:47]   ✓ Installed: example-custom-transform
+[2026-05-14 17:52:47]   ⤷ golang-security-bundle (skill-bundle) → golang-security-bundle/ [copy]
+[2026-05-14 17:52:47]     ✓ Removed existing: /home/aristo/.config/opencode/skills/golang-security-bundle/
+[2026-05-14 17:52:47]     ✓ Installed skill-bundle
+[2026-05-14 17:52:47]   ✓ Installed: golang-security-bundle
+[2026-05-14 17:52:47]   ⤷ memory (00-memory.md) → /home/aristo/.config/opencode/rules/00-memory.md [symlink]
+[2026-05-14 17:52:47]     ↺ Already symlinked
+[2026-05-14 17:52:47]   ✓ Installed: memory
+[2026-05-14 17:52:47]   ⤷ shell (01-shell.md) → /home/aristo/.config/opencode/rules/01-shell.md [symlink]
+[2026-05-14 17:52:47]     ↺ Already symlinked
+[2026-05-14 17:52:47]   ✓ Installed: shell
+[2026-05-14 17:52:47]   ⤷ vibe-security (SKILL.md) → /home/aristo/.config/opencode/skills/vibe-security/SKILL.md [copy]
+[2026-05-14 17:52:47]     ↺ Already up-to-date
+[2026-05-14 17:52:47]   ✓ Installed: vibe-security
+[2026-05-14 17:52:47] 📝 Index written: /home/aristo/Projects/agent-rule-sync/ssot/index.yaml
+[2026-05-14 17:52:52] 🔍 Checking installed state for platform: opencode
+[2026-05-14 17:52:52]   ✓ Skill-bundle directory: /home/aristo/.config/opencode/skills/golang-security-bundle
+[2026-05-14 17:52:52] ✅ All installed packages are valid

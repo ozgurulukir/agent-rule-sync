@@ -170,7 +170,7 @@ pkgbuilds.each do |pkgbuild_path|
         log_error "Source path must be a directory for skill-bundle: #{source_dir}"
         next
       end
-      pkg_index[:source_dir] = source_dir
+      pkg_index[:source_dir] = source_dir.to_s
       pkg_index[:source_sha256] = nil
 
       # Run pkgver_func if defined
@@ -204,7 +204,7 @@ pkgbuilds.each do |pkgbuild_path|
       FileUtils.rm_rf(persistent_dir)
       FileUtils.mkpath(persistent_dir.parent)
       FileUtils.cp_r(cached_dir, persistent_dir)
-      pkg_index[:source_dir] = persistent_dir
+      pkg_index[:source_dir] = persistent_dir.to_s
       pkg_index[:source_sha256] = commit_hash
       log "  ✓ Git source cached/build dir (#{commit_hash[0..7]})"
       puts "  ✓ Git source cached/build dir (#{commit_hash[0..7]})"
@@ -296,7 +296,7 @@ pkgbuilds.each do |pkgbuild_path|
       puts "  → Building for #{platform_id} (skill-bundle: #{pkgname})"
 
       # skill-bundle: copy entire source directory tree
-      source_dir = pkg_index[:source_dir] || raise("internal error: source_dir not set for skill-bundle")
+      source_dir = Pathname.new(pkg_index[:source_dir] || raise("internal error: source_dir not set for skill-bundle"))
       # Build directory: build/<platform>/<pkgname>/
       build_platform_dir = BUILD_DIR.join(platform_id)
       begin

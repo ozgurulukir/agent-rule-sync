@@ -276,64 +276,6 @@
 
 ### L4.1 Test Suite
 **Status**: ⏳ PENDING
-
-### L4.2 Dependency Resolution Implementation (P2.2 detailed)
-**Status**: ⏳ PENDING
-
-### L4.3 Transaction Rollback / Backup
-**Status**: ⏳ PENDING
-
-### L4.4 Skill-bundle Manifest
-**Status**: ⏳ PENDING
-
-### L4.5 Cache Invalidation & TTL
-**Status**: ⏳ PENDING
-
-### L4.6 Platform Registry Extensibility
-**Status**: ⏳ PENDING
-
----
-
-## 🛠️ Current Implementation Status (as of 2026-05-14)
-
-**Completed (Priority 0, 1 & 2)**:
-- ✅ P0.1 Single entry point / CLI wrapper (`ssot` command)
-- ✅ P0.2 Platform prerequisite validation (check python/ruby/awk before install)
-- ✅ P0.3 Pre-install impact analysis (rich --dry-run output)
-- ✅ P0.4 Content validation (empty files, missing sources)
-- ✅ P1.1 Atomic index writes + multi-platform record preservation
-- ✅ P1.2 Git path traversal validation
-- ✅ P1.3 skill-bundle hidden files & empty dirs copy fix
-- ✅ P1.4 Index schema migration (pkgrel/epoch in records)
-- ✅ P1.5 PKGBUILD full validation (including pkgver_func)
-- ✅ P2.1 Dynamic pkgver from git (pkgver_func)
-- ✅ P2.4 Common uninstall function (DRY)
-- ✅ P2.5 Logging levels (--verbose)
-- ✅ P2.6 User-friendly CLI commands (ssot list, ssot status, ssot check)
-- ✅ P2.7 Dependency warning system (system tools: python, ruby, awk — document + warn only)
-
-**Pending**:
-- ⏳ P2.2 Dependency resolution — **DEFERRED** (gerekli değil, mevcut paketlerde bağımlılık yok)
-- ⏳ P2.3 Build cache
-- All Priority 3 & 4 items
-
----
-
-## 📝 Next Steps
-
-1. **P2.3 Build Cache**: Add cache layer for URL and git sources.
-2. **M3.1 Full vercmp**: Port pacman vercmp if needed for complex version strings.
-3. **M3.2 Query tool orphans/depends/provides**: Add missing query commands.
-4. **L4.1 Test suite**: Write integration tests for the completed improvements.
-5. **L4.3 Transaction rollback**: Add backup + restore for atomic transactions.
-6. **L4.4 Skill-bundle manifest**: Per-file SHA256 for integrity verification.
-
----
-
-## 📋 Priority 4 — Low (Long-term)
-
-### L4.1 Test Suite
-**Status**: ⏳ PENDING
 **Date**: TBD
 
 **Slop**: Hiç test yok.
