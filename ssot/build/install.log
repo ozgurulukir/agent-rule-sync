@@ -8,3 +8,6 @@
 [2026-05-14 17:40:57]   ↺ shell already installed (1.0.0-1)
 [2026-05-14 17:40:57]   ↺ vibe-security already installed (0.1.0-1)
 [2026-05-14 17:40:57] 📝 Index written: /home/aristo/Projects/agent-rule-sync/ssot/index.yaml
+[2026-05-14 17:42:34] 🔍 Checking installed state for platform: opencode
+[2026-05-14 17:42:34]   ✓ Skill-bundle directory: /home/aristo/.config/opencode/skills/golang-security-bundle
+[2026-05-14 17:42:34] ✅ All installed packages are valid

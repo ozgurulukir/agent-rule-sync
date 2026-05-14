@@ -247,9 +247,21 @@
 
 ## 📋 Priority 3 — Medium (Nice to Have)
 
-### M3.1 Full Pacman vercmp
-**Status**: ⏳ PENDING
-**Note**: Current `vercmp` sufficient for most semantic versions; complex pre-release handling (tilde, hyphen) not needed yet.
+### ✅ M3.1 Version String Formatting (format_version)
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: Version displayed as `pkgver:pkgrel` (colon separator) everywhere — build log, install log, query output. Pacman uses `epoch:pkgver-pkgrel` with dash separator, epoch 0 omitted.
+- **Fix**: Added `format_version(epoch, pkgver, pkgrel)` to `ssot/lib/common.rb`:
+  - epoch > 0: `"#{epoch}:#{pkgver}-#{pkgrel}"`
+  - epoch 0: `"#{pkgver}-#{pkgrel}"`
+- **Files**: `ssot/lib/common.rb` (format_version), `ssot/build.rb` (Building: log), `ssot/install.rb` (4 upgrade/downgrade messages), `ssot/query.rb` (list-packages, show, search, installed).
+- **Before/After**:
+  - Build: `Building: memory (1.0.0:1)` → `Building: memory (1.0.0-1)`
+  - Query: `Version: 1.0.0 (epoch: 0, pkgrel: 1)` → `Version: 1.0.0-1`
+  - Install: `Upgrading 1.0.0:1 → 1.0.0:1` → `Upgrading 1.0.0-1 → 1.0.0-1`
+- **Note**: `vercmp` itself was already correct (P2.1); this was purely cosmetic display fix.
+- **Impact**: All version displays now match pacman convention.
 
 ### M3.2 Query Tool — Orphans & Leaves
 **Status**: ⏳ PENDING
@@ -375,17 +387,20 @@
 - **Files**: `ssot/install.rb`
 - **Impact**: Proper dependency handling.
 
-### L4.3 Transaction Rollback / Backup
-**Status**: ⏳ PENDING
-**Date**: TBD
+### ✅ L4.3 Transaction Rollback / Backup
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
 
-**Slop**: Upgrade'da uninstall başarılı, install başarısız → paket yok.
-- **Plan**: 
-  - Transaction başında `index.yaml` backup al.
-  - Tüm install'ler memory'da topla, sonra tek write.
-  - Hata olursa backup'dan restore.
-- **Files**: `ssot/install.rb`
-- **Impact**: Atomic transactions, no partial upgrades.
+**Slop**: Upgrade sırasında uninstall başarılı ama install başarısız olursa paket silinmiş kalır, index yarım kalır.
+- **Fix**:
+  - Added `backup_index`, `restore_index`, `cleanup_backups` to `ssot/lib/common.rb`.
+  - `install.rb` wraps entire install loop in `begin/rescue/ensure`:
+    - Pre-transaction: `backup_path = Ssot::Lib::Common.backup_index` (unless dry-run)
+    - On error: `restore_index(backup_path)` → index restored, exit 1
+    - On success: `cleanup_backups` removes all `.bak.*` files
+  - Backup filename: `index.yaml.bak.YYYYMMDDTHHMMSS`
+- **Files**: `ssot/lib/common.rb` (backup/restore/cleanup), `ssot/install.rb` (transaction wrapper).
+- **Impact**: Install is now fully atomic — either all packages succeed or index is restored to pre-transaction state.
 
 ### L4.4 Skill-bundle Manifest
 **Status**: ⏳ PENDING
@@ -441,10 +456,10 @@
 15. ✅ P2.7 Dependency warning system (system tools: python, ruby, awk — document + warn only)
 
 **Week 4+ (Priority 3 & 4 — Medium/Long)**:
-16. M3.1 Full vercmp (if needed)
+16. ✅ M3.1 Version string formatting (format_version)
 17. M3.2 Query tool orphans/leaves
 18. L4.1 Test suite
-19. L4.3 Transaction rollback (backup + restore)
+19. ✅ L4.3 Transaction rollback (backup + restore)
 20. L4.4 Skill-bundle manifest
 
 ---
@@ -460,4 +475,4 @@
 ---
 
 **Last Updated**: 2026-05-14 (Priority 0, 1 & 2 completed)
-**Status**: In Progress (P0.1–P0.4 done; P1.1–P1.5 done; P2.1, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred — not needed; P2.3 done; P3, P4 pending)
+**Status**: In Progress (P0.1-P0.4 done; P1.1-P1.5 done; P2.1, P2.3, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred; M3.1 done; L4.3 done; M3.2, M3.3, L4.1, L4.2, L4.4, L4.5, L4.6 pending)
