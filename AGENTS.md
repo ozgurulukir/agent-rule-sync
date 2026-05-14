@@ -674,6 +674,80 @@ To migrate:
 
 ---
 
+## Project Status
+
+### Goals
+
+- **Single Source of Truth**: One authoritative source for all agent rules and skills, no scattered config files.
+- **Package-based distribution**: Each rule/skill is a package with a declarative PKGBUILD descriptor — inspired by Arch's ABS.
+- **Multi-platform deployment**: One PKGBUILD → multiple target platforms (12 agents), each with its own format/install method.
+- **Per-platform content adaptation**: Content must be translated (format conversion) and transformed (structural changes) per target platform's expectations.
+- **Full pipeline tooling**: Build → Aggregate → Install → Uninstall → Query, all scripted and testable.
+
+### What We Built (Completed)
+
+| Layer | Status | Notes |
+|-------|--------|-------|
+| **PKGBUILD descriptor** | ✅ | YAML, all required fields, validated on load |
+| **Source model** | ✅ | `local` (src/), `git` (clone + commit hash), `url` (SHA256) |
+| **Build pipeline** (`build.rb`) | ✅ | Fetch → translate → transform → write, 102 artifacts from 9 packages across 5 platforms |
+| **Translate layer** | ✅ | `apply_translator` in `common.rb`, `rule-to-skill.rb` translator, `translate.rb` CLI |
+| **Transform layer** | ✅ | Built-in (`copy`, `strip-frontmatter`) + custom (`custom:<path>`) |
+| **Platform registry** | ✅ | 12 platforms + shared `agents` platform in `platforms.yaml` |
+| **Platform format profiles** | ✅ | 13 YAML profiles (informational for LLM reference) |
+| **Install** (`install.rb`) | ✅ | Per-platform install, upgrade/downgrade logic, `--dry-run`, `--force`, `--select` |
+| **Uninstall** (`install.rb`) | ✅ | Idempotent, re-aggregates vendor skills, dry-run |
+| **Transaction atomicity** | ✅ | Backup/restore/cleanup on install failure |
+| **Build cache** | ✅ | Content-addressed (URL by SHA256, git by commit hash) |
+| **Vendor skill aggregation** | ✅ | Crush, Goose, Droid, Codex — concatenates rule fragments + skills |
+| **Skill-bundle** | ✅ | Directory-level deployment, manifest v2 (per-file checksums), `--select` |
+| **Version management** | ✅ | pacman-style epoch:pkgver-pkgrel, compare/upgrade/downgrade |
+| **Query tool** | ✅ | list, show, search, installed, check, orphans, depends, provides |
+| **Index** | ✅ | YAML + JSON, atomic writes, legacy migration |
+| **Test suite** | ✅ | 172 tests, 419 assertions, 0 failures (test_common, test_integration, test_cache, test_pkgbuild, test_platform, test_uninstall) |
+| **Standalone scripts** | ✅ | `build.rb`, `install.rb`, `uninstall.rb`, `query.rb`, `aggregate-skills.rb`, `translate.rb` |
+
+### In Progress / Partial
+
+| Item | Status | What's Needed |
+|------|--------|--------------|
+| **Translate layer integration** | 🟡 Framework ready, 0 PKGBUILD uses it | Add `translate` field to memory/shell PKGBUILDs for crush/goose/droid targets; write additional translators (`rule-to-import.rb`, `normalize-markdown.rb`) |
+| **Manually-installed skills packaged** | 🟡 6 packages created, some still unmanaged | `ast-grep`, `line-repetition-control`, `workstation-rules`, `goose`, `windsurf-rules`, `vibe-security` (agents target) — installed and tracked |
+
+### Deferred (Not Needed / Low Priority)
+
+| Item | Reason |
+|------|--------|
+| **Remote repository system** | Not a user priority; all packages are local |
+| **Dependency resolution** | Skills/rules are independent text files; no topological sort needed |
+| **Package signing (GPG/signify)** | Deferred |
+| **makepkg advanced features** | `prepare()`/`build()`/`package()` functions, patches, subpackages — not needed for text files |
+| **pacman layer completeness** | `-Qi/-Qs/-Qo/-Ql` parity improvements — can be done later |
+
+### Architecture Decision: Translate vs Transform
+
+```
+Source (fetched)
+    ↓
+TRANSLATE  ← format family conversion (rule → skill, markdown → import)
+            ← regex/awk/sed/text processing per target platform expectations
+            ← Translator API: custom:translators/NAME.rb
+            ← Runs FIRST
+    ↓
+TRANSFORM  ← structural/format changes (copy, strip-frontmatter, add-header)
+            ← Transformer API: custom:transformers/NAME.rb
+            ← Runs SECOND
+    ↓
+Build artifact → Install → Target platform
+```
+
+**Translate** changes the *format family* of the content (what kind of document it is).
+**Transform** changes the *structure or presentation* of the content (how it looks).
+
+Example: `memory` package's `crush` target needs `rule → skill` conversion (translate), then `strip-frontmatter` (transform). Currently only transform is wired up; translate layer is ready but unused.
+
+---
+
 ## License
 
 MIT — same as the upstream TCI project and vibe-security skill.
