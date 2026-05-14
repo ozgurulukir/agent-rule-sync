@@ -285,7 +285,47 @@ Custom transformer paths are resolved with `realpath` and must be within `SSOT_R
 - `source` must be `type: local` or `type: git` with a directory path
 - Source directory must exist and be readable
 
+**Manifest format** (`manifest.json`):
+```json
+{
+  "pkgname": "golang-security-bundle",
+  "platform": "cursor",
+  "generated_at": "2026-05-14T16:01:56Z",
+  "sub_skills": [
+    {
+      "path": "golang-security",
+      "name": "golang-security",
+      "sha256": "a38396e7...",
+      "files": {
+        "golang-security/SKILL.md": "df1f23e9..."
+      }
+    }
+  ]
+}
+```
+
 **Index record**: `output` stored as `'.'`; no single-file checksum recorded (`built[platform] = nil` for local source, commit hash for git).
+
+**Sub-skill selection** (`--select`):
+```bash
+# Install only specific sub-skills
+bin/ssot install golang-security --select auth,sql
+
+# Install all sub-skills (default)
+bin/ssot install golang-security
+```
+
+**Meta-packages** (pacman-style):
+Use `depends` to create virtual meta-packages that pull in multiple sub-skills:
+
+```yaml
+pkgname: golang-security-all
+pkgdesc: All Go security skills (meta-package)
+depends:
+  - golang-security/auth
+  - golang-security/sql-injection
+  - golang-security/xss
+```
 
 ---
 

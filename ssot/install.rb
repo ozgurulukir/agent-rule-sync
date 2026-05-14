@@ -76,6 +76,7 @@ dry_run = false
 check_mode = false
 force_mode = false
 verbose_mode = false
+select_list = nil   # --select for skill-bundle sub-skill filtering
 platform_arg = nil
 project_arg = nil
 
@@ -98,6 +99,12 @@ while i < ARGV.length
     end
     project_arg = ARGV[i + 1]
     i += 2
+  when '--select'
+    if i + 1 >= ARGV.length
+      raise "Missing value for --select"
+    end
+    select_list = ARGV[i + 1].split(',').map(&:strip).reject(&:empty?)
+    i += 2
   when '-v', '--verbose'
     verbose_mode = true
     i += 1
@@ -111,16 +118,20 @@ end
 $LOG_LEVEL = verbose_mode ? :debug : :info
 
 unless platform_arg || check_mode
-  puts "Usage: ruby ssot/install.rb <platform> [--dry-run] [--check] [--project PATH]"
+  puts "Usage: ruby ssot/install.rb <platform> [--dry-run] [--check] [--project PATH] [--select SKILLS]"
   puts "       ruby ssot/install.rb --check <platform> [--project PATH]"
   puts ""
   puts "For project-level platforms (cursor, windsurf, github-copilot, claude-code, codex),"
   puts "use --project to specify the project root (default: current directory)."
   puts ""
+  puts "Options:"
+  puts "  --select SKILLS  Comma-separated sub-skill names for skill-bundle (e.g. --select auth,sql)"
+  puts ""
   puts "Examples:"
   puts "  ruby ssot/install.rb opencode                  # user-level"
   puts "  ruby ssot/install.rb cursor --project .        # current project"
   puts "  ruby ssot/install.rb github-copilot --project ~/projects/myapp"
+  puts "  ruby ssot/install.rb golang-security --select auth,sql  # specific sub-skills only"
   exit 1
 end
 
@@ -223,45 +234,49 @@ if check_mode
        raise "Unknown platform type: #{platform_cfg[:type]}"
      end
 
-     # Handle skill-bundle: output '.' means target_dir, verify directory exists
-     if format_type == 'skill-bundle'
-       unless installed_path.directory?
-         errors << "Skill-bundle directory missing: #{installed_path}"
-       else
-         log "  ✓ Skill-bundle directory: #{installed_path}"
-         # L4.4: Verify skill-bundle manifest in check mode
-         manifest_path = Pathname.new(installed_path).join("manifest.json")
-         if manifest_path.exist?
-           begin
-             manifest = JSON.parse(manifest_path.read)
-             mismatches = []
-             manifest["files"].each do |rel_path, expected_sha|
-               file_path = Pathname.new(installed_path).join(rel_path)
-               unless file_path.exist?
-                 mismatches << "missing: #{rel_path}"
-               else
-                 actual_sha = Digest::SHA256.hexdigest(file_path.read)
-                 unless actual_sha == expected_sha
-                   mismatches << "checksum mismatch: #{rel_path} (expected #{expected_sha[0..7]}, got #{actual_sha[0..7]})"
-                 end
-               end
-             end
-             if mismatches.empty?
-               log "  ✓ Skill-bundle manifest: #{manifest["files"].size} file(s) verified"
-             else
-               log_warn "Skill-bundle manifest: #{mismatches.size} issue(s)"
-               mismatches.each { |m| log_warn "    • #{m}" }
-               errors.concat(mismatches.map { |m| "#{pkgname}: #{m}" })
-             end
-           rescue => e
-             log_warn "Failed to read skill-bundle manifest: #{e.message}"
-           end
-         else
-           log_warn "No manifest.json found for #{pkgname}"
-         end
-       end
-       next  # skip checksum verification for bundles
-     end
+      # Handle skill-bundle: output '.' means target_dir, verify directory exists
+      if format_type == 'skill-bundle'
+        unless installed_path.directory?
+          errors << "Skill-bundle directory missing: #{installed_path}"
+        else
+          log "  ✓ Skill-bundle directory: #{installed_path}"
+          # L4.4: Verify skill-bundle manifest in check mode
+          manifest_path = Pathname.new(installed_path).join("manifest.json")
+          if manifest_path.exist?
+            begin
+              manifest = JSON.parse(manifest_path.read)
+              mismatches = []
+              total_files = 0
+              manifest["sub_skills"].each do |sub_skill|
+                sub_skill["files"].each do |rel_path, expected_sha|
+                  total_files += 1
+                  file_path = Pathname.new(installed_path).join(rel_path)
+                  unless file_path.exist?
+                    mismatches << "missing: #{rel_path}"
+                  else
+                    actual_sha = Digest::SHA256.hexdigest(file_path.read)
+                    unless actual_sha == expected_sha
+                      mismatches << "checksum mismatch: #{rel_path} (expected #{expected_sha[0..7]}, got #{actual_sha[0..7]})"
+                    end
+                  end
+                end
+              end
+              if mismatches.empty?
+                log "  ✓ Skill-bundle manifest: #{manifest["sub_skills"].size} sub-skill(s), #{total_files} file(s) verified"
+              else
+                log_warn "Skill-bundle manifest: #{mismatches.size} issue(s)"
+                mismatches.each { |m| log_warn "    • #{m}" }
+                errors.concat(mismatches.map { |m| "#{pkgname}: #{m}" })
+              end
+            rescue => e
+              log_warn "Failed to read skill-bundle manifest: #{e.message}"
+            end
+          else
+            log_warn "No manifest.json found for #{pkgname}"
+          end
+        end
+        next  # skip checksum verification for bundles
+      end
 
      # For file-based formats, verify file exists and checksum matches
      unless installed_path.exist?
@@ -412,85 +427,123 @@ build_index[:packages].each do |pkgname, pkgdata|
      install_cfg = target[:install] || {}
      install_type = install_cfg[:type] || platform_cfg[:"#{format}_install"]&.[](:type) || 'copy'
 
-     # ─── skill-bundle: recursive directory copy ───────────────────────────────────
-     if format == 'skill-bundle'
-       log "  ⤷ #{pkgname} (skill-bundle) → #{install_cfg[:target_dir]} [copy]"
+      # ─── skill-bundle: selective directory copy ───────────────────────────────────
+      if format == 'skill-bundle'
+        log "  ⤷ #{pkgname} (skill-bundle) → #{install_cfg[:target_dir]} [copy]"
 
-       # Build source directory: build/<platform>/<pkgname>/
-       build_src_dir = BUILD_DIR.join(platform_id, pkgname.to_s)
-       unless build_src_dir.exist? && build_src_dir.directory?
-         log_error "Skill-bundle build directory missing: #{build_src_dir}"
-         next
-       end
-
-       # Destination: skills_dir/target_dir/
-       dest_dir = base_path.join(platform_cfg[:skills_dir]).join(install_cfg[:target_dir])
-
-       if dry_run
-         log "    [DRY-RUN] Would copy directory: #{build_src_dir} → #{dest_dir}"
-       else
-         begin
-           # Remove existing if present (overwrite)
-           if dest_dir.exist?
-             FileUtils.rm_rf(dest_dir)
-             log "    ✓ Removed existing: #{dest_dir}"
-           end
-           FileUtils.mkpath(dest_dir.parent)
-           FileUtils.cp_r(build_src_dir, dest_dir)
-           log "    ✓ Installed skill-bundle"
-           # L4.4: Verify skill-bundle manifest checksums
-           manifest_path = dest_dir.join("manifest.json")
-           if manifest_path.exist?
-             begin
-               manifest = JSON.parse(manifest_path.read)
-               mismatches = []
-               manifest["files"].each do |rel_path, expected_sha|
-                 file_path = dest_dir.join(rel_path)
-                 unless file_path.exist?
-                   mismatches << "missing: #{rel_path}"
-                 else
-                   actual_sha = Digest::SHA256.hexdigest(file_path.read)
-                   unless actual_sha == expected_sha
-                     mismatches << "checksum mismatch: #{rel_path} (expected #{expected_sha[0..7]}, got #{actual_sha[0..7]})"
-                   end
-                 end
-               end
-               if mismatches.empty?
-                 log "    ✓ Skill-bundle manifest verified: #{manifest["files"].size} file(s)"
-               else
-                 log_warn "Skill-bundle manifest verification: #{mismatches.size} mismatch(es)"
-                 mismatches.each { |m| log_warn "      • #{m}" }
-               end
-             rescue => e
-               log_warn "Failed to verify skill-bundle manifest: #{e.message}"
-             end
-           else
-             log_warn "No manifest.json found for #{pkgname} — skipping checksum verification"
-           end
-         rescue => e
-           log_error "Failed to install skill-bundle: #{e.message}"
-           next
-         end
-       end
-
-        # Record installation (output = '.' as directory marker)
-        unless dry_run
-          installed_record = {
-            platform: platform_id,
-            version: pkgdata[:pkgver],
-            pkgrel: pkgdata[:pkgrel],
-            epoch: pkgdata[:epoch],
-            output: '.',   # directory marker
-            checksum: nil,  # no single checksum for bundle
-            installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-          }
-          pkg_index[:installed] << installed_record
+        # Build source directory: build/<platform>/<pkgname>/
+        build_src_dir = BUILD_DIR.join(platform_id, pkgname.to_s)
+        unless build_src_dir.exist? && build_src_dir.directory?
+          log_error "Skill-bundle build directory missing: #{build_src_dir}"
+          next
         end
 
-       installed_this_run << pkgname
-       log "  ✓ Installed: #{pkgname}"
-       next
-     end
+        # Destination: skills_dir/target_dir/
+        dest_dir = base_path.join(platform_cfg[:skills_dir]).join(install_cfg[:target_dir])
+
+        # Load manifest for sub-skill filtering and checksum verification
+        manifest_path = build_src_dir.join("manifest.json")
+        manifest = manifest_path.exist? ? JSON.parse(manifest_path.read) : nil
+        sub_skills = manifest&.dig("sub_skills") || []
+
+        # Filter by --select if provided
+        if select_list && !select_list.empty?
+          selected = sub_skills.select { |ss| select_list.include?(ss["name"]) }
+          if selected.empty?
+            log_warn "  ⚠ No matching sub-skills for --select #{select_list.join(',')} in #{pkgname}, skipping"
+            next
+          end
+          log "    🔍 Selecting sub-skills: #{selected.map { |ss| ss["name"] }.join(', ')}"
+        else
+          selected = sub_skills
+        end
+
+        if dry_run
+          selected.each do |ss|
+            log "    [DRY-RUN] Would copy sub-skill: #{ss["path"]} → #{dest_dir.join(ss["path"])}"
+          end
+        else
+          begin
+            # Remove existing if present (overwrite)
+            if dest_dir.exist?
+              FileUtils.rm_rf(dest_dir)
+              log "    ✓ Removed existing: #{dest_dir}"
+            end
+            FileUtils.mkpath(dest_dir)
+            # Copy only selected sub-skill directories/files
+            selected.each do |ss|
+              if ss["path"] == "."
+                # Root-level files: copy only the specific files listed in manifest
+                ss["files"].each_key do |rel_path|
+                  src_file = build_src_dir.join(rel_path)
+                  dst_file = dest_dir.join(rel_path)
+                  FileUtils.mkpath(dst_file.parent)
+                  FileUtils.cp(src_file, dst_file)
+                end
+                log "    ✓ Copied sub-skill: . (#{ss["files"].size} file(s))"
+              else
+                # Subdirectory: copy entire directory tree
+                src_sub = build_src_dir.join(ss["path"])
+                dst_sub = dest_dir.join(ss["path"])
+                FileUtils.cp_r(src_sub, dst_sub)
+                log "    ✓ Copied sub-skill: #{ss["path"]}"
+              end
+            end
+            # Write manifest (only selected sub-skills)
+            selected_manifest = {
+              generated_at: manifest&.dig("generated_at") || Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+              pkgname: pkgname.to_s,
+              platform: platform_id.to_s,
+              sub_skills: selected
+            }
+            manifest_dest = dest_dir.join("manifest.json")
+            manifest_dest.write(JSON.pretty_generate(selected_manifest))
+            log "    ✓ Installed skill-bundle (#{selected.size} sub-skill(s))"
+            # L4.4: Verify skill-bundle manifest checksums (only selected)
+            mismatches = []
+            selected.each do |ss|
+              ss["files"].each do |rel_path, expected_sha|
+                file_path = dest_dir.join(rel_path)
+                unless file_path.exist?
+                  mismatches << "missing: #{rel_path}"
+                else
+                  actual_sha = Digest::SHA256.hexdigest(file_path.read)
+                  unless actual_sha == expected_sha
+                    mismatches << "checksum mismatch: #{rel_path} (expected #{expected_sha[0..7]}, got #{actual_sha[0..7]})"
+                  end
+                end
+              end
+            end
+            if mismatches.empty?
+              log "    ✓ Skill-bundle manifest verified: #{selected.map { |ss| ss["files"].size }.sum} file(s)"
+            else
+              log_warn "Skill-bundle manifest verification: #{mismatches.size} mismatch(es)"
+              mismatches.each { |m| log_warn "      • #{m}" }
+            end
+          rescue => e
+            log_error "Failed to install skill-bundle: #{e.message}"
+            next
+          end
+        end
+
+         # Record installation (output = '.' as directory marker)
+         unless dry_run
+           installed_record = {
+             platform: platform_id,
+             version: pkgdata[:pkgver],
+             pkgrel: pkgdata[:pkgrel],
+             epoch: pkgdata[:epoch],
+             output: '.',   # directory marker
+             checksum: nil,  # no single checksum for bundle
+             installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+           }
+           pkg_index[:installed] << installed_record
+         end
+
+        installed_this_run << pkgname
+        log "  ✓ Installed: #{pkgname}"
+        next
+      end
 
      # ─── Single-file formats (directory, import, skill) ──────────────────────────
      # Determine built artifact path

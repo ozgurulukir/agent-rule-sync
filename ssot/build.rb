@@ -312,21 +312,58 @@ pkgbuilds.each do |pkgbuild_path|
       log "    ✓ Built skill-bundle (directory copied)"
       puts "    ✓ Built skill-bundle (directory copied)"
 
-      # ─── L4.4 Skill-bundle manifest ─────────────────────────────────────────────
-      # Generate per-file SHA256 checksums for integrity verification
-      manifest = { files: {}, generated_at: Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), pkgname: pkgname.to_s, platform: platform_id.to_s }
-      Dir.glob("#{build_pkg_dir}/**/*", File::FNM_DOTMATCH).each do |file_path|
-        file = Pathname.new(file_path)
-        next unless file.file?
-        # Skip the manifest file itself
-        next if file.basename.to_s == "manifest.json"
-        rel_path = file.relative_path_from(build_pkg_dir).to_s
-        manifest[:files][rel_path] = Digest::SHA256.hexdigest(file.read)
-      end
+       # ─── L4.4 Skill-bundle manifest ─────────────────────────────────────────────
+       # Generate per-file SHA256 checksums for integrity verification
+       # sub_skills: each top-level directory entry is a sub-skill (path, name, sha256)
+       # Root-level files (not in any subdir) get path: "." name: "."
+       manifest = {
+         generated_at: Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+         pkgname: pkgname.to_s,
+         platform: platform_id.to_s,
+         sub_skills: []
+       }
+       seen_paths = {}  # track which sub_skill path entries we've added to avoid duplicates
+       # Collect root-level files first (files directly in build_pkg_dir, not in a subdir)
+       Dir.glob("#{build_pkg_dir}/*", File::FNM_DOTMATCH).each do |entry_path|
+         entry = Pathname.new(entry_path)
+         next unless entry.file?
+         next if entry.basename.to_s == "manifest.json"
+         rel_path = entry.basename.to_s
+         sub = manifest[:sub_skills].find { |s| s[:path] == "." }
+         unless sub
+           sub = { path: ".", name: ".", sha256: "", files: {} }
+           manifest[:sub_skills] << sub
+         end
+         sub[:files][rel_path] = Digest::SHA256.hexdigest(entry.read)
+       end
+       # Update root aggregate SHA and mark seen
+       if (sub = manifest[:sub_skills].find { |s| s[:path] == "." })
+         sub[:sha256] = Digest::SHA256.hexdigest(sub[:files].sort.to_h.to_s)
+         seen_paths["."] = true
+       end
+       # Then each top-level subdirectory is a sub-skill
+       Dir.glob("#{build_pkg_dir}/*/", File::FNM_DOTMATCH).each do |subdir_path|
+         subdir = Pathname.new(subdir_path)
+         next unless subdir.directory?
+         sub_name = subdir.basename.to_s
+         next if seen_paths[sub_name]  # skip if already added
+         # Collect all files in this sub-skill directory
+         sub_files = {}
+         Dir.glob("#{subdir}/**/*", File::FNM_DOTMATCH).each do |file_path|
+           file = Pathname.new(file_path)
+           next unless file.file?
+           rel_path = file.relative_path_from(build_pkg_dir).to_s
+           sub_files[rel_path] = Digest::SHA256.hexdigest(file.read)
+         end
+         # Compute aggregate SHA256 for the sub-skill (sort keys for determinism)
+         agg_sha = Digest::SHA256.hexdigest(sub_files.sort.to_h.to_s)
+         manifest[:sub_skills] << { path: sub_name, name: sub_name, sha256: agg_sha, files: sub_files }
+         seen_paths[sub_name] = true
+       end
       manifest_path = build_pkg_dir.join("manifest.json")
       manifest_path.write(JSON.pretty_generate(manifest))
-      log "    ✓ Skill-bundle manifest generated: #{manifest[:files].size} file(s)"
-      puts "    ✓ Skill-bundle manifest generated: #{manifest[:files].size} file(s)"
+      log "    ✓ Skill-bundle manifest generated: #{manifest[:sub_skills].size} sub-skill(s)"
+      puts "    ✓ Skill-bundle manifest generated: #{manifest[:sub_skills].size} sub-skill(s)"
 
       # Record in package index (no single checksum for bundle; use source_sha256 i.e. commit hash or nil)
       unless pkg_index[:available_targets].include?(platform_id)

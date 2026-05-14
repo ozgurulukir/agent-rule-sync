@@ -168,7 +168,25 @@ Options:
   --check          Verify installed state matches index (exit 0 if OK)
   --project PATH   Project root for project-level platforms (default: current dir)
   --force          Allow downgrades (overrides version check)
-  --verbose        Detailed logging
+  --select SKILLS  Comma-separated sub-skill names for skill-bundle (e.g. --select auth,sql)
+```
+
+**Examples**:
+```bash
+# Install all packages to user-level platform
+bin/ssot install opencode
+
+# Install to project-level platform
+bin/ssot install cursor --project .
+
+# Preview changes
+bin/ssot install opencode --dry-run
+
+# Install only specific sub-skills from a skill-bundle
+bin/ssot install golang-security --select auth,sql
+
+# Force downgrade
+bin/ssot install opencode --force
 ```
 
 **Examples**:

@@ -1,0 +1,37 @@
+# Build artifacts
+ssot/build/
+ssot/cache/
+
+# Index database (generated)
+ssot/index.yaml
+ssot/index.json
+
+# Log files
+ssot/build/*.log
+ssot/build/*.log.*
+
+# Temporary files
+*.tmp
+*.bak.*
+
+# Ruby
+*.rbc
+*.so
+*.o
+*.a
+*.lib
+*.dylib
+*.bundle
+/.bundle
+/log
+/tmp
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

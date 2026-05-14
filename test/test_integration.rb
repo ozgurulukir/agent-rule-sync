@@ -44,10 +44,17 @@ class TestBuildIntegration < Minitest::Test
     manifest_path = @build_dir.join('opencode', 'golang-security-bundle', 'manifest.json')
     if manifest_path.exist?
       manifest = JSON.parse(manifest_path.read)
-      assert manifest['files'], "Manifest should have files"
-      assert manifest['files'].any?, "Manifest should have at least one file"
+      assert manifest['sub_skills'], "Manifest should have sub_skills"
+      assert manifest['sub_skills'].any?, "Manifest should have at least one sub-skill"
       assert manifest['pkgname'], "Manifest should have pkgname"
       assert manifest['platform'], "Manifest should have platform"
+      # Verify each sub-skill has required fields
+      manifest['sub_skills'].each do |ss|
+        assert ss['path'], "Sub-skill should have path"
+        assert ss['name'], "Sub-skill should have name"
+        assert ss['sha256'], "Sub-skill should have sha256"
+        assert ss['files'], "Sub-skill should have files"
+      end
     else
       skip "No skill-bundle manifest found (golang-security-bundle may not be built)"
     end

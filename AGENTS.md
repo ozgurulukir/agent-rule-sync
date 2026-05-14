@@ -360,11 +360,60 @@ targets:
 - `source` can be `local` (directory path) or `git` (cloned repository)
 - For `git` source: `url`, `ref` (branch/tag/commit), `path` (subdir within repo), `depth` (optional) supported
 
+**Sub-skill Selection** (`--select`):
+Use `--select` to install only specific sub-skills from a bundle:
+
+```bash
+# Install only the "auth" sub-skill
+bin/ssot install golang-security --select auth
+
+# Install multiple sub-skills
+bin/ssot install golang-security --select auth,sql,xss
+
+# Install all sub-skills (default, no --select)
+bin/ssot install golang-security
+```
+
+Sub-skill names are the top-level directory names within the bundle (e.g., `auth/`, `sql-injection/`).
+
+**Manifest Format**:
+Build generates `manifest.json` with per-sub-skill checksums:
+
+```json
+{
+  "pkgname": "golang-security-bundle",
+  "platform": "cursor",
+  "generated_at": "2026-05-14T16:01:56Z",
+  "sub_skills": [
+    {
+      "path": "golang-security",
+      "name": "golang-security",
+      "sha256": "a38396e7...",
+      "files": {
+        "golang-security/SKILL.md": "df1f23e9..."
+      }
+    }
+  ]
+}
+```
+
 **Behavior**:
-- Build: Entire source directory is copied recursively to `ssot/build/<platform>/<pkgname>/`
-- Install: Contents are copied recursively to `<platform base_path>/<skills_dir>/<target_dir>/`
+- Build: Entire source directory is copied recursively to `ssot/build/<platform>/<pkgname>/`; manifest lists each top-level subdirectory as a sub-skill with per-file SHA256 checksums
+- Install: With `--select`, only the specified sub-skill directories are copied; without `--select`, all sub-skills are installed
 - Uninstall: Target directory tree is removed
 - Index: `output` recorded as `.`; no single-file checksum (directory checksum future work)
+
+**Meta-packages** (pacman-style):
+Group multiple related packages under a virtual meta-package using `depends`:
+
+```yaml
+pkgname: golang-security-all
+pkgdesc: All Go security skills (meta-package)
+depends:
+  - golang-security/auth
+  - golang-security/sql-injection
+  - golang-security/xss
+```
 
 **Supported Platforms**: Any `directory`-type platform with a `skills_dir` (OpenCode, Cursor, Windsurf, Claude Code). Not applicable to `skill` or `import` platforms.
 
