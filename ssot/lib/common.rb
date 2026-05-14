@@ -172,7 +172,11 @@ module Ssot
       # Returns the backup Pathname.
       def backup_index(index_path = SSOT_ROOT.join('index.yaml'))
         return nil unless index_path.exist?
-        backup_path = index_path.parent.join("#{index_path.basename}.bak.#{Time.now.strftime('%Y%m%dT%H%M%S')}")
+        # Use monotonic counter to ensure unique backup filenames even when called rapidly
+        @_backup_counter ||= 0
+        @_backup_counter += 1
+        ts = Time.now.utc.strftime('%Y%m%dT%H%M%S')
+        backup_path = index_path.parent.join("#{index_path.basename}.bak.#{ts}.#{@_backup_counter}")
         FileUtils.cp(index_path, backup_path)
         backup_path
       end
