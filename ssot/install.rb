@@ -229,6 +229,36 @@ if check_mode
          errors << "Skill-bundle directory missing: #{installed_path}"
        else
          log "  ✓ Skill-bundle directory: #{installed_path}"
+         # L4.4: Verify skill-bundle manifest in check mode
+         manifest_path = Pathname.new(installed_path).join("manifest.json")
+         if manifest_path.exist?
+           begin
+             manifest = JSON.parse(manifest_path.read)
+             mismatches = []
+             manifest["files"].each do |rel_path, expected_sha|
+               file_path = Pathname.new(installed_path).join(rel_path)
+               unless file_path.exist?
+                 mismatches << "missing: #{rel_path}"
+               else
+                 actual_sha = Digest::SHA256.hexdigest(file_path.read)
+                 unless actual_sha == expected_sha
+                   mismatches << "checksum mismatch: #{rel_path} (expected #{expected_sha[0..7]}, got #{actual_sha[0..7]})"
+                 end
+               end
+             end
+             if mismatches.empty?
+               log "  ✓ Skill-bundle manifest: #{manifest["files"].size} file(s) verified"
+             else
+               log_warn "Skill-bundle manifest: #{mismatches.size} issue(s)"
+               mismatches.each { |m| log_warn "    • #{m}" }
+               errors.concat(mismatches.map { |m| "#{pkgname}: #{m}" })
+             end
+           rescue => e
+             log_warn "Failed to read skill-bundle manifest: #{e.message}"
+           end
+         else
+           log_warn "No manifest.json found for #{pkgname}"
+         end
        end
        next  # skip checksum verification for bundles
      end
@@ -408,6 +438,35 @@ build_index[:packages].each do |pkgname, pkgdata|
            FileUtils.mkpath(dest_dir.parent)
            FileUtils.cp_r(build_src_dir, dest_dir)
            log "    ✓ Installed skill-bundle"
+           # L4.4: Verify skill-bundle manifest checksums
+           manifest_path = dest_dir.join("manifest.json")
+           if manifest_path.exist?
+             begin
+               manifest = JSON.parse(manifest_path.read)
+               mismatches = []
+               manifest["files"].each do |rel_path, expected_sha|
+                 file_path = dest_dir.join(rel_path)
+                 unless file_path.exist?
+                   mismatches << "missing: #{rel_path}"
+                 else
+                   actual_sha = Digest::SHA256.hexdigest(file_path.read)
+                   unless actual_sha == expected_sha
+                     mismatches << "checksum mismatch: #{rel_path} (expected #{expected_sha[0..7]}, got #{actual_sha[0..7]})"
+                   end
+                 end
+               end
+               if mismatches.empty?
+                 log "    ✓ Skill-bundle manifest verified: #{manifest["files"].size} file(s)"
+               else
+                 log_warn "Skill-bundle manifest verification: #{mismatches.size} mismatch(es)"
+                 mismatches.each { |m| log_warn "      • #{m}" }
+               end
+             rescue => e
+               log_warn "Failed to verify skill-bundle manifest: #{e.message}"
+             end
+           else
+             log_warn "No manifest.json found for #{pkgname} — skipping checksum verification"
+           end
          rescue => e
            log_error "Failed to install skill-bundle: #{e.message}"
            next

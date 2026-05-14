@@ -1,6 +1,6 @@
 {
   "version": 3.0,
-  "generated": "2026-05-14T14:52:41Z",
+  "generated": "2026-05-14T15:03:02Z",
   "packages": {
     "example-custom-transform": {
       "pkgver": "1.0.0",
@@ -10,7 +10,33 @@
       "order": 0,
       "status": "stable",
       "installed": [
-
+        {
+          "platform": "opencode",
+          "version": "1.0.0",
+          "pkgrel": 1,
+          "epoch": 0,
+          "output": "example-header.md",
+          "checksum": "85a1b121dd82fbf0a828e12834da068ddeaf115fcd926b8dc2092f03462399f6",
+          "installed_at": "2026-05-14T14:52:47Z"
+        },
+        {
+          "platform": "opencode",
+          "version": "1.0.0",
+          "pkgrel": 1,
+          "epoch": 0,
+          "output": "example-clean.md",
+          "checksum": "ca527648d902f7c3569299b22cf05b36406e2d66ef7449213dc7f179b778d277",
+          "installed_at": "2026-05-14T14:52:47Z"
+        },
+        {
+          "platform": "opencode",
+          "version": "1.0.0",
+          "pkgrel": 1,
+          "epoch": 0,
+          "output": "example-formatted.md",
+          "checksum": "551940d87dce12d7aadc49b82472e023169109a0e7e74bccf2d021eb945e241f",
+          "installed_at": "2026-05-14T14:52:47Z"
+        }
       ],
       "available_targets": [
         "opencode"
@@ -31,6 +57,7 @@
       "checksums": {
         "source": "551940d87dce12d7aadc49b82472e023169109a0e7e74bccf2d021eb945e241f",
         "built": {
+          "opencode": "551940d87dce12d7aadc49b82472e023169109a0e7e74bccf2d021eb945e241f",
           "opencode": "551940d87dce12d7aadc49b82472e023169109a0e7e74bccf2d021eb945e241f"
         }
       },
@@ -63,7 +90,15 @@
       "order": 10,
       "status": "stable",
       "installed": [
-
+        {
+          "platform": "opencode",
+          "version": "1.0.0",
+          "pkgrel": 1,
+          "epoch": 0,
+          "output": ".",
+          "checksum": null,
+          "installed_at": "2026-05-14T14:52:47Z"
+        }
       ],
       "available_targets": [
         "opencode",
@@ -88,12 +123,16 @@
         "audit"
       ],
       "checksums": {
-        "source": "6cda62ec2e4fc155c406b68666034d8bc96f7395",
+        "source": "7d33aac1bf231440df6a0a2405d9c161b8021023",
         "built": {
           "opencode": "6cda62ec2e4fc155c406b68666034d8bc96f7395",
           "cursor": "6cda62ec2e4fc155c406b68666034d8bc96f7395",
           "windsurf": "6cda62ec2e4fc155c406b68666034d8bc96f7395",
-          "claude-code": "6cda62ec2e4fc155c406b68666034d8bc96f7395"
+          "claude-code": "6cda62ec2e4fc155c406b68666034d8bc96f7395",
+          "opencode": "7d33aac1bf231440df6a0a2405d9c161b8021023",
+          "cursor": "7d33aac1bf231440df6a0a2405d9c161b8021023",
+          "windsurf": "7d33aac1bf231440df6a0a2405d9c161b8021023",
+          "claude-code": "7d33aac1bf231440df6a0a2405d9c161b8021023"
         }
       },
       "targets": [
@@ -139,7 +178,7 @@
         }
       ],
       "source_dir": "/home/aristo/Projects/agent-rule-sync/ssot/build/git-sources/golang-security-bundle",
-      "source_sha256": "6cda62ec2e4fc155c406b68666034d8bc96f7395"
+      "source_sha256": "7d33aac1bf231440df6a0a2405d9c161b8021023"
     },
     "memory": {
       "pkgver": "1.0.0",
@@ -149,7 +188,15 @@
       "order": 0,
       "status": "stable",
       "installed": [
-
+        {
+          "platform": "opencode",
+          "version": "1.0.0",
+          "pkgrel": 1,
+          "epoch": 0,
+          "output": "00-memory.md",
+          "checksum": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
+          "installed_at": "2026-05-14T14:52:47Z"
+        }
       ],
       "available_targets": [
         "opencode",
@@ -181,6 +228,17 @@
       "checksums": {
         "source": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
         "built": {
+          "opencode": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
+          "gemini-cli": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
+          "qwen-code": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
+          "crush": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
+          "goose": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
+          "droid": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
+          "cursor": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
+          "windsurf": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
+          "github-copilot": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
+          "claude-code": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
+          "codex": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
           "opencode": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
           "gemini-cli": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
           "qwen-code": "5cf17063ab40aac15d8dfc2708a6526b283997485922b6c095665b176e1e53b7",
@@ -292,7 +350,15 @@
       "order": 1,
       "status": "stable",
       "installed": [
-
+        {
+          "platform": "opencode",
+          "version": "1.0.0",
+          "pkgrel": 1,
+          "epoch": 0,
+          "output": "01-shell.md",
+          "checksum": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
+          "installed_at": "2026-05-14T14:52:47Z"
+        }
       ],
       "available_targets": [
         "opencode",
@@ -324,6 +390,17 @@
       "checksums": {
         "source": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
         "built": {
+          "opencode": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
+          "gemini-cli": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
+          "qwen-code": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
+          "crush": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
+          "goose": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
+          "droid": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
+          "cursor": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
+          "windsurf": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
+          "github-copilot": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
+          "claude-code": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
+          "codex": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
           "opencode": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
           "gemini-cli": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
           "qwen-code": "2045db7ac114beb48b820f240b3824c29135579da648ef837229ee05d521ab57",
@@ -435,7 +512,15 @@
       "order": 2,
       "status": "stable",
       "installed": [
-
+        {
+          "platform": "opencode",
+          "version": "0.1.0",
+          "pkgrel": 1,
+          "epoch": 0,
+          "output": "SKILL.md",
+          "checksum": "f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143",
+          "installed_at": "2026-05-14T14:52:47Z"
+        }
       ],
       "available_targets": [
         "opencode",
@@ -464,6 +549,13 @@
       "checksums": {
         "source": "850938f20f6915e7c3688d85c0a838f7909c87bb",
         "built": {
+          "opencode": "f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143",
+          "cursor": "f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143",
+          "windsurf": "f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143",
+          "claude-code": "f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143",
+          "crush": "f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143",
+          "goose": "f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143",
+          "droid": "f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143",
           "opencode": "f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143",
           "cursor": "f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143",
           "windsurf": "f68c3f16effd69264f9836c511339e31469e89e6bad37f313c30f4626bd05143",

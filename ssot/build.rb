@@ -312,6 +312,22 @@ pkgbuilds.each do |pkgbuild_path|
       log "    ✓ Built skill-bundle (directory copied)"
       puts "    ✓ Built skill-bundle (directory copied)"
 
+      # ─── L4.4 Skill-bundle manifest ─────────────────────────────────────────────
+      # Generate per-file SHA256 checksums for integrity verification
+      manifest = { files: {}, generated_at: Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ"), pkgname: pkgname.to_s, platform: platform_id.to_s }
+      Dir.glob("#{build_pkg_dir}/**/*", File::FNM_DOTMATCH).each do |file_path|
+        file = Pathname.new(file_path)
+        next unless file.file?
+        # Skip the manifest file itself
+        next if file.basename.to_s == "manifest.json"
+        rel_path = file.relative_path_from(build_pkg_dir).to_s
+        manifest[:files][rel_path] = Digest::SHA256.hexdigest(file.read)
+      end
+      manifest_path = build_pkg_dir.join("manifest.json")
+      manifest_path.write(JSON.pretty_generate(manifest))
+      log "    ✓ Skill-bundle manifest generated: #{manifest[:files].size} file(s)"
+      puts "    ✓ Skill-bundle manifest generated: #{manifest[:files].size} file(s)"
+
       # Record in package index (no single checksum for bundle; use source_sha256 i.e. commit hash or nil)
       unless pkg_index[:available_targets].include?(platform_id)
         pkg_index[:available_targets] << platform_id

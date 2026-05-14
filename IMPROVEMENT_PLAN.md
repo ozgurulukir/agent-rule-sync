@@ -328,14 +328,26 @@
 - **Files**: `ssot/lib/common.rb` (backup/restore/cleanup), `ssot/install.rb` (transaction wrapper).
 - **Impact**: Install is now fully atomic — either all packages succeed or index is restored to pre-transaction state.
 
-### L4.4 Skill-bundle Manifest
-**Status**: ⏳ PENDING
-**Date**: TBD
+### ✅ L4.4 Skill-bundle Manifest
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
 
-**Slop**: Directory checksum yok → content doğrulanamıyor.
-- **Plan**: `manifest.json` yaz inside build dir with per-file SHA256.
-- **Files**: `ssot/build.rb`, `ssot/install.rb` (verify)
-- **Impact**: Integrity verification for skill-bundle deployments.
+**Slop**: Skill-bundle kopyalandıktan sonra content doğrulanamıyor — checksum yok.
+- **Fix**:
+  - Build phase (`ssot/build.rb`): skill-bundle kopyalandıktan sonra `manifest.json` oluşturulur — her dosya için SHA256 checksum'ı kaydedilir.
+  - Install phase (`ssot/install.rb`): Kopyalandıktan sonra manifest okunur, her dosyanın checksum'ı doğrulanır, mismatch durumunda uyarı verilir.
+  - Check phase (`ssot/install.rb --check`): Manifest okunur, her dosya için checksum ve varlık doğrulanır, sorunlar `errors` array'ine eklenir.
+- **Files**: `ssot/build.rb` (manifest generation), `ssot/install.rb` (install verification + check-mode verification).
+- **Manifest format**:
+  ```json
+  {
+    "files": { "SKILL.md": "sha256hex", ... },
+    "generated_at": "2026-05-14T...",
+    "pkgname": "golang-security-bundle",
+    "platform": "opencode"
+  }
+  ```
+- **Impact**: Skill-bundle deployments have full integrity verification — tampered or missing files are detected at install and check time.
 
 ### L4.5 Cache Invalidation & TTL
 **Status**: ⏳ PENDING
@@ -386,7 +398,7 @@
 17. ✅ M3.2 Query tool orphans/depends/provides
 18. L4.1 Test suite
 19. ✅ L4.3 Transaction rollback (backup + restore)
-20. L4.4 Skill-bundle manifest
+20. ✅ L4.4 Skill-bundle manifest
 
 ---
 
@@ -401,4 +413,4 @@
 ---
 
 **Last Updated**: 2026-05-14 (Priority 0, 1 & 2 completed)
-**Status**: In Progress (P0.1-P0.4 done; P1.1-P1.5 done; P2.1, P2.3, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred; M3.1 done; M3.2 done; M3.3 done; L4.3 done; L4.1, L4.2, L4.4, L4.5, L4.6 pending)
+**Status**: In Progress (P0.1-P0.4 done; P1.1-P1.5 done; P2.1, P2.3, P2.4, P2.5, P2.6, P2.7 done; P2.2 deferred; M3.1 done; M3.2 done; M3.3 done; L4.3 done; L4.4 done; L4.1, L4.2, L4.5, L4.6 pending)
