@@ -4,6 +4,9 @@ Package-based Single Source of Truth management for AI agent rules and skills.
 
 ## What Is This?
 
+> "The PKGBUILD — an elegant manifest for a more civilized age."
+> This project adapts that philosophy to coding agent rules and skill management.
+
 A **PKGBUILD-inspired package manager** for agent rules and skills:
 
 - **Package format**: Each rule/skill is a package with a `PKGBUILD` descriptor
@@ -26,10 +29,15 @@ bin/ssot aggregate  # or: ruby ssot/aggregate-skills.rb
 # Install to a user-level platform
 bin/ssot install opencode          # real install
 bin/ssot install opencode --dry-run  # preview
+bin/ssot install --all --dry-run    # preview install to all platforms
+bin/ssot install --targets memory   # show target platforms for a package
 
 # Install to a project-level platform (run from project root)
 bin/ssot install cursor --project .   # install to current project
 bin/ssot install cursor --project ~/projects/myapp
+
+# Verify installed state
+bin/ssot check opencode
 
 # Uninstall from a platform
 bin/ssot uninstall opencode         # user-level
@@ -45,8 +53,11 @@ bin/ssot search security
 
 ```
 agent-rule-sync/
-├── ssot/
-│   ├── packages/           # Package definitions (each has PKGBUILD + src/)
+├── ssot/                           # Single Source of Truth root
+│   ├── lib/                        # Library modules
+│   │   ├── common.rb               # Shared utilities (version, cache, fetch, validate)
+│   │   └── install.rb              # Installer library (modular API)
+│   ├── packages/                   # Package definitions (each has PKGBUILD + src/)
 │   │   ├── memory/PKGBUILD
 │   │   │   └── src/00-memory.md
 │   │   ├── shell/PKGBUILD
@@ -56,7 +67,7 @@ agent-rule-sync/
 │   ├── transformers/       # Custom transformer scripts
 │   ├── build.rb            # Build orchestrator
 │   ├── aggregate-skills.rb # Vendor skill aggregator
-│   ├── install.rb          # Platform installer
+│   ├── install.rb          # Platform installer (CLI entry point — delegates to lib/install.rb)
 │   ├── uninstall.rb        # Platform uninstaller
 │   ├── query.rb            # Package database queries
 │   ├── index.yaml          # Master package database

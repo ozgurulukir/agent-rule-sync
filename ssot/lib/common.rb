@@ -13,6 +13,9 @@ module Ssot
       SSOT_ROOT = Pathname.new(__dir__).expand_path.join('..').cleanpath
       BUILD_DIR = SSOT_ROOT.join('build')
       BUILD_INDEX_PATH = BUILD_DIR.join('index.yaml')
+      INDEX_YAML_PATH = SSOT_ROOT.join('index.yaml')
+      INDEX_JSON_PATH = SSOT_ROOT.join('index.json')
+      LOG_PATH = BUILD_DIR.join('install.log')
 
       module_function
 

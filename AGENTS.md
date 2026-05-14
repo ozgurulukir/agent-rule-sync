@@ -85,7 +85,7 @@ See [Platforms](docs/agents/PLATFORMS.md) for full details.
 
 2. **Aggregate** (`ssot/aggregate-skills.rb`) — For skill-based agents (Crush, Goose, Droid), collect rule fragments and common/agent-specific skills, concatenate into a single vendored skill file per agent under `ssot/build/<agent>/skills/vendor/`.
 
-3. **Install** (`ssot/install.rb <platform> [--dry-run]`) — Read `ssot/index.yaml`, for each package built for target platform, install via symlink/copy/inject/append depending on format and platform registry. Update `ssot/index.yaml` with installed state.
+3. **Install** (`ssot/install.rb <platform> [--dry-run]`) — Read `ssot/index.yaml`, for each package built for target platform, install via symlink/copy/inject/append depending on format and platform registry. Update `ssot/index.yaml` with installed state. Supports `--all` (all platforms), `--targets <pkg>` (show targets), `--check` (verify), `--dry-run`, `--force`, `--select`.
 
 4. **Query** (`ssot/query.rb`) — Inspect package database: list packages, show details, search, check installed status.
 
@@ -198,6 +198,15 @@ ruby ssot/build.rb && ruby ssot/aggregate-skills.rb && ruby ssot/install.rb open
 
 # Preview without changes
 ruby ssot/install.rb opencode --dry-run
+
+# Install to all platforms
+ruby ssot/install.rb --all --dry-run
+
+# Show which platforms a package targets
+ruby ssot/install.rb --targets memory
+
+# Verify installed state
+ruby ssot/check opencode
 
 # Uninstall from a platform
 ruby ssot/uninstall.rb opencode
@@ -594,10 +603,11 @@ See `ssot/transformers/` for implementations.
 | `ssot/platforms/` | Platform format profiles (informational — heading style, bullet style, content expectations) |
 | `ssot/translators/` | Custom translator scripts (translate step — content format conversion) |
 | `ssot/transformers/` | Custom transformer scripts (transform step — structural changes) |
+| `ssot/lib/` | Library modules (`common.rb`, `install.rb`) |
 | `ssot/build.rb` | Build orchestrator (translate → transform → write) |
 | `ssot/translate.rb` | Standalone translator runner (CLI) |
 | `ssot/aggregate-skills.rb` | Vendor skill aggregation |
-| `ssot/install.rb` | Platform installer |
+| `ssot/install.rb` | Platform installer (CLI entry point — delegates to `ssot/lib/install.rb`) |
 | `ssot/uninstall.rb` | Platform uninstaller |
 | `ssot/query.rb` | Package database query tool |
 | `ssot/index.yaml` | Master package database |
@@ -695,7 +705,7 @@ To migrate:
 | **Transform layer** | ✅ | Built-in (`copy`, `strip-frontmatter`) + custom (`custom:<path>`) |
 | **Platform registry** | ✅ | 12 platforms + shared `agents` platform in `platforms.yaml` |
 | **Platform format profiles** | ✅ | 13 YAML profiles (informational for LLM reference) |
-| **Install** (`install.rb`) | ✅ | Per-platform install, upgrade/downgrade logic, `--dry-run`, `--force`, `--select` |
+| **Install** (`install.rb`) | ✅ | Per-platform install, upgrade/downgrade logic, `--dry-run`, `--force`, `--select`; modular lib/install.rb |
 | **Uninstall** (`install.rb`) | ✅ | Idempotent, re-aggregates vendor skills, dry-run |
 | **Transaction atomicity** | ✅ | Backup/restore/cleanup on install failure |
 | **Build cache** | ✅ | Content-addressed (URL by SHA256, git by commit hash) |
@@ -706,6 +716,7 @@ To migrate:
 | **Index** | ✅ | YAML + JSON, atomic writes, legacy migration |
 | **Test suite** | ✅ | 172 tests, 419 assertions, 0 failures (test_common, test_integration, test_cache, test_pkgbuild, test_platform, test_uninstall) |
 | **Standalone scripts** | ✅ | `build.rb`, `install.rb`, `uninstall.rb`, `query.rb`, `aggregate-skills.rb`, `translate.rb` |
+| **Modular install.rb** | ✅ | Library layer (`ssot/lib/install.rb`, `ssot/lib/common.rb`), `--all`, `--targets <pkg>`, `--check <platform>` |
 
 ### In Progress / Partial
 
