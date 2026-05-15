@@ -18,6 +18,8 @@ Complete reference for all supported agent platforms, their configuration locati
 | [GitHub Copilot](#github-copilot) | project | import | `.github/copilot-instructions.md` | `ruby ssot/install.rb github-copilot --project .` |
 | [Claude Code](#claude-code) | project | directory | `.claude/rules/` + `CLAUDE.md` | `ruby ssot/install.rb claude-code --project .` |
 | [Codex CLI](#codex-cli) | project | skill | `AGENTS.md` | `ruby ssot/install.rb codex --project .` |
+| [Antigravity](#antigravity) | project | directory | `.agent/skills/` | `ruby ssot/install.rb antigravity --project .` |
+| [Agents](#agents) | user | directory | `~/.config/agents/rules/` | `ruby ssot/install.rb agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
@@ -212,6 +214,30 @@ Complete reference for all supported agent platforms, their configuration locati
 
 ---
 
+### Antigravity
+
+- **Type**: directory
+- **Scope**: project
+- **Base path**: project root (`.`)
+- **Skills dir**: `.agent/skills/`
+- **Install method**: copy (skill-bundle)
+- **Skills**: antigravity-skills (306 sub-skills from `github.com/rmyndharis/antigravity-skills`)
+- **SSoT integration**: `ruby ssot/install.rb antigravity --project .` → copies skill-bundle to `.agent/skills/antigravity-skills/`
+
+---
+
+### Agents
+
+- **Type**: directory
+- **Scope**: user
+- **Base path**: `~/.config/agents/`
+- **Rules dir**: `rules/`
+- **Skills dir**: `skills/`
+- **Install method**: symlink for rules, copy for skills
+- **SSoT integration**: `ruby ssot/install.rb agents` → symlinks/copies to `~/.config/agents/rules/` and `~/.config/agents/skills/`
+
+---
+
 ## Platform Registry Schema
 
 Platforms are defined in `ssot/registry/platforms.yaml`:
@@ -299,7 +325,7 @@ Files are placed in a directory (`rules/` or `skills/`) as individual markdown f
 - **Skills**: go to `skills_dir` (e.g., `skills/vibe-security.md`)
 - **Install**: typically `symlink` for rules (space-efficient, auto-update), `copy` for skills
 
-**Agents**: OpenCode, Oh My Pi, Cursor, Windsurf, Claude Code
+**Agents**: OpenCode, Oh My Pi, Cursor, Windsurf, Claude Code, Antigravity, Agents
 
 ### import
 

@@ -58,7 +58,16 @@ bin/ssot search security
 agent-rule-sync/
 ├── ssot/                           # Single Source of Truth root
 │   ├── lib/                        # Library modules
-│   │   ├── common.rb               # Shared utilities (version, cache, fetch, validate, logging, config, timing)
+│   │   ├── common.rb               # Constants, Config, basic IO utilities
+│   │   ├── logging.rb              # Logging (log, log_error, log_warn, log_debug, time)
+│   │   ├── cache.rb                # Cache key, dir, fetch, source caching
+│   │   ├── backup.rb               # Index backup/restore/cleanup
+│   │   ├── version.rb              # Version comparison (format_version, compare_versions, vercmp)
+│   │   ├── source.rb               # Source fetching (git clone, URL fetch, local read)
+│   │   ├── transform.rb            # Transform/translate pipeline (apply_transformer, apply_translator)
+│   │   ├── validation.rb           # PKGBUILD validation, output path validation
+│   │   ├── platform.rb             # Platform registry, path resolution, manifest generation
+│   │   ├── uninstall.rb            # Uninstall logic (uninstall_packages, migrate_installed_records)
 │   │   └── install.rb              # Installer library (modular API)
 │   ├── packages/                   # Package definitions (each has PKGBUILD + src/)
 │   │   ├── memory/PKGBUILD
@@ -224,6 +233,7 @@ depends:
 | Claude Code | directory | project | `.claude/rules/` | [Claude Code](docs/agents/agents/claude-code.md) |
 | Codex CLI | skill | project | `AGENTS.md` | [Codex CLI](docs/agents/agents/codex.md) |
 | Antigravity | directory | project | `.agent/skills/` | [Antigravity](docs/agents/agents/antigravity.md) |
+| Agents | directory | user | `~/.config/agents/` | [Agents](docs/agents/agents/agents.md) |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
@@ -301,22 +311,30 @@ The system validates:
 Run the automated test suite with `rake test` (Minitest):
 
 ```bash
-rake test              # All tests (172 tests, 427 assertions)
+rake test              # All tests (202 tests, 663 assertions)
 rake test_unit         # Unit tests only (48 tests)
 rake test_integration  # Integration tests only (29 tests)
 rake test_cache        # Cache tests (24 tests)
-rake test_pkgbuild     # PKGBUILD validation tests (23 tests)
-rake test_platform     # Platform registry tests (22 tests)
+rake test_pkgbuild     # PKGBUILD validation tests (31 tests)
+rake test_platform     # Platform registry tests (33 tests)
 rake test_uninstall    # Uninstall tests (7 tests)
+rake test_query        # Query tests (16 tests)
+rake test_translate    # Translate tests (4 tests)
+rake test_aggregate    # Aggregate tests (4 tests)
+rake test_e2e          # End-to-end pipeline tests (14 tests)
 ```
 
-**Test coverage** (172 tests, 427 assertions, 0 failures):
+**Test coverage** (202 tests, 663 assertions, 0 failures):
 - **test_common.rb** (48): version comparison, format_version, filename/dir validation, user path expansion, frontmatter stripping
 - **test_integration.rb** (29): build index, skill-bundle manifest (6 tests), version comparison, schema migration, transaction rollback, cache integration
 - **test_cache.rb** (24): cache key generation, cache dir, source_cached?, cache_source, get_cached_source, fetch errors
-- **test_pkgbuild_validation.rb** (23): load_pkgbuild, validate_pkgbuild (valid + all invalid field types)
-- **test_platform.rb** (22): platform registry, path resolution, safe_relative, prerequisites
+- **test_pkgbuild_validation.rb** (31): load_pkgbuild, validate_pkgbuild (valid + all invalid field types)
+- **test_platform.rb** (33): platform registry, path resolution, safe_relative, prerequisites
 - **test_uninstall.rb** (7): index mutation, dry-run, dedup, disk write verification
+- **test_query.rb** (16): list, show, search, installed, check, orphans, depends, provides
+- **test_translate.rb** (4): translator loading, apply_translator
+- **test_aggregate.rb** (4): skill agent detection, vendor file creation
+- **test_end_to_end.rb** (14): build → install → check → uninstall across all platform types
 
 ## Version Management & Upgrades
 

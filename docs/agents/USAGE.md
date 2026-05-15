@@ -54,6 +54,9 @@ bin/ssot install droid
 # Import agents (inject @import lines)
 bin/ssot install gemini-cli
 bin/ssot install qwen-code
+
+# Community agents
+bin/ssot install agents
 ```
 
 ### Project-Level Platforms
@@ -69,6 +72,7 @@ bin/ssot install windsurf
 bin/ssot install github-copilot
 bin/ssot install claude-code
 bin/ssot install codex
+bin/ssot install antigravity
 
 # Or specify explicit project path
 bin/ssot install cursor --project /path/to/project
@@ -111,7 +115,7 @@ bin/ssot check opencode
 
 ```bash
 # Install to all user-level platforms
-for p in opencode oh-my-pi crush goose droid gemini-cli qwen-code; do
+for p in opencode oh-my-pi crush goose droid gemini-cli qwen-code agents; do
   bin/ssot install $p
 done
 

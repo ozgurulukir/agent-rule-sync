@@ -20,7 +20,7 @@ This repository implements a **Single Source of Truth (SSoT)** management system
 
 ---
 
-## Supported Platforms (13 agents)
+## Supported Platforms (14 agents)
 
 | Agent | Type | Scope | Config Location | Install Command |
 |-------|------|-------|-----------------|-----------------|
@@ -37,6 +37,7 @@ This repository implements a **Single Source of Truth (SSoT)** management system
 | [Claude Code](docs/agents/agents/claude-code.md) | directory | project | `.claude/rules/` | `bin/ssot install claude-code --project .` |
 | [Codex CLI](docs/agents/agents/codex.md) | skill | project | `AGENTS.md` | `bin/ssot install codex --project .` |
 | [Antigravity](docs/agents/agents/antigravity.md) | directory | project | `.agent/skills/` | `bin/ssot install antigravity --project .` |
+| [Agents](docs/agents/agents/agents.md) | directory | user | `~/.config/agents/rules/` | `bin/ssot install agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
@@ -182,7 +183,7 @@ See [PKGBUILD Format](#pkgbuild-format) above for all available fields, source t
 
 ### 4. Choose target platforms
 
-Refer to the [Supported Platforms](#supported-platforms-12-agents) table to pick platforms. Each target entry in PKGBUILD maps to one platform:
+Refer to the [Supported Platforms](#supported-platforms-14-agents) table to pick platforms. Each target entry in PKGBUILD maps to one platform:
 
 | Platform type | format | output | install.type |
 |--------------|--------|--------|-------------|
@@ -723,7 +724,7 @@ See `ssot/transformers/` for implementations.
 | `ssot/platforms/` | Platform format profiles (informational — heading style, bullet style, content expectations) |
 | `ssot/translators/` | Custom translator scripts (translate step — content format conversion) |
 | `ssot/transformers/` | Custom transformer scripts (transform step — structural changes) |
-| `ssot/lib/` | Library modules (`common.rb`, `install.rb`) — shared logging, config, timing |
+| `ssot/lib/` | Library modules — `common.rb` (constants/Config/IO), `install.rb`, plus `logging.rb`, `cache.rb`, `backup.rb`, `version.rb`, `source.rb`, `transform.rb`, `validation.rb`, `platform.rb`, `uninstall.rb` |
 | `ssot/build.rb` | Build orchestrator (translate → transform → write) |
 | `ssot/translate.rb` | Standalone translator runner (CLI) |
 | `ssot/aggregate-skills.rb` | Vendor skill aggregation |
@@ -743,16 +744,20 @@ See `ssot/transformers/` for implementations.
 Run the full test suite with `rake test` (Minitest):
 
 ```bash
-rake test              # All tests (172 tests)
+rake test              # All tests (202 tests, 663 assertions)
 rake test_unit         # Unit tests only (48 tests)
 rake test_integration  # Integration tests only (29 tests)
 rake test_cache        # Cache tests (24 tests)
-rake test_pkgbuild     # PKGBUILD validation tests (23 tests)
-rake test_platform     # Platform registry tests (22 tests)
+rake test_pkgbuild     # PKGBUILD validation tests (31 tests)
+rake test_platform     # Platform registry tests (33 tests)
 rake test_uninstall    # Uninstall tests (7 tests)
+rake test_query        # Query tests (16 tests)
+rake test_translate    # Translate tests (4 tests)
+rake test_aggregate    # Aggregate tests (4 tests)
+rake test_e2e          # End-to-end pipeline tests (14 tests)
 ```
 
-**Test coverage** (172 tests, 427 assertions, 0 failures, 0 errors):
+**Test coverage** (202 tests, 663 assertions, 0 failures, 0 errors):
 
 | File | Tests | Coverage |
 |------|-------|----------|
@@ -762,6 +767,10 @@ rake test_uninstall    # Uninstall tests (7 tests)
 | `test/test_pkgbuild_validation.rb` | 31 | `load_pkgbuild` (valid, missing file/fields, invalid formats), `validate_pkgbuild` (valid, all invalid fields, nil guards, skill-bundle constraints) |
 | `test/test_platform.rb` | 33 | Platform registry loading/validation, `platform_config` lookup, `resolve_install_path` (all types), `safe_relative`, `build_dir_for_platform`, `check_prerequisites` |
 | `test/test_uninstall.rb` | 7 | Index mutation (in-place removal, dry-run safety, dedup), disk write verification, skip-not-installed |
+| `test/test_query.rb` | 16 | list, show, search, installed, check, orphans, depends, provides |
+| `test/test_translate.rb` | 4 | Translator loading, apply_translator |
+| `test/test_aggregate.rb` | 4 | Skill agent detection, vendor file creation |
+| `test/test_end_to_end.rb` | 14 | Build → install → check → uninstall across all platform types |
 
 ### Manual Validation
 
@@ -834,7 +843,7 @@ To migrate:
 | **Version management** | ✅ | pacman-style epoch:pkgver-pkgrel, compare/upgrade/downgrade |
 | **Query tool** | ✅ | list, show, search, installed, check, orphans, depends, provides |
 | **Index** | ✅ | YAML + JSON, atomic writes, legacy migration |
-| **Test suite** | ✅ | 172 tests, 427 assertions, 0 failures (test_common, test_integration, test_cache, test_pkgbuild, test_platform, test_uninstall) |
+| **Test suite** | ✅ | 202 tests, 663 assertions, 0 failures (test_common, test_integration, test_cache, test_pkgbuild, test_platform, test_uninstall, test_query, test_translate, test_aggregate, test_end_to_end) |
 | **Standalone scripts** | ✅ | `build.rb`, `install.rb`, `uninstall.rb`, `query.rb`, `aggregate-skills.rb`, `translate.rb` |
 | **Modular install.rb** | ✅ | Library layer (`ssot/lib/install.rb`, `ssot/lib/common.rb`), `--all`, `--targets <pkg>`, `--check <platform>` |
 | **Unified logging** | ✅ | `Ssot::Lib::Common.log*` shared across build.rb, install.rb, uninstall.rb — level filtering via `$LOG_LEVEL` |
@@ -843,6 +852,7 @@ To migrate:
 | **Performance timing** | ✅ | `Ssot::Lib::Common.time` helper + `--timing` flag — per-package build timing |
 | **Error messages** | ✅ | All 11+ key error messages include actionable guidance ("what + how to fix") |
 | **DRY project_root_for** | ✅ | Extracted to `Ssot::Lib::Common`, both install.rb and uninstall.rb delegate |
+| **Ruby syntax warnings** | ✅ | All Ruby files pass `ruby -wc` with zero warnings |
 
 ### In Progress / Partial
 

@@ -30,13 +30,22 @@ your-project/
 │   │   └── ...
 │   ├── registry/
 │   │   └── platforms.yaml           # Platform definitions (type, paths, install methods)
+│   ├── lib/                         # Library modules
+│   │   ├── common.rb                # Constants, Config, basic IO
+│   │   ├── logging.rb, cache.rb, backup.rb, version.rb
+│   │   ├── source.rb, transform.rb, validation.rb
+│   │   ├── platform.rb, uninstall.rb, install.rb
+│   ├── translators/                 # Custom translator scripts
+│   │   └── rule-to-skill.rb
 │   ├── transformers/                # Custom transformer scripts
 │   │   ├── add-header.rb
 │   │   ├── strip-comments.rb
 │   │   └── format-code.rb
+│   ├── platforms/                   # Platform format profiles (informational)
+│   │   ├── opencode.yaml, crush.yaml, goose.yaml ...
 │   ├── build.rb                     # Build orchestrator
 │   ├── aggregate-skills.rb          # Vendor skill aggregation
-│   ├── install.rb                   # Platform installer
+│   ├── install.rb                   # Platform installer (CLI)
 │   ├── uninstall.rb                 # Platform uninstaller
 │   ├── query.rb                     # Package database queries
 │   ├── index.yaml                   # Master package DB (installed state + metadata)
@@ -85,6 +94,7 @@ Global configuration stored in the user's home directory, applies across all pro
 | Droid | skill | `~/.config/droid/` | Single skill file (AGENTS.md) |
 | Gemini CLI | import | `~/.config/gemini/` | `@import` lines in GEMINI.md |
 | Qwen Code | import | `~/.config/qwen/` | `@import` lines in QWEN.md |
+| Agents | directory | `~/.config/agents/` | Symlinked rule files |
 
 ### Project-Level Platforms
 
@@ -97,6 +107,7 @@ Configuration stored in the project repository, version-controlled alongside cod
 | GitHub Copilot | import | `.` → `.github/` | Separate instruction file |
 | Claude Code | directory | `.` → `.claude/rules/` | Symlinked rule files |
 | Codex CLI | skill | `.` → `AGENTS.md` | Single skill file |
+| Antigravity | directory | `.` → `.agent/skills/` | Skill-bundle directory |
 
 > **Key difference**: User-level platforms install to fixed paths in `$HOME`. Project-level platforms require `--project PATH` flag during install/uninstall, and paths are resolved relative to the project root.
 

@@ -8,7 +8,7 @@ Tracking of upstream rule and skill sources for this SSoT installation.
 |------|--------|------|------|-------------|
 | memory | Original workstation | local | `ssot/packages/memory/src/` | copy |
 | shell | Original workstation | local | `ssot/packages/shell/src/` | copy |
-| vibe-security | raroque/vibe-security-skill | url | `https://github.com/raroque/vibe-security-skill/raw/main/SKILL.md` | copy |
+| vibe-security | raroque/vibe-security-skill | git | `https://github.com/raroque/vibe-security-skill.git` (vibe-security/SKILL.md) | copy |
 
 **Note**: In the PKGBUILD system, upstream sources are declared per-package in the `source:` field. There is no central `schema.yaml` sources section.
 

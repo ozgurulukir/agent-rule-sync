@@ -278,6 +278,7 @@ Available profiles:
 - `ssot/platforms/qwen-code.yaml`
 - `ssot/platforms/github-copilot.yaml`
 - `ssot/platforms/droid.yaml`
+- `ssot/platforms/antigravity.yaml`
 - `ssot/platforms/agents.yaml`
 
 ---
@@ -452,7 +453,7 @@ depends:
 
 ## Version Comparison
 
-The system uses a pacman-inspired version comparison algorithm (`compare_versions` in `lib/common.rb`):
+The system uses a pacman-inspired version comparison algorithm (`compare_versions` in `lib/version.rb`):
 
 - **Components**: `epoch`, `pkgver`, `pkgrel`
 - **Comparison order**: epoch → pkgver (alphanumeric segments) → pkgrel (integer)
