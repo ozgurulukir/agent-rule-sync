@@ -1,0 +1,67 @@
+---
+pkgname: cc-skills-golang
+pkgver: '2026.05'
+pkgrel: 1
+epoch: 0
+pkgdesc: Claude Code skills for production-ready Go development — 40+ skills covering security, performance, testing, concurrency, database, and more
+arch: any
+order: 10
+
+source:
+  - type: git
+    url: https://github.com/samber/cc-skills-golang.git
+    ref: main
+    path: skills/
+    depth: 1
+
+targets:
+  - platform: opencode
+    format: skill-bundle
+    output: .
+    transformer: copy
+    install:
+      type: copy
+      target_dir: cc-skills-golang/
+  - platform: cursor
+    format: skill-bundle
+    output: .
+    transformer: copy
+    install:
+      type: copy
+      target_dir: cc-skills-golang/
+  - platform: windsurf
+    format: skill-bundle
+    output: .
+    transformer: copy
+    install:
+      type: copy
+      target_dir: cc-skills-golang/
+  - platform: claude-code
+    format: skill-bundle
+    output: .
+    transformer: copy
+    install:
+      type: copy
+      target_dir: cc-skills-golang/
+
+checksums:
+  source: null
+  built: {}
+
+dependencies: []
+conflicts: []
+provides:
+  - go-development
+  - go-security
+  - go-performance
+tags:
+  - golang
+  - go
+  - development
+  - security
+  - performance
+  - testing
+  - concurrency
+
+maintainer: samber
+license: MIT

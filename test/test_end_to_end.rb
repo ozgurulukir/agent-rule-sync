@@ -80,7 +80,7 @@ class TestEndToEndPipeline < Minitest::Test
     pkg_names = build_index[:packages].keys.map(&:to_s)
     %w[memory shell ast-grep workstation-rules goose windsurf-rules
        line-repetition-control antigravity-skills vibe-security
-       golang-security-bundle].each do |expected|
+       cc-skills-golang].each do |expected|
       assert_includes pkg_names, expected, "Build index should include #{expected}"
     end
 

@@ -1,14 +1,17 @@
 # Build artifacts
-ssot/build/
-ssot/cache/
+build/
+cache/
 
 # Index database (generated)
-ssot/index.yaml
-ssot/index.json
+data/index.yaml
+data/index.json
 
 # Log files
-ssot/build/*.log
-ssot/build/*.log.*
+build/*.log
+build/*.log.*
+
+# Git sources (cloned during build)
+build/git-sources/
 
 # Temporary files
 *.tmp
