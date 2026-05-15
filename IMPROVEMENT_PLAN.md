@@ -932,17 +932,33 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 
 ---
 
-### P8.7 Split common.rb into Smaller Modules
-**Status**: ⏳ PENDING
-**Date**: TBD
+### ✅ P8.7 Split common.rb into Smaller Modules
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
 
-**Claim**: `common.rb` is 1032 lines (53 methods) — approaching God Object. Split into:
-- `lib/config.rb` — `Ssot::Lib::Config` module
-- `lib/cache.rb` — cache functions
-- `lib/validation.rb` — `validate_pkgbuild`, `validate_platform_config`
-- `lib/platform.rb` — `load_platform_registry`, `platform_config`, `resolve_install_path`
+**Claim**: `common.rb` was 1032 lines (53 methods) — approaching God Object.
 
-**Files**: `ssot/lib/common.rb` → split into 4 files
+**Fix**: Split into 10 focused files:
+
+| File | Lines | Responsibility |
+|------|-------|---------------|
+| `lib/common.rb` | 105 | Constants, Config module, basic IO utilities (load_yaml, atomic_write, expand_user_path) |
+| `lib/logging.rb` | 55 | log, log_error, log_warn, log_debug, time, set_log_file |
+| `lib/cache.rb` | 157 | cache_key_for_source, cache_dir, source_cached?, cache_source, get_cached_source, cached_fetch_url, cached_fetch_git_file, cached_fetch_git_dir, fetch_source_with_cache |
+| `lib/backup.rb` | 39 | backup_index, restore_index, cleanup_backups |
+| `lib/version.rb` | 68 | format_version, compare_versions, vercmp |
+| `lib/source.rb` | 113 | check_prerequisites, fetch_git_source, read_source |
+| `lib/transform.rb` | 83 | apply_transformer, apply_translator, strip_frontmatter |
+| `lib/validation.rb` | 104 | validate_output_filename, validate_target_dir, load_pkgbuild, validate_pkgbuild |
+| `lib/platform.rb` | 174 | load_platform_registry, validate_platform_config, platform_config, resolve_install_path, safe_relative, build_dir_for_platform, project_root_for, generate_skill_bundle_manifest |
+| `lib/uninstall.rb` | 255 | uninstall_packages, migrate_installed_records |
+
+**Before**: 1 file, 1032 lines
+**After**: 10 files, 1153 lines (includes module wrapper overhead)
+
+**Test**: `rake test` — 188 tests, 481 assertions, 0 failures, 0 errors
+
+**Files**: `ssot/lib/common.rb`, `ssot/lib/logging.rb`, `ssot/lib/cache.rb`, `ssot/lib/backup.rb`, `ssot/lib/version.rb`, `ssot/lib/source.rb`, `ssot/lib/transform.rb`, `ssot/lib/validation.rb`, `ssot/lib/platform.rb`, `ssot/lib/uninstall.rb`
 
 ---
 
