@@ -1,4 +1,4 @@
-# Repository Guidelines — PKGBUILD-based SSoT v4
+# Rulepack — PKGBUILD-based Agent Rule Manager
 
 ## Project Overview
 
@@ -24,20 +24,20 @@ This repository implements a **Single Source of Truth (SSoT)** management system
 
 | Agent | Type | Scope | Config Location | Install Command |
 |-------|------|-------|-----------------|-----------------|
-| [OpenCode](docs/agents/agents/opencode.md) | directory | user | `~/.config/opencode/rules/` | `bin/ssot install opencode` |
-| [Oh My Pi](docs/agents/agents/oh-my-pi.md) | directory | user | `~/.config/oh-my-pi/rules/` | `bin/ssot install oh-my-pi` |
-| [Crush](docs/agents/agents/crush.md) | skill | user | `/usr/local/share/crush/crush.md` | `bin/ssot install crush` |
-| [Goose](docs/agents/agents/goose.md) | skill | user | `~/.local/share/goose/goose.md` | `bin/ssot install goose` |
-| [Droid](docs/agents/agents/droid.md) | skill | user | `~/.config/droid/droid.md` | `bin/ssot install droid` |
-| [Gemini CLI](docs/agents/agents/gemini-cli.md) | import | user | `~/.config/gemini/GEMINI.md` | `bin/ssot install gemini-cli` |
-| [Qwen Code](docs/agents/agents/qwen-code.md) | import | user | `~/.config/qwen/QWEN.md` | `bin/ssot install qwen-code` |
-| [Cursor](docs/agents/agents/cursor.md) | directory | project | `.cursor/rules/` | `bin/ssot install cursor --project .` |
-| [Windsurf](docs/agents/agents/windsurf.md) | directory | project | `.windsurf/rules/` | `bin/ssot install windsurf --project .` |
-| [GitHub Copilot](docs/agents/agents/github-copilot.md) | import | project | `.github/copilot-instructions.md` | `bin/ssot install github-copilot --project .` |
-| [Claude Code](docs/agents/agents/claude-code.md) | directory | project | `.claude/rules/` | `bin/ssot install claude-code --project .` |
-| [Codex CLI](docs/agents/agents/codex.md) | skill | project | `AGENTS.md` | `bin/ssot install codex --project .` |
-| [Antigravity](docs/agents/agents/antigravity.md) | directory | project | `.agent/skills/` | `bin/ssot install antigravity --project .` |
-| [Agents](docs/agents/agents/agents.md) | directory | user | `~/.config/agents/rules/` | `bin/ssot install agents` |
+| [OpenCode](docs/agents/agents/opencode.md) | directory | user | `~/.config/opencode/rules/` | `bin/rulepack install opencode` |
+| [Oh My Pi](docs/agents/agents/oh-my-pi.md) | directory | user | `~/.config/oh-my-pi/rules/` | `bin/rulepack install oh-my-pi` |
+| [Crush](docs/agents/agents/crush.md) | skill | user | `/usr/local/share/crush/crush.md` | `bin/rulepack install crush` |
+| [Goose](docs/agents/agents/goose.md) | skill | user | `~/.local/share/goose/goose.md` | `bin/rulepack install goose` |
+| [Droid](docs/agents/agents/droid.md) | skill | user | `~/.config/droid/droid.md` | `bin/rulepack install droid` |
+| [Gemini CLI](docs/agents/agents/gemini-cli.md) | import | user | `~/.config/gemini/GEMINI.md` | `bin/rulepack install gemini-cli` |
+| [Qwen Code](docs/agents/agents/qwen-code.md) | import | user | `~/.config/qwen/QWEN.md` | `bin/rulepack install qwen-code` |
+| [Cursor](docs/agents/agents/cursor.md) | directory | project | `.cursor/rules/` | `bin/rulepack install cursor --project .` |
+| [Windsurf](docs/agents/agents/windsurf.md) | directory | project | `.windsurf/rules/` | `bin/rulepack install windsurf --project .` |
+| [GitHub Copilot](docs/agents/agents/github-copilot.md) | import | project | `.github/copilot-instructions.md` | `bin/rulepack install github-copilot --project .` |
+| [Claude Code](docs/agents/agents/claude-code.md) | directory | project | `.claude/rules/` | `bin/rulepack install claude-code --project .` |
+| [Codex CLI](docs/agents/agents/codex.md) | skill | project | `AGENTS.md` | `bin/rulepack install codex --project .` |
+| [Antigravity](docs/agents/agents/antigravity.md) | directory | project | `.agent/skills/` | `bin/rulepack install antigravity --project .` |
+| [Agents](docs/agents/agents/agents.md) | directory | user | `~/.config/agents/rules/` | `bin/rulepack install agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
@@ -49,24 +49,24 @@ See [Platforms](docs/agents/PLATFORMS.md) for full details.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                     PKGBUILD Packages (ssot/packages/)            │
+│                     PKGBUILD Packages (data/packages/)             │
 │  Each package: pkgname, source, targets[platform], transformer  │
 │  memory/PKGBUILD, shell/PKGBUILD, vibe-security/PKGBUILD        │
 └────────────────────────────┬─────────────────────────────────────┘
-                             │ build (ssot/build.rb)
+                             │ build (build.rb)
                              ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                       Build Artifacts (ssot/build/<platform>/)   │
+│                       Build Artifacts (build/<platform>/)          │
 │  Platform-specific outputs: rules, skills, imports              │
 │  opencode/00-memory.md, crush/skills/vendor/crush.md            │
 └────────────────────────────┬─────────────────────────────────────┘
-                             │ aggregate (ssot/aggregate-skills.rb)
+                             │ aggregate (aggregate.rb)
                              ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                   Vendor Skills (ssot/build/<platform>/skills/vendor/) │
+│                   Vendor Skills (build/<platform>/skills/vendor/)      │
 │  Combined skill bundles per agent: crush.md, goose.md, droid.md │
 └────────────────────────────┬─────────────────────────────────────┘
-                             │ install (ssot/install.rb)
+                             │ install (install.rb)
                              ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                     Target Agent Platforms                         │
@@ -79,17 +79,17 @@ See [Platforms](docs/agents/PLATFORMS.md) for full details.
 
 **Note**: PKGBUILD/pacman is used as **architectural inspiration** (package descriptor format, versioning scheme, build pipeline). SSoT does not track Arch Linux packages or use pacman as a dependency. It is a standalone system for agent skill/rule distribution.
 
-**Single Entry Point**: `bin/ssot` wraps all pipeline commands: `build`, `install`, `uninstall`, `list`, `show`, `search`, `status`, `check`, `platforms`, `help`.
+**Single Entry Point**: `bin/rulepack` wraps all pipeline commands: `build`, `install`, `uninstall`, `list`, `show`, `search`, `status`, `check`, `platforms`, `help`.
 
 **Key Pipeline Steps**:
 
-1. **Build** (`ssot/build.rb`) — Load all PKGBUILDs from `ssot/packages/`, fetch sources (local/URL with SHA256), apply translators (content format conversion, runs first), apply transformers (copy/strip-frontmatter/custom), write platform-specific artifacts to `ssot/build/<platform>/`, update `ssot/build/index.yaml` and `ssot/index.yaml` with build metadata.
+1. **Build** (`build.rb`) — Load all PKGBUILDs from `data/packages/`, fetch sources (local/URL with SHA256), apply translators (content format conversion, runs first), apply transformers (copy/strip-frontmatter/custom), write platform-specific artifacts to `build/<platform>/`, update `build/index.yaml` and `data/index.yaml` with build metadata.
 
-2. **Aggregate** (`ssot/aggregate-skills.rb`) — For skill-based agents (Crush, Goose, Droid), collect rule fragments and common/agent-specific skills, concatenate into a single vendored skill file per agent under `ssot/build/<agent>/skills/vendor/`.
+2. **Aggregate** (`aggregate.rb`) — For skill-based agents (Crush, Goose, Droid), collect rule fragments and common/agent-specific skills, concatenate into a single vendored skill file per agent under `build/<agent>/skills/vendor/`.
 
-3. **Install** (`ssot/install.rb <platform> [--dry-run]`) — Read `ssot/index.yaml`, for each package built for target platform, install via symlink/copy/inject/append depending on format and platform registry. Update `ssot/index.yaml` with installed state. Supports `--all` (all platforms), `--targets <pkg>` (show targets), `--check` (verify), `--dry-run`, `--force`, `--select`. For skill-bundles >1 sub-skill, shows interactive numbered menu in a TTY.
+3. **Install** (`install.rb <platform> [--dry-run]`) — Read `data/index.yaml`, for each package built for target platform, install via symlink/copy/inject/append depending on format and platform registry. Update `data/index.yaml` with installed state. Supports `--all` (all platforms), `--targets <pkg>` (show targets), `--check` (verify), `--dry-run`, `--force`, `--select`. For skill-bundles >1 sub-skill, shows interactive numbered menu in a TTY.
 
-4. **Query** (`ssot/query.rb`) — Inspect package database: list packages, show details, search, check installed status.
+4. **Query** (`query.rb`) — Inspect package database: list packages, show details, search, check installed status.
 
 ---
 
@@ -121,27 +121,27 @@ The system uses a **pacman-inspired versioning scheme**:
 
 ## Creating a New Package
 
-To add a new rule or skill as a SSoT package, follow these steps:
+To add a new rule or skill as a Rulepack package, follow these steps:
 
 ### 1. Create the package directory
 
 ```bash
-mkdir -p ssot/packages/<pkgname>/src/
+mkdir -p data/packages/<pkgname>/src/
 ```
 
 ### 2. Add the source file
 
-Place your rule or skill content in `ssot/packages/<pkgname>/src/` as a Markdown file:
+Place your rule or skill content in `data/packages/<pkgname>/src/` as a Markdown file:
 
 ```bash
-touch ssot/packages/<pkgname>/src/<filename>.md
+touch data/packages/<pkgname>/src/<filename>.md
 ```
 
 The source file is your canonical content — all platform-specific transformations start from this file.
 
 ### 3. Write the PKGBUILD descriptor
 
-Create `ssot/packages/<pkgname>/PKGBUILD` (YAML). At minimum:
+Create `data/packages/<pkgname>/PKGBUILD` (YAML). At minimum:
 
 ```yaml
 ---
@@ -196,46 +196,46 @@ Refer to the [Supported Platforms](#supported-platforms-14-agents) table to pick
 
 ```bash
 # Build all packages (your new package included)
-bin/ssot build
+bin/rulepack build
 
 # Install to a specific platform
-bin/ssot install opencode
+bin/rulepack install opencode
 
 # Verify it's installed
-bin/ssot check opencode
+bin/rulepack check opencode
 ```
 
 ### Quick reference table
 
 | Step | Action | File/Directory |
 |------|--------|---------------|
-| 1 | Create package dir | `ssot/packages/<pkgname>/` |
-| 2 | Add source file | `ssot/packages/<pkgname>/src/<file>.md` |
-| 3 | Write descriptor | `ssot/packages/<pkgname>/PKGBUILD` |
+| 1 | Create package dir | `data/packages/<pkgname>/` |
+| 2 | Add source file | `data/packages/<pkgname>/src/<file>.md` |
+| 3 | Write descriptor | `data/packages/<pkgname>/PKGBUILD` |
 | 4 | Set targets | `targets:` array in PKGBUILD |
-| 5 | Build | `bin/ssot build` |
-| 6 | Install | `bin/ssot install <platform>` |
+| 5 | Build | `bin/rulepack build` |
+| 6 | Install | `bin/rulepack install <platform>` |
 
 ---
 
 ## Uninstall
 
-**Uninstall** (`ssot/uninstall.rb <platform> [--dry-run]`) — Remove packages from a target platform.
+**Uninstall** (`uninstall.rb <platform> [--dry-run]`) — Remove packages from a target platform.
 
 - Removes symlinks/files (respects `target_dir` overrides)
-- Cleans installed records from `ssot/index.yaml`
+- Cleans installed records from `data/index.yaml`
 - Re-aggregates vendor skills for skill-based agents (to remove package contributions)
 - Idempotent: safe to run multiple times
 
 ```bash
 # Preview what would be removed
-bin/ssot uninstall opencode --dry-run
+bin/rulepack uninstall opencode --dry-run
 
 # Actually uninstall
-bin/ssot uninstall opencode
+bin/rulepack uninstall opencode
 
 # After uninstall, verify
-bin/ssot check opencode
+bin/rulepack check opencode
 ```
 
 **Note**: For skill-based platforms (Crush, Goose, Droid), uninstall removes the package's contribution from the vendored skill file and regenerates it. For directory platforms, symlinks/files are removed. For import platforms, `@import` lines are not automatically removed (manual config edit required — future enhancement).
@@ -246,16 +246,16 @@ bin/ssot check opencode
 
 | Directory | Purpose |
 |-----------|---------|
-| `ssot/` | Single Source of Truth root |
-| `ssot/packages/` | **Package definitions** — each subdir contains PKGBUILD and source files |
-| `ssot/packages/<pkg>/PKGBUILD` | Package build descriptor (pkgname, source, targets, transformer) |
-| `ssot/packages/<pkg>/src/` | Raw source files for that package (rules, skill content) |
-| `ssot/skills/` | **User skill/repo workspace** — local skill content, upstream repos, vendor output |
-| `ssot/skills/common/` | Shared skill definitions (referenced by vendor aggregation) |
-| `ssot/skills/agent-specific/` | Per-agent skill overrides (referenced by vendor aggregation) |
-| `ssot/registry/platforms.yaml` | **Platform registry** — defines platform types, paths, install methods |
+| `data/` | Single Source of Truth root |
+| `data/packages/` | **Package definitions** — each subdir contains PKGBUILD and source files |
+| `data/packages/<pkg>/PKGBUILD` | Package build descriptor (pkgname, source, targets, transformer) |
+| `data/packages/<pkg>/src/` | Raw source files for that package (rules, skill content) |
+| `data/skills/` | **User skill/repo workspace** — local skill content, upstream repos, vendor output |
+| `data/skills/common/` | Shared skill definitions (referenced by vendor aggregation) |
+| `data/skills/agent-specific/` | Per-agent skill overrides (referenced by vendor aggregation) |
+| `data/registry/platforms.yaml` | **Platform registry** — defines platform types, paths, install methods |
 
-**Note**: Old system files (`scripts/`, `ssot/schema.yaml`, `ssot/rules/`, `ssot/docs/`, `ssot/vendor/`) are no longer used by the new PKGBUILD system.
+**Note**: Old system files (`scripts/`, `data/schema.yaml`, `data/rules/`, `data/docs/`, `data/vendor/`) are no longer used by the new PKGBUILD system.
 
 ---
 
@@ -264,78 +264,78 @@ bin/ssot check opencode
 **Single Entry Point** (preferred):
 
 ```bash
-bin/ssot build              # Build all packages + aggregate vendor skills
-bin/ssot install opencode   # Install to platform
-bin/ssot uninstall opencode # Uninstall from platform
-bin/ssot list               # List all packages
-bin/ssot status             # Show system status
-bin/ssot show memory        # Show package details
-bin/ssot search security    # Search packages
-bin/ssot platforms           # List platforms
-bin/ssot check opencode     # Verify installed state
-bin/ssot verify opencode    # Comprehensive index vs disk check
-bin/ssot fix opencode       # Repair drift automatically
-bin/ssot help               # Show help
+bin/rulepack build              # Build all packages + aggregate vendor skills
+bin/rulepack install opencode   # Install to platform
+bin/rulepack uninstall opencode # Uninstall from platform
+bin/rulepack list               # List all packages
+bin/rulepack status             # Show system status
+bin/rulepack show memory        # Show package details
+bin/rulepack search security    # Search packages
+bin/rulepack platforms           # List platforms
+bin/rulepack check opencode     # Verify installed state
+bin/rulepack verify opencode    # Comprehensive index vs disk check
+bin/rulepack fix opencode       # Repair drift automatically
+bin/rulepack help               # Show help
 ```
 
 **Pipeline Execution** (run from repo root):
 
 ```bash
 # Build all packages: fetch, transform, write artifacts, update index
-ruby ssot/build.rb
+ruby lib/rulepack/build.rb
 
 # Aggregate vendor skill files for skill-based agents (Crush, Goose, Droid)
-ruby ssot/aggregate-skills.rb
+ruby lib/rulepack/aggregate.rb
 
 # Install packages to a target platform
-ruby ssot/install.rb <platform> [--dry-run]
+ruby lib/rulepack/install.rb <platform> [--dry-run]
 
 # Query package database
-ruby ssot/query.rb <command> [options]
+ruby lib/rulepack/query.rb <command> [options]
 ```
 
 **Common Commands**:
 ```bash
 # Full workflow: build → aggregate → install
-ruby ssot/build.rb && ruby ssot/aggregate-skills.rb && ruby ssot/install.rb opencode
+ruby lib/rulepack/build.rb && ruby lib/rulepack/aggregate.rb && ruby lib/rulepack/install.rb opencode
 
 # Preview without changes
-ruby ssot/install.rb opencode --dry-run
+ruby lib/rulepack/install.rb opencode --dry-run
 
 # Install to all platforms
-ruby ssot/install.rb --all --dry-run
+ruby lib/rulepack/install.rb --all --dry-run
 
 # Show which platforms a package targets
-ruby ssot/install.rb --targets memory
+ruby lib/rulepack/install.rb --targets memory
 
 # Verify installed state
-ruby ssot/check opencode
+ruby lib/rulepack/check opencode
 
 # Uninstall from a platform
-ruby ssot/uninstall.rb opencode
-ruby ssot/uninstall.rb opencode --dry-run
+ruby lib/rulepack/uninstall.rb opencode
+ruby lib/rulepack/uninstall.rb opencode --dry-run
 
 # Query installed packages
-ruby ssot/query.rb installed --platform opencode
+ruby lib/rulepack/query.rb installed --platform opencode
 
 # List all packages
-ruby ssot/query.rb list-packages
+ruby lib/rulepack/query.rb list-packages
 
 # Show package details
-ruby ssot/query.rb show <pkgname>
+ruby lib/rulepack/query.rb show <pkgname>
 
 # Search packages by tag
-ruby ssot/query.rb search <tag>
+ruby lib/rulepack/query.rb search <tag>
 
 # Force downgrade (if needed)
-ruby ssot/install.rb opencode --force
+ruby lib/rulepack/install.rb opencode --force
 ```
 
 ---
 
 ## PKGBUILD Format
 
-Each package is defined in `ssot/packages/<pkgname>/PKGBUILD` (YAML):
+Each package is defined in `data/packages/<pkgname>/PKGBUILD` (YAML):
 
 ```yaml
 ---
@@ -477,16 +477,16 @@ Use `--select` to install only specific sub-skills from a bundle, or skip the fl
 
 ```bash
 # Install only the "auth" sub-skill
-bin/ssot install golang-security --select auth
+bin/rulepack install golang-security --select auth
 
 # Install multiple sub-skills
-bin/ssot install golang-security --select auth,sql,xss
+bin/rulepack install golang-security --select auth,sql,xss
 
 # Install all sub-skills (default, no --select)
-bin/ssot install golang-security
+bin/rulepack install golang-security
 ```
 
-When running in a real terminal without `--select`, SSoT shows a pacman-style numbered menu:
+When running in a real terminal without `--select`, Rulepack shows a pacman-style numbered menu:
 
 ```
 📦 antigravity-skills contains 306 sub-skills.
@@ -527,7 +527,7 @@ Build generates `manifest.json` with per-sub-skill checksums:
 ```
 
 **Behavior**:
-- Build: Entire source directory is copied recursively to `ssot/build/<platform>/<pkgname>/`; manifest lists each top-level subdirectory as a sub-skill with per-file SHA256 checksums
+- Build: Entire source directory is copied recursively to `build/<platform>/<pkgname>/`; manifest lists each top-level subdirectory as a sub-skill with per-file SHA256 checksums
 - Install: With `--select`, only the specified sub-skill directories are copied; without `--select`, all sub-skills are installed
 - Uninstall: Target directory tree is removed
 - Index: `output` recorded as `.`; no single-file checksum (directory checksum future work)
@@ -546,7 +546,7 @@ depends:
 
 To install all sub-skills of a meta-package:
 ```bash
-bin/ssot install golang-security --select auth,sql,xss
+bin/rulepack install golang-security --select auth,sql,xss
 ```
 
 ---
@@ -554,7 +554,7 @@ bin/ssot install golang-security --select auth,sql,xss
 
 ## Platform Registry
 
-Platforms are defined in `ssot/registry/platforms.yaml`:
+Platforms are defined in `data/registry/platforms.yaml`:
 
 ```yaml
 opencode:
@@ -599,7 +599,7 @@ gemini-cli:
 
 ## Index Database
 
-`ssot/index.yaml` is the master package database (YAML). Structure:
+`data/index.yaml` is the master package database (YAML). Structure:
 
 ```yaml
 version: 3.0
@@ -685,10 +685,10 @@ Structure/format changes applied after translation.
 
 ### Translator API
 
-Translators live in `ssot/translators/`. Class name: `Translator`. Method: `.translate(content, args: {pkgname:})`.
+Translators live in `data/translators/`. Class name: `Translator`. Method: `.translate(content, args: {pkgname:})`.
 
 ```ruby
-# ssot/translators/normalize.rb
+# data/translators/normalize.rb
 class Translator
   def self.translate(content, args: {})
     content.gsub(/^## /, '# ')   # normalize headings
@@ -698,7 +698,7 @@ end
 
 ### Platform Format Profiles
 
-Each platform has a format profile at `ssot/platforms/<agent>.yaml`. These describe heading style, bullet style, frontmatter policy, emoji handling, etc. **Informational for LLM reference — not enforced by the build system.**
+Each platform has a format profile at `data/platforms/<agent>.yaml`. These describe heading style, bullet style, frontmatter policy, emoji handling, etc. **Informational for LLM reference — not enforced by the build system.**
 
 Profiles exist for all 14 platform profiles: opencode, crush, goose, droid, gemini-cli, qwen-code, oh-my-pi, cursor, windsurf, github-copilot, claude-code, codex, antigravity, agents.
 
@@ -708,38 +708,38 @@ Built-in transformers:
 - `copy` — identity (no change)
 - `strip-frontmatter` — remove YAML frontmatter (`---` blocks)
 
-Custom transformers: Ruby script defining `Transform` class with `.transform(content, pkgname: nil)` method. Reference in PKGBUILD as `transformer: custom:path/to/transformer.rb`. Paths are resolved relative to repo root (`ssot/`), validated with `realpath` to prevent symlink attacks.
+Custom transformers: Ruby script defining `Transform` class with `.transform(content, pkgname: nil)` method. Reference in PKGBUILD as `transformer: custom:path/to/transformer.rb`. Paths are resolved relative to repo root (`rulepack/`), validated with `realpath` to prevent symlink attacks.
 
-**Example Custom Transformers** (in `ssot/transformers/`):
+**Example Custom Transformers** (in `data/transformers/`):
 - `add-header.rb` — prepend title/header from frontmatter
-- `strip-comments.rb` — remove HTML comments and normalize whitespace
+- `strip-comments.rb` -- remove HTML comments and normalize whitespace
 - `format-code.rb` — auto-detect and tag code blocks (Ruby/Python)
 
-See `ssot/transformers/` for implementations.
+See `data/transformers/` for implementations.
 
 ---
 
 ## Important Files
 
-| `ssot/packages/` | Package source tree (PKGBUILD + src/) |
-| `ssot/registry/platforms.yaml` | Platform definitions |
-| `ssot/platforms/` | Platform format profiles (informational — heading style, bullet style, content expectations) |
-| `ssot/translators/` | Custom translator scripts (translate step — content format conversion) |
-| `ssot/transformers/` | Custom transformer scripts (transform step — structural changes) |
-| `ssot/lib/` | Library modules — `common.rb` (constants/Config/IO), `install.rb`, plus `logging.rb`, `cache.rb`, `backup.rb`, `version.rb`, `source.rb`, `transform.rb`, `validation.rb`, `platform.rb`, `uninstall.rb` |
-| `ssot/build.rb` | Build orchestrator (translate → transform → write) |
-| `ssot/translate.rb` | Standalone translator runner (CLI) |
-| `ssot/aggregate-skills.rb` | Vendor skill aggregation |
-| `ssot/install.rb` | Platform installer (CLI entry point — delegates to `ssot/lib/install.rb`) |
-| `ssot/uninstall.rb` | Platform uninstaller |
-| `ssot/query.rb` | Package database query tool |
-| `ssot/verify.rb` | Index-disk reconciliation (detect drift) |
-| `ssot/fix.rb` | Automated drift repair |
-| `ssot/generate-catalog.rb` | Package catalog generator (JSON) |
-| `ssot/aggregate-skills.rb` | Vendor skill aggregation |
-| `ssot/index.yaml` | Master package database |
-| `ssot/index.json` | Machine-readable index |
-| `ssot/build/index.yaml` | Build metadata (intermediate) |
+| `data/packages/` | Package source tree (PKGBUILD + src/) |
+| `data/registry/platforms.yaml` | Platform definitions |
+| `data/platforms/` | Platform format profiles (informational — heading style, bullet style, content expectations) |
+| `data/translators/` | Custom translator scripts (translate step — content format conversion) |
+| `data/transformers/` | Custom transformer scripts (transform step — structural changes) |
+| `lib/rulepack/` | Library modules — `common.rb` (constants/Config/IO), `installer.rb`, plus `logging.rb`, `cache.rb`, `backup.rb`, `version.rb`, `source.rb`, `transform.rb`, `validation.rb`, `platform.rb`, `uninstaller.rb` |
+| `lib/rulepack/build.rb` | Build orchestrator (translate → transform → write) |
+| `lib/rulepack/translate.rb` | Standalone translator runner (CLI) |
+| `lib/rulepack/aggregate.rb` | Vendor skill aggregation |
+| `lib/rulepack/install.rb` | Platform installer (CLI entry point — delegates to `lib/rulepack/installer.rb`) |
+| `lib/rulepack/uninstall.rb` | Platform uninstaller |
+| `lib/rulepack/query.rb` | Package database query tool |
+| `lib/rulepack/verify.rb` | Index-disk reconciliation (detect drift) |
+| `lib/rulepack/fix.rb` | Automated drift repair |
+| `lib/rulepack/generate-catalog.rb` | Package catalog generator (JSON) |
+| `lib/rulepack/aggregate.rb` | Vendor skill aggregation |
+| `data/index.yaml` | Master package database |
+| `data/index.json` | Machine-readable index |
+| `build/index.yaml` | Build metadata (intermediate) |
 
 ---
 
@@ -782,32 +782,32 @@ rake test_e2e          # End-to-end pipeline tests (14 tests)
 
 ```bash
 # Dry-run install to preview changes
-bin/ssot install opencode --dry-run
+bin/rulepack install opencode --dry-run
 
 # Dry-run uninstall to preview removal
-bin/ssot uninstall opencode --dry-run
+bin/rulepack uninstall opencode --dry-run
 
 # Check that installed state matches index (returns non-zero if mismatch)
-bin/ssot check opencode
+bin/rulepack check opencode
 
 # Query installed packages
-bin/ssot list
-bin/ssot search security
+bin/rulepack list
+bin/rulepack search security
 
 # Verify index vs disk (detect drift)
-bin/ssot verify opencode
+bin/rulepack verify opencode
 
 # Repair drift automatically
-bin/ssot fix opencode
+bin/rulepack fix opencode
 
 # Full rebuild + reinstall
-rm -rf ssot/build/ && bin/ssot build && bin/ssot install opencode
+rm -rf build/ && bin/rulepack build && bin/rulepack install opencode
 
 # Full cycle: install → verify → uninstall → verify
-bin/ssot install opencode && bin/ssot check opencode && bin/ssot uninstall opencode && bin/ssot check opencode
+bin/rulepack install opencode && bin/rulepack check opencode && bin/rulepack uninstall opencode && bin/rulepack check opencode
 
 # Verify-fix-verify cycle
-bin/ssot verify opencode && bin/ssot fix opencode && bin/ssot verify opencode
+bin/rulepack verify opencode && bin/rulepack fix opencode && bin/rulepack verify opencode
 ```
 
 ---
@@ -817,14 +817,14 @@ bin/ssot verify opencode && bin/ssot fix opencode && bin/ssot verify opencode
 **Old system** (`scripts/` directory, `schema.yaml`-driven) is **deprecated**. New system uses PKGBUILD packages.
 
 To migrate:
-1. Move rule/skill content to `ssot/packages/<pkg>/src/`
+1. Move rule/skill content to `data/packages/<pkg>/src/`
 2. Write PKGBUILD descriptor for each package
 3. Add platform targets with appropriate `format` and `transformer`
-4. Run `ruby ssot/build.rb && ruby ssot/aggregate-skills.rb`
-5. Install: `ruby ssot/install.rb <platform>`
-6. Update `ssot/registry/platforms.yaml` if new platforms added
+4. Run `ruby lib/rulepack/build.rb && ruby lib/rulepack/aggregate.rb`
+5. Install: `ruby lib/rulepack/install.rb <platform>`
+6. Update `data/registry/platforms.yaml` if new platforms added
 
-**Old scripts** (`scripts/fetch-upstream.rb`, `scripts/transform.rb`, etc.) are preserved for backward compatibility but **should not be used**. New canonical scripts live in `ssot/` root.
+**Old scripts** (`scripts/fetch-upstream.rb`, `scripts/transform.rb`, etc.) are preserved for backward compatibility but **should not be used**. New canonical scripts live in `lib/rulepack/` root.
 
 ---
 
@@ -849,7 +849,7 @@ To migrate:
 | **Transform layer** | ✅ | Built-in (`copy`, `strip-frontmatter`) + custom (`custom:<path>`) |
 | **Platform registry** | ✅ | 14 platforms in `platforms.yaml` |
 | **Platform format profiles** | ✅ | 14 YAML profiles (informational for LLM reference) |
-| **Install** (`install.rb`) | ✅ | Per-platform install, upgrade/downgrade logic, `--dry-run`, `--force`, `--select`; modular lib/install.rb; interactive sub-skill menu on TTY |
+| **Install** (`install.rb`) | ✅ | Per-platform install, upgrade/downgrade logic, `--dry-run`, `--force`, `--select`; modular `installer.rb`; interactive sub-skill menu on TTY |
 | **Uninstall** (`install.rb`) | ✅ | Idempotent, re-aggregates vendor skills, dry-run |
 | **Transaction atomicity** | ✅ | Backup/restore/cleanup on install failure |
 | **Build cache** | ✅ | Content-addressed (URL by SHA256, git by commit hash) |
@@ -858,16 +858,16 @@ To migrate:
 | **Version management** | ✅ | pacman-style epoch:pkgver-pkgrel, compare/upgrade/downgrade |
 | **Query tool** | ✅ | list, show, search, installed, check, orphans, depends, provides |
 | **Index** | ✅ | YAML + JSON, atomic writes, legacy migration |
-| **Package catalog** | ✅ | `ssot/build/catalog.json` — auto-generated after build, portatif JSON format (id, version, tags, source, platforms) |
+| **Package catalog** | ✅ | `build/catalog.json` — auto-generated after build, portatif JSON format (id, version, tags, source, platforms) |
 | **Test suite** | ✅ | 202 tests, 663 assertions, 0 failures (test_common, test_integration, test_cache, test_pkgbuild, test_platform, test_uninstall, test_query, test_translate, test_aggregate, test_end_to_end) |
-| **Standalone scripts** | ✅ | `build.rb`, `install.rb`, `uninstall.rb`, `query.rb`, `aggregate-skills.rb`, `translate.rb` |
-| **Modular install.rb** | ✅ | Library layer (`ssot/lib/install.rb`, `ssot/lib/common.rb`), `--all`, `--targets <pkg>`, `--check <platform>` |
-| **Unified logging** | ✅ | `Ssot::Lib::Common.log*` shared across build.rb, install.rb, uninstall.rb — level filtering via `$LOG_LEVEL` |
-| **Config module** | ✅ | `Ssot::Lib::Config` — 5 env vars (`SSOT_MAX_REDIRECTS`, `SSOT_READ_TIMEOUT`, `SSOT_CACHE_DIR`, `SSOT_GIT_DEPTH`, `SSOT_LOG_LEVEL`) |
+| **Standalone scripts** | ✅ | `build.rb`, `install.rb`, `uninstall.rb`, `query.rb`, `aggregate.rb`, `translate.rb` |
+| **Modular installer** | ✅ | Library layer (`lib/rulepack/installer.rb`, `lib/rulepack/common.rb`), `--all`, `--targets <pkg>`, `--check <platform>` |
+| **Unified logging** | ✅ | `Rulepack::Common.log*` shared across build.rb, install.rb, uninstall.rb — level filtering via `$LOG_LEVEL` |
+| **Config module** | ✅ | `Rulepack::Config` — 5 env vars (`RULEPACK_MAX_REDIRECTS`, `RULEPACK_READ_TIMEOUT`, `RULEPACK_CACHE_DIR`, `RULEPACK_GIT_DEPTH`, `RULEPACK_LOG_LEVEL`) |
 | **Platform registry cache** | ✅ | `load_platform_registry` memoized with `@_platform_registry` — ~3× fewer YAML reads |
-| **Performance timing** | ✅ | `Ssot::Lib::Common.time` helper + `--timing` flag — per-package build timing |
+| **Performance timing** | ✅ | `Rulepack::Common.time` helper + `--timing` flag — per-package build timing |
 | **Error messages** | ✅ | All 11+ key error messages include actionable guidance ("what + how to fix") |
-| **DRY project_root_for** | ✅ | Extracted to `Ssot::Lib::Common`, both install.rb and uninstall.rb delegate |
+| **DRY project_root_for** | ✅ | Extracted to `Rulepack::Common`, both install.rb and uninstall.rb delegate |
 | **Ruby syntax warnings** | ✅ | All Ruby files pass `ruby -wc` with zero warnings |
 
 ### In Progress

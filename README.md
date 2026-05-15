@@ -15,7 +15,7 @@ A **PKGBUILD-inspired package manager** for agent rules and skills:
 - **Change detection**: SHA256 checksums track source and built artifacts
 - **Index database**: `data/index.yaml` tracks package state, versions, and installations
 
-> **Note**: PKGBUILD/pacman is used as **architectural inspiration** (package descriptor format, versioning scheme, build pipeline). SSoT does not track Arch Linux packages or use pacman as a dependency.
+> **Note**: PKGBUILD/pacman is used as **architectural inspiration** (package descriptor format, versioning scheme, build pipeline). Rulepack does not track Arch Linux packages or use pacman as a dependency.
 
 ## Quick Start
 
@@ -63,62 +63,56 @@ bin/rulepack search security
 ## Project Structure
 
 ```
-agent-rule-sync/
-├── ssot/                           # Single Source of Truth root
-│   ├── lib/                        # Library modules
-│   │   ├── common.rb               # Constants, Config, basic IO utilities
-│   │   ├── logging.rb              # Logging (log, log_error, log_warn, log_debug, time)
-│   │   ├── cache.rb                # Cache key, dir, fetch, source caching
-│   │   ├── backup.rb               # Index backup/restore/cleanup
-│   │   ├── version.rb              # Version comparison (format_version, compare_versions, vercmp)
-│   │   ├── source.rb               # Source fetching (git clone, URL fetch, local read)
-│   │   ├── transform.rb            # Transform/translate pipeline (apply_transformer, apply_translator)
-│   │   ├── validation.rb           # PKGBUILD validation, output path validation
-│   │   ├── platform.rb             # Platform registry, path resolution, manifest generation
-│   │   ├── uninstall.rb            # Uninstall logic (uninstall_packages, migrate_installed_records)
-│   │   └── install.rb              # Installer library (modular API)
-│   ├── packages/                   # Package definitions (each has PKGBUILD + src/)
-│   │   ├── memory/PKGBUILD
-│   │   │   └── src/00-memory.md
-│   │   ├── shell/PKGBUILD
-│   │   └── vibe-security/PKGBUILD
+rulepack/
+├── bin/rulepack              # CLI entry point
+├── lib/rulepack/             # Library modules (20 .rb files)
+│   ├── common.rb             # Constants, Config, basic IO
+│   ├── installer.rb          # Installer library (was ssot/lib/install.rb)
+│   ├── build.rb              # Build orchestrator
+│   ├── query.rb              # Package database queries
+│   └── ... (logging.rb, cache.rb, backup.rb, version.rb, source.rb,
+│             transform.rb, validation.rb, platform.rb, uninstaller.rb,
+│             aggregate.rb, translate.rb, verify.rb, fix.rb,
+│             generate-catalog.rb, install.rb (CLI), uninstall.rb (CLI))
+├── data/                     # Data files
+│   ├── packages/             # Package definitions (10 packages)
 │   ├── registry/
-│   │   └── platforms.yaml  # Platform configurations
-│   ├── translators/        # Custom translator scripts (rule→skill, rule→import)
-│   ├── transformers/       # Custom transformer scripts
-│   ├── archive/            # Deprecated/archived legacy files
-│   ├── build.rb            # Build orchestrator
-│   ├── aggregate-skills.rb # Vendor skill aggregator
-│   ├── install.rb          # Platform installer (CLI entry point — delegates to lib/install.rb)
-│   ├── uninstall.rb        # Platform uninstaller
-│   ├── query.rb            # Package database queries
-│   ├── verify.rb           # Index-disk reconciliation (P9)
-│   ├── fix.rb              # Automated drift repair (P9)
-│   ├── index.yaml          # Master package database
-│   └── build/              # Build artifacts (generated)
-│       ├── index.yaml
-│       ├── opencode/
-│       ├── crush/
-│       └── gemini-cli/
+│   │   └── platforms.yaml    # 14 platform configurations
+│   ├── platforms/            # Format profiles (14 agents)
+│   ├── translators/          # 3 custom translators
+│   ├── transformers/         # 3 custom transformers
+│   ├── skills/
+│   │   ├── common/
+│   │   └── agent-specific/
+│   ├── archive/
+│   └── index.yaml            # Master package database
+├── build/                    # Build artifacts (generated)
+│   ├── index.yaml
+│   ├── catalog.json
+│   ├── opencode/
+│   ├── crush/
+│   └── gemini-cli/...
+├── test/                     # Test suite (202 tests)
+├── Rakefile
 ├── README.md
-└── AGENTS.md               # Developer guidelines
+└── AGENTS.md
 ```
 
 ## Package Dependencies
 
-Skills and rules are **text files** — they are inherently independent. A skill may reference external tools (e.g., `awk`, `python`) but these are **system-level dependencies**, not package dependencies. SSoT documents tool requirements but does not manage them; installation of system tools is the **user's responsibility**.
+Skills and rules are **text files** — they are inherently independent. A skill may reference external tools (e.g., `awk`, `python`) but these are **system-level dependencies**, not package dependencies. Rulepack documents tool requirements but does not manage them; installation of system tools is the **user's responsibility**.
 
 - **No inter-package dependencies**: Skills/rules do not depend on each other.
 - **No hierarchical resolution**: There is no package hierarchy; users control install order.
 - **No dependency resolution**: The system does not perform topological sorting or cycle detection.
-- **Tool prerequisites**: If a skill requires a system tool, it is documented in the package description. SSoT does not verify or install system packages.
+- **Tool prerequisites**: If a skill requires a system tool, it is documented in the package description. Rulepack does not verify or install system packages.
 
 ## Creating a New Package
 
-1. Create package directory: `ssot/packages/<pkgname>/`
-2. Add source file: `ssot/packages/<pkgname>/src/<filename>.md`
+1. Create package directory: `data/packages/<pkgname>/`
+2. Add source file: `data/packages/<pkgname>/src/<filename>.md`
 3. Write `PKGBUILD` descriptor
-4. Build and install: `ruby ssot/build.rb && ruby ssot/install.rb <platform>`
+4. Build and install: `ruby lib/rulepack/build.rb && ruby lib/rulepack/install.rb <platform>`
 
 ## PKGBUILD Example
 
@@ -168,9 +162,9 @@ Built-in transformers:
 - `copy` — identity (no change)
 - `strip-frontmatter` — remove YAML frontmatter (`---` blocks)
 
-Custom transformers: Ruby script defining `Transform` class with `.transform(content, pkgname: nil)` method. Reference in PKGBUILD as `transformer: custom:path/to/transformer.rb`. Paths are resolved relative to repo root (`ssot/`), validated with `realpath` to prevent symlink attacks.
+Custom transformers: Ruby script defining `Transform` class with `.transform(content, pkgname: nil)` method. Reference in PKGBUILD as `transformer: custom:path/to/transformer.rb`. Paths are resolved relative to repo root (`rulepack/`), validated with `realpath` to prevent symlink attacks.
 
-**Example Custom Transformers** (in `ssot/transformers/`):
+**Example Custom Transformers** (in `data/transformers/`):
 - `add-header.rb` — prepend title/header from frontmatter
 - `strip-comments.rb` — remove HTML comments and normalize whitespace
 - `format-code.rb` — auto-detect and tag code blocks (Ruby/Python)
@@ -205,10 +199,10 @@ targets:
 **Sub-skill Selection** (`--select`):
 ```bash
 # Install only specific sub-skills
-bin/ssot install golang-security --select auth,sql
+bin/rulepack install golang-security --select auth,sql
 
 # Install all sub-skills (default)
-bin/ssot install golang-security
+bin/rulepack install golang-security
 ```
 
 **Meta-packages** (pacman-style):
@@ -254,7 +248,7 @@ See [Platforms](docs/agents/PLATFORMS.md) for the complete reference.
 
 ## Interactive Sub-skill Selection
 
-When installing a skill-bundle with multiple sub-skills in a terminal, SSoT shows an interactive numbered menu (pacman-style):
+When installing a skill-bundle with multiple sub-skills in a terminal, Rulepack shows an interactive numbered menu (pacman-style):
 
 ```
 📦 antigravity-skills contains 306 sub-skills.
@@ -276,38 +270,38 @@ Enter numbers (e.g. 1,2,3, 5-10, or 'all'):
 
 ```bash
 # List all packages
-bin/ssot list
+bin/rulepack list
 
 # Show package details
-bin/ssot show memory
+bin/rulepack show memory
 
 # Search by tag
-bin/ssot search security
+bin/rulepack search security
 
 # List installed packages on a platform
-bin/ssot installed --platform opencode   # or: ruby ssot/query.rb installed --platform opencode
+bin/rulepack installed --platform opencode   # or: ruby lib/rulepack/query.rb installed --platform opencode
 
 # List available platforms
-bin/ssot platforms
+bin/rulepack platforms
 ```
 
 ## Validation
 
 ```bash
 # Dry-run install (no filesystem changes)
-bin/ssot install opencode --dry-run
+bin/rulepack install opencode --dry-run
 
 # Dry-run install with timing
-bin/ssot install opencode --dry-run --timing
+bin/rulepack install opencode --dry-run --timing
 
 # Uninstall dry-run
-bin/ssot uninstall opencode --dry-run
+bin/rulepack uninstall opencode --dry-run
 
 # Verify installed state matches index
-bin/ssot check opencode
+bin/rulepack check opencode
 
 # Full rebuild
-rm -rf ssot/build/ && bin/ssot build
+rm -rf build/ && bin/rulepack build
 ```
 
 The system validates:
@@ -364,22 +358,22 @@ Packages use a three-component version scheme inspired by pacman:
 
 ```bash
 # Force downgrade (not recommended unless necessary)
-ruby ssot/install.rb opencode --force
+ruby lib/rulepack/install.rb opencode --force
 ```
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SSOT_MAX_REDIRECTS` | `3` | Maximum HTTP redirects for URL source fetches |
-| `SSOT_READ_TIMEOUT` | `30` | HTTP read timeout in seconds |
-| `SSOT_CACHE_DIR` | `cache` | Cache directory name under `ssot/` |
-| `SSOT_GIT_DEPTH` | `1` | Git shallow clone depth |
-| `SSOT_LOG_LEVEL` | `info` | Log level filtering (`error`, `warn`, `info`, `debug`) |
+| `RULEPACK_MAX_REDIRECTS` | `3` | Maximum HTTP redirects for URL source fetches |
+| `RULEPACK_READ_TIMEOUT` | `30` | HTTP read timeout in seconds |
+| `RULEPACK_CACHE_DIR` | `cache` | Cache directory name under `data/` |
+| `RULEPACK_GIT_DEPTH` | `1` | Git shallow clone depth |
+| `RULEPACK_LOG_LEVEL` | `info` | Log level filtering (`error`, `warn`, `info`, `debug`) |
 
 ## Deprecated: Old System
 
-Old system files (`scripts/`, `ssot/schema.yaml`, `ssot/rules/`, `ssot/docs/`, `ssot/vendor/`) are from the previous schema-driven pipeline. They are **deprecated** and no longer used. The new PKGBUILD-based workflow (`ssot/` directory) is the canonical implementation.
+Old system files (`scripts/`, `data/schema.yaml`, `data/rules/`, `data/docs/`, `data/vendor/`) are from the previous schema-driven pipeline. They are **deprecated** and no longer used. The new PKGBUILD-based workflow (`data/` directory) is the canonical implementation.
 
 ## License
 

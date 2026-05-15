@@ -12,3 +12,10 @@
 [2026-05-15 20:12:02]     ✓ Already removed: /home/aristo/.config/opencode/rules/00-memory.md
 [2026-05-15 20:12:03]     ✓ Already removed: /home/aristo/.config/opencode/rules/00-memory.md
 [2026-05-15 20:12:03] WARN:   ⚠ No target found for output 'memory-rule.md' in memory, skipping uninstall
+[2026-05-15 20:28:38]     ✓ Already removed: /home/aristo/.config/opencode/rules/00-memory.md
+[2026-05-15 20:28:38]     [DRY-RUN] Would remove: 00-memory.md
+[2026-05-15 20:28:39]     ✓ Already removed: /home/aristo/.config/opencode/rules/00-memory.md
+[2026-05-15 20:28:39] WARN:   ⚠ No target found for output 'memory-rule.md' in memory, skipping uninstall
+[2026-05-15 20:28:40]     ✓ Already removed: /home/aristo/.config/opencode/rules/00-memory.md
+[2026-05-15 20:28:40]     ✓ Already removed: /home/aristo/.config/opencode/rules/00-memory.md
+[2026-05-15 20:28:41]     ✓ Already removed: /home/aristo/.config/opencode/rules/00-memory.md
