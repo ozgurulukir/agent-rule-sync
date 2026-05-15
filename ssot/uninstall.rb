@@ -91,19 +91,6 @@ if platform_cfg[:type] == 'skill'
   else
     Ssot::Lib::Common.log "    ℹ Vendor skill not found (already removed?)"
   end
-
-  # Clean installed records for this platform from index
-  unless dry_run
-    index = Ssot::Lib::Common.load_yaml(INDEX_YAML_PATH)
-    index[:packages].each do |pkgname, pkgdata|
-      if pkgdata[:installed]&.any? { |i| i[:platform] == platform_id }
-        pkgdata[:installed].reject! { |i| i[:platform] == platform_id }
-      end
-    end
-    Ssot::Lib::Common.write_yaml_atomic(INDEX_YAML_PATH, index)
-    Ssot::Lib::Common.log "📝 Index cleaned for #{platform_id}"
-  end
-  exit 0
 end
 
 # Find all installed packages for this platform

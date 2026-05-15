@@ -306,7 +306,6 @@ module Ssot
       end
       Ssot::Lib::Common.log "  ✓ Vendor skill present: #{vendor_path}"
       puts "  ✅ Vendor skill present and readable"
-      exit 0
     end
 
     def verify_package_on_disk(pkgname, pkgdata, inst, platform_id, platform_cfg, base_path)
@@ -314,6 +313,16 @@ module Ssot
       expected_checksum = inst[:checksum]
       target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
       format_type = target ? target[:format] : 'directory'
+
+      # For skill-format packages on skill-type platforms: check build artifact
+      if format_type == 'skill' && platform_cfg[:type] == 'skill'
+        build_artifact = Ssot::Lib::Common::BUILD_DIR.join(platform_id, expected_output)
+        return "Build artifact missing: #{pkgname} (#{build_artifact})" unless build_artifact.exist?
+        actual_sha = Digest::SHA256.hexdigest(build_artifact.read)
+        return nil if actual_sha == expected_checksum
+        return "Build artifact checksum mismatch: #{pkgname}"
+      end
+
       installed_path = resolve_check_path(platform_cfg, target, base_path, nil)
 
       if format_type == 'skill-bundle'

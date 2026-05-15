@@ -885,15 +885,23 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 
 ---
 
-### P8.5 Remove `load custom_path` in favor of `require`
-**Status**: ⏳ PENDING
-**Date**: TBD
+### ✅ P8.5 Replace `load custom_path` with `require` + `$LOADED_FEATURES.delete`
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
 
-**Claim**: `common.rb:469` and `common.rb:509` use `load custom_path` which executes arbitrary Ruby code. While paths are validated with `realpath`, this is still code execution.
+**Claim**: `transform.rb:32` and `transform.rb:72` use `load custom_path` which executes arbitrary Ruby code.
 
-**Note**: `load` is used intentionally to allow transformer reload during development. `require` would cache the file. Keep `load` but add stricter validation.
+**Fix**: Replaced both `load custom_path` calls with `require abs_path` where `abs_path = custom_path.realpath.to_s`. Added `$LOADED_FEATURES.delete(abs_path)` before require to preserve reloadability during development.
 
-**Files**: `ssot/lib/common.rb`
+| Before | After |
+|--------|-------|
+| `load custom_path` | `$LOADED_FEATURES.delete(abs_path); require abs_path` |
+
+**Files**: `ssot/lib/transform.rb` (lines 32-34, 74-76)
+**Test**: `rake test` — 202 tests, 663 assertions, 0 failures, 0 errors
+
+---
+
 
 ---
 
@@ -992,8 +1000,108 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 
 ---
 
+### ✅ P8.9 Fix Skill Platform Check Early Exit (check_vendor_skill_present)
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
+
+**Claim**: `ssot/lib/install.rb:check_vendor_skill_present` calls `exit 0` after verifying the vendor skill file exists, preventing the per-package verification loop from running. This means individual package fragments are never checked for existence or integrity.
+
+**Root cause**: The method was designed as a shortcut — "vendor file exists → everything is fine." But the vendor file could be stale, missing a fragment that was uninstalled but not re-aggregated.
+
+**Fix**: 
+1. Removed `exit 0` from `check_vendor_skill_present`
+2. Changed from standalone check to a non-exiting verification that returns boolean
+3. Per-package loop now runs for skill platforms too, verifying each package's contribution
+
+**Files**: `ssot/lib/install.rb`
+**Test**: Skill platform `ssot check` now verifies individual packages, not just aggregated file
+
+---
+
+### ✅ P8.10 Fix Skill Platform Uninstall Re-Aggregation
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
+
+**Claim**: `ssot/uninstall.rb` line 106 has `exit 0` for skill platforms, preventing the `aggregate-skills.rb` re-aggregation call at lines 122-131 from ever executing. After uninstalling a package from a skill platform, the vendor skill file still contains the removed package's content.
+
+**Root cause**: The skill uninstall path was written as a simple "remove vendor file, clean index, done" without considering that other packages still need their fragments in the vendor file.
+
+**Fix**: 
+1. Remove `exit 0` from skill platform uninstall path
+2. Ensure `aggregate-skills.rb` runs after skill platform uninstall
+3. Vendor skill is regenerated without the uninstalled package's content
+
+**Files**: `ssot/uninstall.rb`
+**Test**: Uninstall a single package from a skill platform → vendor file no longer contains that package's fragment
+
+---
+
 **Last Updated**: 2026-05-15 (P0-P8 ✅)
-**Status**: P0-P7 Complete; P8.1-P8.8 Complete; P2.2/L4.2/L4.5/L4.6 deferred; P0-P3, P5-P7 ✅
+**Status**: P0-P7 Complete; P8.1-P8.10 Complete; P2.2/L4.2/L4.5/L4.6 deferred; P0-P3, P5-P7 ✅
+
+---
+
+## 📋 Priority 9 — Verify & Fix (Index-Disk Reconciliation)
+
+### ⏳ P9.1 Create `ssot verify` Command
+**Status**: ⏳ PENDING
+**Date**: TBD
+
+**Claim**: No command can detect drift between SSoT index and actual disk state. `ssot check` only verifies that installed records in the index have matching files on disk — it cannot detect:
+- Orphan files on disk that index doesn't know about
+- Index records pointing to deleted build artifacts
+- Skill vendor files containing stale fragments from uninstalled packages
+
+**Plan**: Create `ssot verify [platform]` that:
+1. Reads index — iterates all installed records for given platform(s)
+2. For each record: checks file exists on disk + SHA256 matches index checksum
+3. Reports mismatch severity: MISSING, CHECKSUM, STALE
+4. Also scans disk for files NOT in index (orphan detection) — for directory platforms, scan `rules_dir`/`skills_dir` and cross-reference
+5. Returns non-zero exit if any drift found
+6. Default: all platforms (`ssot verify` = verify all)
+7. Show summary: `✓ N packages OK | ⚠ N drift(s) | ? N orphan(s)`
+
+**Files**: `ssot/verify.rb` (new), `bin/ssot` (add verify command)
+**Test**: Introduce drift manually (delete symlink, modify file) → verify detects it; no drift → verify reports clean
+
+---
+
+### ⏳ P9.2 Create `ssot fix` Command
+**Status**: ⏳ PENDING
+**Date**: TBD
+
+**Claim**: After drift detection, user has no automated repair path. Must manually reinstall packages or clean up orphan files.
+
+**Plan**: Create `ssot fix [platform]` that:
+1. Runs `ssot verify` internally to detect drift
+2. For MISSING files: re-installs package from build artifact (rebuild if artifact missing)
+3. For CHECKSUM mismatch: re-installs package
+4. For STALE vendor skills: runs `aggregate-skills.rb` to regenerate
+5. For orphan files: lists them and asks user confirmation before removal
+6. `--dry-run` to preview fixes without changes
+7. `--auto` to skip orphan confirmation (CI mode)
+8. Returns non-zero if any fix could not be applied
+
+**Files**: `ssot/fix.rb` (new), `bin/ssot` (add fix command)
+**Test**: Introduce various drift types → fix resolves all; dry-run shows preview
+
+---
+
+### ⏳ P9.3 Integration — verify + fix in Single Workflow
+**Status**: ⏳ PENDING
+**Date**: TBD
+
+**Plan**: Ensure `verify` and `fix` work together smoothly:
+- `ssot status` should call verify internally and show health status
+- `ssot check <platform>` should use verify logic (more thorough than current check)
+- `--project` flag support for project-scoped platforms
+- Dry-run for fix must be truly read-only
+- After fix, run check to confirm everything OK
+
+**Files**: `ssot/status.rb` (updated verify call), `ssot/lib/install.rb` (check uses verify), `ssot/fix.rb`
+**Test**: Full cycle: break → verify detects → fix repairs → check passes
+
+---
 
 ### ✅ Skill-Bundle Sub-Skill Selection + Manifest v2
 **Status**: ✅ COMPLETED
