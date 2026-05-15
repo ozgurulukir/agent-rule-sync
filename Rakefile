@@ -65,15 +65,42 @@ Rake::TestTask.new(:test_uninstall) do |t|
   t.warning = false
 end
 
+desc 'Run query tests (test_query.rb)'
+Rake::TestTask.new(:test_query) do |t|
+  t.libs << 'test'
+  t.test_files = FileList['test/test_query.rb']
+  t.verbose = false
+  t.warning = false
+end
+
+desc 'Run translate tests (test_translate.rb)'
+Rake::TestTask.new(:test_translate) do |t|
+  t.libs << 'test'
+  t.test_files = FileList['test/test_translate.rb']
+  t.verbose = false
+  t.warning = false
+end
+
+desc 'Run aggregate tests (test_aggregate.rb)'
+Rake::TestTask.new(:test_aggregate) do |t|
+  t.libs << 'test'
+  t.test_files = FileList['test/test_aggregate.rb']
+  t.verbose = false
+  t.warning = false
+end
+
 desc 'Print test summary'
 task :summary do
-  puts "\n📊 Test Suite — 172 tests, 427 assertions"
+  puts "\n📊 Test Suite — 188 tests, 481 assertions"
   puts "  test_common.rb               — 48 unit tests"
   puts "  test_integration.rb          — 29 integration tests"
   puts "  test_cache.rb                — 24 unit tests"
   puts "  test_pkgbuild_validation.rb  — 31 unit tests"
   puts "  test_platform.rb             — 33 unit tests"
   puts "  test_uninstall.rb            —  7 unit tests"
+  puts "  test_query.rb                — 16 unit tests"
+  puts "  test_translate.rb            —  4 unit tests"
+  puts "  test_aggregate.rb            —  4 unit tests"
   puts ""
   puts "Run: rake test"
 end
