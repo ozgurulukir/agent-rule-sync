@@ -768,8 +768,146 @@ Each call re-reads the file, re-parses YAML, re-validates all 13 platform config
 
 ---
 
-**Last Updated**: 2026-05-15 (Priority 0-7 ✅)
-**Status**: P0-P7 Complete; P2.2/L4.2/L4.5/L4.6 deferred
+## 📋 Priority 8 — Refactor (Code Quality & Architecture)
+
+### ✅ P8.1 Fix Syntax Warnings (Ruby -wc)
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
+
+**Claim**: `ruby -wc` reports warnings across 4 files — mismatched indentations and unused variables.
+
+**Issues found**:
+```
+ssot/lib/common.rb:924  — mismatched indentations at 'end' with 'if' at 877
+ssot/lib/common.rb:932  — mismatched indentations at 'end' with 'def' at 785
+ssot/lib/common.rb:1030-1032 — multiple mismatched indentations
+ssot/lib/install.rb:297 — assigned but unused variable: install_cfg
+ssot/lib/install.rb:564 — mismatched indentations at 'end' with 'def' at 366
+ssot/build.rb:67       — assigned but unused variable: platforms
+ssot/build.rb:279      — assigned but unused variable: install_cfg
+ssot/query.rb:253      — assigned but unused variable: output
+```
+
+**Fix plan**:
+1. Fix indentation in `common.rb` (if/end alignment at line 877/924, def/end at 785/932, module closures at 1030-1032)
+2. Remove or prefix unused variables (`_install_cfg`, `_platforms`, `_output`)
+3. Verify with `ruby -wc` after each fix
+
+**Files**: `ssot/lib/common.rb`, `ssot/lib/install.rb`, `ssot/build.rb`, `ssot/query.rb`
+**Test**: `ruby -wc` on all 4 files → zero warnings
+
+---
+
+### P8.2 Remove Duplicate Logging from build.rb and install.rb
+**Status**: 🔄 IN PROGRESS
+**Date**: 2026-05-15
+
+**Claim**: Logging is defined in 3 places with slightly different APIs. `Ssot::Lib::Common` has the canonical implementation; `build.rb` and `install.rb` have duplicates.
+
+**Duplicates**:
+- `build.rb:21-29` — `def log`, `def log_error`, `def log_warn` (top-level, no level support)
+- `install.rb:767-779` — `def log`, `def log_error`, `def log_warn`, `def log_debug` (module-level, duplicates Common)
+
+**Fix plan**:
+1. Delete duplicate `log`/`log_error`/`log_warn` from `build.rb`
+2. Delete duplicate logging from `install.rb`
+3. Update all call sites in `build.rb` to use `Ssot::Lib::Common.log*`
+4. Update all call sites in `install.rb` to use `Ssot::Lib::Common.log*`
+5. Verify no `def log` remains outside `Ssot::Lib::Common`
+
+**Files**: `ssot/build.rb`, `ssot/lib/install.rb`
+**Test**: `rake test` + `ruby ssot/build.rb` + `ruby ssot/install.rb opencode --dry-run` — output identical
+
+---
+
+### P8.3 Refactor install_single_target (198 lines → <80 each)
+**Status**: 🔄 IN PROGRESS
+**Date**: 2026-05-15
+
+**Claim**: `install_single_target` in `lib/install.rb:366` is 198 lines with cyclomatic complexity ~30. It handles symlink, copy, inject-append, skill-bundle, index recording, and version comparison all in one method.
+
+**Fix plan**:
+1. Extract `do_install_symlink(target, install_path, content_path, dry_run)`
+2. Extract `do_install_copy(target, install_path, content_path, dry_run)`
+3. Extract `do_install_inject(target, install_path, content_path, dry_run)`
+4. Extract `do_install_skillbundle(target, install_path, content_path, pkgdata, select_list, dry_run)`
+5. Extract `record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, dry_run)`
+6. Keep `install_single_target` as orchestrator (~60 lines)
+
+**Files**: `ssot/lib/install.rb`
+**Test**: `rake test` + `bin/ssot install opencode --dry-run` + `bin/ssot install golang-security --select sql`
+
+---
+
+### P8.4 Add Tests for Untested Modules
+**Status**: 🔄 IN PROGRESS
+**Date**: 2026-05-15
+
+**Claim**: 3 modules have zero test coverage: `query.rb`, `translate.rb`, `aggregate-skills.rb`.
+
+**Fix plan**:
+1. `test/test_query.rb` — test `Ssot::Query.run` for all commands (list-packages, show, search, installed, check, orphans, depends, provides, help)
+2. `test/test_translate.rb` — test translator loading, rule-to-skill conversion, error handling
+3. `test/test_aggregate.rb` — test vendor skill aggregation for crush/goose/droid, empty agents, missing skills
+
+**Files**: `test/test_query.rb` (new), `test/test_translate.rb` (new), `test/test_aggregate.rb` (new)
+**Test**: `rake test` → all pass including new tests
+
+---
+
+### P8.5 Remove `load custom_path` in favor of `require`
+**Status**: ⏳ PENDING
+**Date**: TBD
+
+**Claim**: `common.rb:469` and `common.rb:509` use `load custom_path` which executes arbitrary Ruby code. While paths are validated with `realpath`, this is still code execution.
+
+**Note**: `load` is used intentionally to allow transformer reload during development. `require` would cache the file. Keep `load` but add stricter validation.
+
+**Files**: `ssot/lib/common.rb`
+
+---
+
+### P8.6 Refactor check_platform and install_platform (complexity 31)
+**Status**: ⏳ PENDING
+**Date**: TBD
+
+**Claim**: Both methods have cyclomatic complexity 31. Extract sub-methods for prerequisite checking, version comparison, and target filtering.
+
+**Files**: `ssot/lib/install.rb`
+
+---
+
+### P8.7 Split common.rb into Smaller Modules
+**Status**: ⏳ PENDING
+**Date**: TBD
+
+**Claim**: `common.rb` is 1032 lines (53 methods) — approaching God Object. Split into:
+- `lib/config.rb` — `Ssot::Lib::Config` module
+- `lib/cache.rb` — cache functions
+- `lib/validation.rb` — `validate_pkgbuild`, `validate_platform_config`
+- `lib/platform.rb` — `load_platform_registry`, `platform_config`, `resolve_install_path`
+
+**Files**: `ssot/lib/common.rb` → split into 4 files
+
+---
+
+### P8.8 Add Integration Test for Full Build→Install→Uninstall Cycle
+**Status**: ⏳ PENDING
+**Date**: TBD
+
+**Claim**: No end-to-end integration test exists that exercises the full pipeline.
+
+**Fix plan**:
+1. Create `test/test_end_to_end.rb` with tmpdir-based test
+2. Build → aggregate → install → check → uninstall → check
+3. Verify index state at each step
+
+**Files**: `test/test_end_to_end.rb` (new)
+
+---
+
+**Last Updated**: 2026-05-15 (Priority 0-7 ✅; P8.1-P8.4 IN PROGRESS)
+**Status**: P0-P7 Complete; P2.2/L4.2/L4.5/L4.6 deferred; P8.1-P8.4 in progress
 
 ### ✅ Skill-Bundle Sub-Skill Selection + Manifest v2
 **Status**: ✅ COMPLETED

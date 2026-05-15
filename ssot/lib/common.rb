@@ -782,7 +782,7 @@ module Ssot
       end
 
       # Validate PKGBUILD hash completely
-       def validate_pkgbuild(pkg, pkgdir)
+      def validate_pkgbuild(pkg, pkgdir)
         errors = []
 
         # pkgname: lowercase alphanumeric + hyphens/underscores, min 2 char
@@ -921,7 +921,7 @@ module Ssot
             end
           end
         end  # each_with_index
-      end  # if pkg[:targets].is_a?(Array)
+        end  # if pkg[:targets].is_a?(Array)
 
         # checksums: auto, skip
 
@@ -1025,8 +1025,8 @@ module Ssot
          pkg_index[:installed].each do |rec|
            rec[:pkgrel] ||= 1
            rec[:epoch] ||= 0
-         end
+          end
        end
-      end
     end
   end
+end

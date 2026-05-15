@@ -64,7 +64,7 @@ end
 # ─── Load registry and index ────────────────────────────────────────────────────
 
 log "🔧 Loading platform registry..."
-platforms = Ssot::Lib::Common.load_platform_registry
+_platforms = Ssot::Lib::Common.load_platform_registry
 
 index_data = if SSOT_ROOT.join('index.yaml').exist?
                Ssot::Lib::Common.load_yaml(SSOT_ROOT.join('index.yaml'))
@@ -276,7 +276,7 @@ pkgbuilds.each do |pkgbuild_path|
     output = tgt[:output]
     translate = tgt[:translate] || nil   # optional translate step (before transformer)
     transformer = tgt[:transformer] || 'copy'
-    install_cfg = tgt[:install] || {}
+    _install_cfg = tgt[:install] || {}
 
     if format == 'skill-bundle'
       log "  → Building for #{platform_id} (skill-bundle: #{pkgname})"

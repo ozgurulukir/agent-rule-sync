@@ -294,7 +294,7 @@ module Ssot
         expected_checksum = inst[:checksum]
         target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
         format_type = target ? target[:format] : 'directory'
-        install_cfg = target[:install] || {}
+        _install_cfg = target[:install] || {}
 
         installed_path = resolve_check_path(platform_cfg, target, base_path, project_root)
 
@@ -363,7 +363,7 @@ module Ssot
 
     # ─── Install a single target ─────────────────────────────────────────────────
 
-     def install_single_target(index, build_index, pkgname, pkgdata, target,
+    def install_single_target(index, build_index, pkgname, pkgdata, target,
                                platform_cfg, base_path, project_root, platform_id,
                                installed_this_run,
                                dry_run: false, select_list: nil, quiet: false)

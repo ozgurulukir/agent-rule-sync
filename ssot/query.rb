@@ -250,7 +250,7 @@ module Ssot
       pkgs.each do |name, pkg|
         Array(pkg[:installed]).each do |rec|
           platform = rec[:platform]
-          output = rec[:output]
+          _output = rec[:output]
           
           # Check if package has target for this platform
           unless Array(pkg[:available_targets]).include?(platform)
