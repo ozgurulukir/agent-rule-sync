@@ -399,4 +399,12 @@ rescue => e
   Ssot::Lib::Common.log_error "Failed to write JSON index: #{e.message}"
 end
 
+# ─── Generate catalog.json ─────────────────────────────────────────────────────
+
+begin
+  system(RbConfig.ruby, SSOT_ROOT.join('generate-catalog.rb').to_s)
+rescue => e
+  Ssot::Lib::Common.log_error "Failed to generate catalog: #{e.message}"
+end
+
 puts "✅ Build complete. Run `ruby ssot/install.rb <platform>` to install packages."

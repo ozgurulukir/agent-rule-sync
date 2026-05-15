@@ -735,6 +735,7 @@ See `ssot/transformers/` for implementations.
 | `ssot/query.rb` | Package database query tool |
 | `ssot/verify.rb` | Index-disk reconciliation (detect drift) |
 | `ssot/fix.rb` | Automated drift repair |
+| `ssot/generate-catalog.rb` | Package catalog generator (JSON) |
 | `ssot/aggregate-skills.rb` | Vendor skill aggregation |
 | `ssot/index.yaml` | Master package database |
 | `ssot/index.json` | Machine-readable index |
@@ -857,6 +858,7 @@ To migrate:
 | **Version management** | ✅ | pacman-style epoch:pkgver-pkgrel, compare/upgrade/downgrade |
 | **Query tool** | ✅ | list, show, search, installed, check, orphans, depends, provides |
 | **Index** | ✅ | YAML + JSON, atomic writes, legacy migration |
+| **Package catalog** | ✅ | `ssot/build/catalog.json` — auto-generated after build, portatif JSON format (id, version, tags, source, platforms) |
 | **Test suite** | ✅ | 202 tests, 663 assertions, 0 failures (test_common, test_integration, test_cache, test_pkgbuild, test_platform, test_uninstall, test_query, test_translate, test_aggregate, test_end_to_end) |
 | **Standalone scripts** | ✅ | `build.rb`, `install.rb`, `uninstall.rb`, `query.rb`, `aggregate-skills.rb`, `translate.rb` |
 | **Modular install.rb** | ✅ | Library layer (`ssot/lib/install.rb`, `ssot/lib/common.rb`), `--all`, `--targets <pkg>`, `--check <platform>` |

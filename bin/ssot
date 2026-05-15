@@ -57,6 +57,14 @@ module Ssot
       when "fix"
         system(RbConfig.ruby, ROOT.join("ssot/fix.rb").to_s, *argv)
         0
+      when "catalog"
+        catalog_path = ROOT.join("ssot", "build", "catalog.json")
+        unless catalog_path.exist?
+          puts "Catalog not found. Run `ssot build` first."
+          return 0
+        end
+        puts catalog_path.read
+        0
       when "platforms"
         Ssot::Query.run(["list-platforms"])
       when "help"
@@ -90,6 +98,7 @@ module Ssot
           check <platform>       Verify installed state matches index
           verify [platform]      Comprehensive index vs disk reconciliation
           fix [platform]         Repair drift (missing/modified files)
+          catalog                Show package catalog (JSON)
           platforms              List all platforms
           help                   Show this help
 
