@@ -51,6 +51,12 @@ module Ssot
       when "check"
         system(RbConfig.ruby, ROOT.join("ssot/install.rb").to_s, "--check", *argv)
         0
+      when "verify"
+        system(RbConfig.ruby, ROOT.join("ssot/verify.rb").to_s, *argv)
+        0
+      when "fix"
+        system(RbConfig.ruby, ROOT.join("ssot/fix.rb").to_s, *argv)
+        0
       when "platforms"
         Ssot::Query.run(["list-platforms"])
       when "help"
@@ -82,6 +88,8 @@ module Ssot
           search <tag>           Search packages by tag
           status                 Show overall system status
           check <platform>       Verify installed state matches index
+          verify [platform]      Comprehensive index vs disk reconciliation
+          fix [platform]         Repair drift (missing/modified files)
           platforms              List all platforms
           help                   Show this help
 
@@ -95,6 +103,8 @@ module Ssot
           ssot uninstall opencode
           ssot status
           ssot search security
+          ssot verify opencode
+          ssot fix opencode
       HELP
     end
 
