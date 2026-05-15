@@ -187,3 +187,4 @@ antigravity:
   skills_dir: ".agent/skills/"
   skill_install:
     type: copy
+
