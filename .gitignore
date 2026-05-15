@@ -1,6 +1,7 @@
 # Build artifacts
 build/
 cache/
+ssot/
 
 # Index database (generated)
 data/index.yaml
