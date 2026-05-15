@@ -165,82 +165,36 @@ module Ssot
 
     def install_platform(index, build_index, platform_id, dry_run: false, force_mode: false, select_list: nil, project_arg: nil, quiet: false)
       installed_this_run = Set.new
-      platform_id = platform_id.to_s  # normalize: YAML stores platform as string
+      platform_id = platform_id.to_s
 
       platform_cfg = platform_cfg_for(platform_id)
-      missing = Ssot::Lib::Common.check_prerequisites(platform_cfg)
-      unless missing.empty?
-        Ssot::Lib::Common.log_warn "Platform #{platform_id} may require: #{missing.join(', ')}" unless quiet
-        puts "  ⚠️  Platform #{platform_id} may require: #{missing.join(', ')}" unless quiet
-      end
+      warn_prerequisites(platform_id, platform_cfg, quiet)
 
-      project_root = project_root_for(platform_id, platform_cfg, project_arg)
-      base_path = if project_root
-                    project_root
-                  else
-                    Pathname.new(Ssot::Lib::Common.expand_user_path(platform_cfg[:base_path]))
-                  end
-
+      base_path = resolve_install_base_path(platform_cfg, project_arg)
       Ssot::Lib::Common.log "📁 Base path: #{base_path}" unless quiet
       Ssot::Lib::Common.log "  Platform type: #{platform_cfg[:type]}" unless quiet
 
       build_index[:packages].each do |pkgname, pkgdata|
-        targets = pkgdata[:targets]&.select { |t| t[:platform] == platform_id }
-        if targets.nil? || targets.empty?
+        targets = filter_targets_for_platform(pkgdata, platform_id)
+        if targets.empty?
           Ssot::Lib::Common.log "  ⊘ #{pkgname}: no target for #{platform_id}, skipping" unless quiet
           next
         end
-        pkg_index = index[:packages][pkgname] || { installed: [] }
-        existing_records = (pkg_index[:installed] || []).select { |r| r[:platform] == platform_id }
 
-        if existing_records.any?
-          existing = existing_records.first
-          cmp = Ssot::Lib::Common.compare_versions(
-            pkgdata[:pkgver], existing[:version],
-            pkgrel1: pkgdata[:pkgrel], pkgrel2: existing[:pkgrel],
-            epoch1: pkgdata[:epoch], epoch2: existing[:epoch]
-          )
+        next unless should_install_or_upgrade?(pkgname, pkgdata, platform_id, index,
+                                               force_mode, dry_run, quiet)
 
-          if cmp == 0
-            Ssot::Lib::Common.log "  ↺ #{pkgname} already installed (#{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])})" unless quiet
-            next
-          elsif cmp > 0
-            Ssot::Lib::Common.log "  🔄 Upgrading #{pkgname} #{Ssot::Lib::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])} → #{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])}" unless quiet
-            unless dry_run
-              uninstall_single_package_from_index!(index, pkgname, platform_id, project_root: project_root) || next
-            end
-          else
-            if force_mode
-              Ssot::Lib::Common.log_warn "Downgrade forced for #{pkgname}: #{Ssot::Lib::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])} → #{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])}" unless quiet
-              unless dry_run
-                uninstall_single_package_from_index!(index, pkgname, platform_id, project_root: project_root) || next
-              end
-            else
-              Ssot::Lib::Common.log_error "Downgrade detected for #{pkgname}: installed #{Ssot::Lib::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])}, candidate #{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])}" unless quiet
-              Ssot::Lib::Common.log_error "Use --force to allow downgrade" unless quiet
-              next
-            end
-          end
-        end
+        ensure_package_in_index(index, pkgname, pkgdata)
 
-        # Ensure package entry exists in index
-        pkg_index = index[:packages][pkgname] ||= {}
-        pkg_index[:installed] ||= []
-        pkg_index.merge!(pkgdata.reject { |k, _| k == :installed })
-
-        # Install each target for this platform
         targets.each do |target|
           install_single_target(index, build_index, pkgname, pkgdata, target,
-                                platform_cfg, base_path, project_root, platform_id,
+                                platform_cfg, base_path, nil, platform_id,
                                 installed_this_run,
                                 dry_run: dry_run, select_list: select_list, quiet: quiet)
         end
       end
 
-      # Vendor skill aggregation for skill-type platforms
-      if platform_cfg[:type] == 'skill' && !dry_run
-        aggregate_vendor_skills(platform_id, platform_cfg, base_path)
-      end
+      aggregate_vendor_skills(platform_id, platform_cfg, base_path) if platform_cfg[:type] == 'skill' && !dry_run
 
       installed_this_run
     end
@@ -259,98 +213,165 @@ module Ssot
 
       index = Ssot::Lib::Common.load_yaml(Ssot::Lib::Common::INDEX_YAML_PATH)
       platform_cfg = platform_cfg_for(platform_id)
+      warn_prerequisites(platform_id, platform_cfg, false)
 
-      missing = Ssot::Lib::Common.check_prerequisites(platform_cfg)
-      unless missing.empty?
-        Ssot::Lib::Common.log_warn "Platform #{platform_id} may require: #{missing.join(', ')}"
-        puts "  ⚠️  Platform #{platform_id} may require: #{missing.join(', ')}"
-      end
+      base_path = resolve_install_base_path(platform_cfg, project_arg)
 
-      project_root = project_root_for(platform_id, platform_cfg, project_arg)
-      base_path = if project_root
-                    project_root
-                  else
-                    Pathname.new(Ssot::Lib::Common.expand_user_path(platform_cfg[:base_path]))
-                  end
-
+      # Skill-type platforms: check vendor skill file only
       if platform_cfg[:type] == 'skill'
-        vendor_path = base_path.join(platform_cfg[:skill_file])
-        unless vendor_path.exist?
-          Ssot::Lib::Common.log_error "Vendor skill missing: #{vendor_path}"
-          puts "  ❌ Vendor skill missing: #{vendor_path}"
-          raise "Vendor skill missing"
-        end
-        Ssot::Lib::Common.log "  ✓ Vendor skill present: #{vendor_path}"
-        puts "  ✅ Vendor skill present and readable"
-        exit 0
+        check_vendor_skill_present(platform_cfg, base_path)
       end
 
       errors = []
       index[:packages].each do |pkgname, pkgdata|
         inst = pkgdata[:installed].find { |i| i[:platform] == platform_id }
         next unless inst
-
-        expected_output = inst[:output]
-        expected_checksum = inst[:checksum]
-        target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
-        format_type = target ? target[:format] : 'directory'
-        _install_cfg = target[:install] || {}
-
-        installed_path = resolve_check_path(platform_cfg, target, base_path, project_root)
-
-        if format_type == 'skill-bundle'
-          unless installed_path.directory?
-            errors << "Skill-bundle directory missing: #{installed_path}"
-          else
-            manifest_path = Pathname.new(installed_path).join('manifest.json')
-            if manifest_path.exist?
-              begin
-                manifest = JSON.parse(manifest_path.read)
-                mismatches = []
-                total_files = 0
-                manifest['sub_skills'].each do |sub_skill|
-                  sub_skill['files'].each do |rel_path, expected_sha|
-                    total_files += 1
-                    file_path = Pathname.new(installed_path).join(rel_path)
-                    unless file_path.exist?
-                      mismatches << "missing: #{rel_path}"
-                    else
-                      actual_sha = Digest::SHA256.hexdigest(file_path.read)
-                      unless actual_sha == expected_sha
-                        mismatches << "checksum mismatch: #{rel_path}"
-                      end
-                    end
-                  end
-                end
-                if mismatches.empty?
-                  Ssot::Lib::Common.log "  ✓ Skill-bundle manifest: #{manifest['sub_skills'].size} sub-skill(s), #{total_files} file(s) verified"
-                else
-                  Ssot::Lib::Common.log_warn "Skill-bundle manifest: #{mismatches.size} issue(s)"
-                  mismatches.each { |m| Ssot::Lib::Common.log_warn "    • #{m}" }
-                  errors.concat(mismatches.map { |m| "#{pkgname}: #{m}" })
-                end
-              rescue => e
-                Ssot::Lib::Common.log_warn "Failed to read skill-bundle manifest: #{e.message}"
-                errors << "#{pkgname}: manifest unreadable"
-              end
-            else
-              errors << "#{pkgname}: no manifest"
-            end
-          end
-        else
-          unless installed_path.exist?
-            errors << "Missing: #{pkgname} (#{expected_output}) at #{installed_path}"
-            next
-          end
-          actual_sha = Digest::SHA256.hexdigest(installed_path.read)
-          if actual_sha != expected_checksum
-            errors << "Checksum mismatch: #{pkgname} (#{expected_output})"
-          end
-        end
+        error = verify_package_on_disk(pkgname, pkgdata, inst, platform_id, platform_cfg, base_path)
+        errors << error if error
       end
 
+      report_check_results(errors)
+    end
+
+    # ─── Platform install/check helpers ────────────────────────────────────────────
+
+    def warn_prerequisites(platform_id, platform_cfg, quiet)
+      missing = Ssot::Lib::Common.check_prerequisites(platform_cfg)
+      return if missing.empty?
+      Ssot::Lib::Common.log_warn "Platform #{platform_id} may require: #{missing.join(', ')}" unless quiet
+      puts "  ⚠️  Platform #{platform_id} may require: #{missing.join(', ')}" unless quiet
+    end
+
+    def resolve_install_base_path(platform_cfg, project_arg)
+      project_root = Ssot::Lib::Common.project_root_for(platform_cfg, project_arg)
+      if project_root
+        project_root
+      else
+        Pathname.new(Ssot::Lib::Common.expand_user_path(platform_cfg[:base_path]))
+      end
+    end
+
+    def filter_targets_for_platform(pkgdata, platform_id)
+      pkgdata[:targets]&.select { |t| t[:platform] == platform_id } || []
+    end
+
+    def should_install_or_upgrade?(pkgname, pkgdata, platform_id, index, force_mode, dry_run, quiet)
+      pkg_index = index[:packages][pkgname] || { installed: [] }
+      existing_records = (pkg_index[:installed] || []).select { |r| r[:platform] == platform_id }
+      return true if existing_records.empty?
+
+      existing = existing_records.first
+      cmp = Ssot::Lib::Common.compare_versions(
+        { pkgver: pkgdata[:pkgver], pkgrel: pkgdata[:pkgrel], epoch: pkgdata[:epoch] },
+        { pkgver: existing[:version], pkgrel: existing[:pkgrel], epoch: existing[:epoch] }
+      )
+
+      case cmp
+      when 0
+        Ssot::Lib::Common.log "  ↺ #{pkgname} already installed (#{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])})" unless quiet
+        false
+      when 1
+        Ssot::Lib::Common.log "  🔄 Upgrading #{pkgname} #{Ssot::Lib::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])} → #{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])}" unless quiet
+        uninstall_single_package_from_index!(index, pkgname, platform_id) unless dry_run
+        true
+      else
+        handle_downgrade(pkgname, pkgdata, existing, force_mode, dry_run, quiet)
+      end
+    end
+
+    def handle_downgrade(pkgname, pkgdata, existing, force_mode, dry_run, quiet)
+      if force_mode
+        Ssot::Lib::Common.log_warn "Downgrade forced for #{pkgname}: #{Ssot::Lib::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])} → #{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])}" unless quiet
+        uninstall_single_package_from_index!(index, pkgname, platform_id) unless dry_run
+        true
+      else
+        Ssot::Lib::Common.log_error "Downgrade detected for #{pkgname}: installed #{Ssot::Lib::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])}, candidate #{Ssot::Lib::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])}" unless quiet
+        Ssot::Lib::Common.log_error "Use --force to allow downgrade" unless quiet
+        false
+      end
+    end
+
+    def ensure_package_in_index(index, pkgname, pkgdata)
+      pkg_index = index[:packages][pkgname] ||= {}
+      pkg_index[:installed] ||= []
+      pkg_index.merge!(pkgdata.reject { |k, _| k == :installed })
+    end
+
+    def check_vendor_skill_present(platform_cfg, base_path)
+      vendor_path = base_path.join(platform_cfg[:skill_file])
+      unless vendor_path.exist?
+        Ssot::Lib::Common.log_error "Vendor skill missing: #{vendor_path}"
+        puts "  ❌ Vendor skill missing: #{vendor_path}"
+        raise "Vendor skill missing"
+      end
+      Ssot::Lib::Common.log "  ✓ Vendor skill present: #{vendor_path}"
+      puts "  ✅ Vendor skill present and readable"
+      exit 0
+    end
+
+    def verify_package_on_disk(pkgname, pkgdata, inst, platform_id, platform_cfg, base_path)
+      expected_output = inst[:output]
+      expected_checksum = inst[:checksum]
+      target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
+      format_type = target ? target[:format] : 'directory'
+      installed_path = resolve_check_path(platform_cfg, target, base_path, nil)
+
+      if format_type == 'skill-bundle'
+        verify_skill_bundle(installed_path, pkgname)
+      else
+        verify_single_file(installed_path, expected_checksum, pkgname, expected_output)
+      end
+    end
+
+    def verify_skill_bundle(installed_path, pkgname)
+      return "Skill-bundle directory missing: #{installed_path}" unless installed_path.directory?
+
+      manifest_path = installed_path.join('manifest.json')
+      return "#{pkgname}: no manifest" unless manifest_path.exist?
+
+      begin
+        manifest = JSON.parse(manifest_path.read)
+        mismatches = []
+        total_files = 0
+        manifest['sub_skills'].each do |sub_skill|
+          sub_skill['files'].each do |rel_path, expected_sha|
+            total_files += 1
+            file_path = installed_path.join(rel_path)
+            if file_path.exist?
+              actual_sha = Digest::SHA256.hexdigest(file_path.read)
+              mismatches << "checksum mismatch: #{rel_path}" unless actual_sha == expected_sha
+            else
+              mismatches << "missing: #{rel_path}"
+            end
+          end
+        end
+
+        if mismatches.empty?
+          Ssot::Lib::Common.log "  ✓ Skill-bundle manifest: #{manifest['sub_skills'].size} sub-skill(s), #{total_files} file(s) verified"
+          nil
+        else
+          Ssot::Lib::Common.log_warn "Skill-bundle manifest: #{mismatches.size} issue(s)"
+          mismatches.each { |m| Ssot::Lib::Common.log_warn "    • #{m}" }
+          mismatches.map { |m| "#{pkgname}: #{m}" }.join("; ")
+        end
+      rescue => e
+        Ssot::Lib::Common.log_warn "Failed to read skill-bundle manifest: #{e.message}"
+        "#{pkgname}: manifest unreadable"
+      end
+    end
+
+    def verify_single_file(installed_path, expected_checksum, pkgname, expected_output)
+      return "Missing: #{pkgname} (#{expected_output}) at #{installed_path}" unless installed_path.exist?
+
+      actual_sha = Digest::SHA256.hexdigest(installed_path.read)
+      return nil if actual_sha == expected_checksum
+
+      "Checksum mismatch: #{pkgname} (#{expected_output})"
+    end
+
+    def report_check_results(errors)
       if errors.empty?
-        log '✅ All installed packages are valid'
+        Ssot::Lib::Common.log '✅ All installed packages are valid'
         puts "\n✅ All installed packages are valid"
         exit 0
       else

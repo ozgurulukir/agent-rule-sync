@@ -897,11 +897,36 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 
 ---
 
-### P8.6 Refactor check_platform and install_platform (complexity 31)
-**Status**: ⏳ PENDING
-**Date**: TBD
+### ✅ P8.6 Refactor check_platform and install_platform (complexity 31 → <35 lines each)
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
 
-**Claim**: Both methods have cyclomatic complexity 31. Extract sub-methods for prerequisite checking, version comparison, and target filtering.
+**Claim**: Both methods had cyclomatic complexity 31. Extracted sub-methods for prerequisite checking, version comparison, and target filtering.
+
+**Before**:
+- `install_platform`: 80 lines, complexity 31
+- `check_platform`: 112 lines, complexity 31
+
+**After**:
+- `install_platform`: **34 lines**
+- `check_platform`: **30 lines**
+
+**Extracted helpers** (11 methods):
+| Method | Lines | Responsibility |
+|--------|-------|---------------|
+| `warn_prerequisites` | 5 | Platform prerequisite warnings |
+| `resolve_install_base_path` | 7 | Resolve project root vs base_path |
+| `filter_targets_for_platform` | 2 | Filter pkgdata targets by platform |
+| `should_install_or_upgrade?` | 22 | Version comparison + upgrade/downgrade logic |
+| `handle_downgrade` | 10 | Downgrade: force or skip |
+| `ensure_package_in_index` | 4 | Create/update package entry in index |
+| `check_vendor_skill_present` | 10 | Skill-type: verify vendor file exists |
+| `verify_package_on_disk` | 12 | Route to skill-bundle or single-file check |
+| `verify_skill_bundle` | 35 | Manifest + per-file checksum verification |
+| `verify_single_file` | 7 | Existence + checksum for single files |
+| `report_check_results` | 11 | Print check results, exit 0 or 1 |
+
+**Test**: `rake test` — 188 tests, 481 assertions, 0 failures, 0 errors
 
 **Files**: `ssot/lib/install.rb`
 
