@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Integration tests for SSoT build/install pipeline
+# Integration tests for Rulepack build/install pipeline
 # Tests end-to-end: build → install → check → uninstall
 # Plus unit-level tests for extracted helper functions (manifest generation)
 
@@ -11,12 +11,11 @@ require 'json'
 
 class TestBuildIntegration < Minitest::Test
   def setup
-    @tmpdir = Dir.mktmpdir('ssot-build-test-')
+    @tmpdir = Dir.mktmpdir('rulepack-build-test-')
     @build_root = Pathname.new(@tmpdir)
-    @ssot_root = @build_root.join('ssot')
-    @build_dir = @ssot_root.join('build')
-    FileUtils.cp_r(ROOT.join('ssot').to_s, @ssot_root.to_s, preserve: false)
-    FileUtils.rm_rf(@build_dir)
+    FileUtils.cp_r(ROOT.join('lib').to_s, @build_root.join('lib').to_s, preserve: false)
+    FileUtils.cp_r(ROOT.join('data').to_s, @build_root.join('data').to_s, preserve: false)
+    @build_dir = @build_root.join('build')
     @build_dir.mkpath
   end
 
@@ -25,14 +24,14 @@ class TestBuildIntegration < Minitest::Test
   end
 
   def test_build_creates_index
-    build_script = @ssot_root.join('build.rb')
-    result = system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), build_script.to_s, chdir: @ssot_root.to_s)
+    build_script = @build_root.join('lib/rulepack/build.rb')
+    result = system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), build_script.to_s, chdir: @build_root.to_s)
     assert result, 'Build script should exit successfully'
 
     index_path = @build_dir.join('index.yaml')
     assert index_path.exist?, 'Build index should exist after build'
 
-    index = Ssot::Lib::Common.load_yaml(index_path)
+    index = Rulepack::Common.load_yaml(index_path)
     assert index[:packages], 'Index should have packages key'
     assert index[:packages].key?(:memory), 'Index should include memory package'
     assert index[:packages].key?(:shell), 'Index should include shell package'
@@ -51,8 +50,8 @@ class TestBuildIntegration < Minitest::Test
   end
 
   def test_build_creates_platform_directories
-    build_script = @ssot_root.join('build.rb')
-    result = system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), build_script.to_s, chdir: @ssot_root.to_s)
+    build_script = @build_root.join('lib/rulepack/build.rb')
+    result = system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), build_script.to_s, chdir: @build_root.to_s)
     assert result, 'Build script should exit successfully'
 
     assert(Dir.glob("#{@build_dir}/*").any?, 'At least one platform build directory should exist after build')
@@ -80,7 +79,7 @@ class TestSkillBundleManifestGeneration < Minitest::Test
     (pkg_dir / 'sql').mkpath
     (pkg_dir / 'sql' / 'SKILL.md').write('# SQL Skill')
 
-    manifest = Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'my-bundle', 'opencode')
+    manifest = Rulepack::Common.generate_skill_bundle_manifest(pkg_dir, 'my-bundle', 'opencode')
 
     assert manifest[:pkgname] == 'my-bundle', 'pkgname should match'
     assert manifest[:platform] == 'opencode', 'platform should match'
@@ -104,7 +103,7 @@ class TestSkillBundleManifestGeneration < Minitest::Test
     (pkg_dir / 'README.md').write('# Readme')
     (pkg_dir / 'SKILL.md').write('# Skill')
 
-    manifest = Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'root-bundle', 'opencode')
+    manifest = Rulepack::Common.generate_skill_bundle_manifest(pkg_dir, 'root-bundle', 'opencode')
 
     root_sub = manifest[:sub_skills].find { |s| s[:path] == '.' }
     assert root_sub, 'should have root-level sub-skill entry (path: ".")'
@@ -118,7 +117,7 @@ class TestSkillBundleManifestGeneration < Minitest::Test
     pkg_dir.mkpath
     (pkg_dir / '.gitkeep').delete if (pkg_dir / '.gitkeep').exist?
 
-    manifest = Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'empty-bundle', 'opencode')
+    manifest = Rulepack::Common.generate_skill_bundle_manifest(pkg_dir, 'empty-bundle', 'opencode')
 
     assert manifest[:sub_skills].empty?, "empty bundle should have no sub-skills, got: #{manifest[:sub_skills].inspect}"
     assert manifest[:pkgname] == 'empty-bundle'
@@ -129,7 +128,7 @@ class TestSkillBundleManifestGeneration < Minitest::Test
     pkg_dir.mkpath
     (pkg_dir / 'SKILL.md').write('# Skill')
 
-    Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'write-test', 'cursor')
+    Rulepack::Common.generate_skill_bundle_manifest(pkg_dir, 'write-test', 'cursor')
 
     manifest_file = pkg_dir.join('manifest.json')
     assert manifest_file.exist?, 'manifest.json should be written'
@@ -146,7 +145,7 @@ class TestSkillBundleManifestGeneration < Minitest::Test
     (pkg_dir / 'auth').mkpath
     (pkg_dir / 'auth' / 'SKILL.md').write('hello world')
 
-    manifest = Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'checksum-test', 'opencode')
+    manifest = Rulepack::Common.generate_skill_bundle_manifest(pkg_dir, 'checksum-test', 'opencode')
     auth_sub = manifest[:sub_skills].find { |s| s[:path] == 'auth' }
 
     expected_sha = Digest::SHA256.hexdigest('hello world')
@@ -160,7 +159,7 @@ class TestSkillBundleManifestGeneration < Minitest::Test
     (pkg_dir / 'auth').mkpath
     (pkg_dir / 'auth' / 'SKILL.md').write('# Auth Skill')
 
-    manifest = Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'mixed-bundle', 'cursor')
+    manifest = Rulepack::Common.generate_skill_bundle_manifest(pkg_dir, 'mixed-bundle', 'cursor')
 
     root_sub = manifest[:sub_skills].find { |s| s[:path] == '.' }
     assert root_sub, 'should have root sub-skill for README.md'
@@ -176,7 +175,7 @@ class TestSkillBundleManifestGeneration < Minitest::Test
     pkg_dir.mkpath
     (pkg_dir / 'SKILL.md').write('# Skill')
 
-    Ssot::Lib::Common.generate_skill_bundle_manifest(pkg_dir, 'json-roundtrip', 'opencode')
+    Rulepack::Common.generate_skill_bundle_manifest(pkg_dir, 'json-roundtrip', 'opencode')
     raw = (pkg_dir / 'manifest.json').read
     parsed = JSON.parse(raw)
 
@@ -205,7 +204,7 @@ class TestIndexSchemaIntegration < Minitest::Test
       }
     }
 
-    Ssot::Lib::Common.migrate_installed_records(index[:packages][:memory])
+    Rulepack::Common.migrate_installed_records(index[:packages][:memory])
 
     record = index[:packages][:memory][:installed].first
     assert_equal 1, record[:pkgrel], 'Should add pkgrel=1'
@@ -226,8 +225,8 @@ class TestIndexSchemaIntegration < Minitest::Test
       }
     }
 
-    Ssot::Lib::Common.migrate_installed_records(index[:packages][:memory])
-    Ssot::Lib::Common.migrate_installed_records(index[:packages][:memory])
+    Rulepack::Common.migrate_installed_records(index[:packages][:memory])
+    Rulepack::Common.migrate_installed_records(index[:packages][:memory])
 
     record = index[:packages][:memory][:installed].first
     assert_equal 2, record[:pkgrel], 'existing pkgrel should be preserved'
@@ -236,13 +235,13 @@ class TestIndexSchemaIntegration < Minitest::Test
 
   def test_migrate_handles_empty_installed_list
     index = { packages: { memory: { installed: [] } } }
-    Ssot::Lib::Common.migrate_installed_records(index[:packages][:memory])
+    Rulepack::Common.migrate_installed_records(index[:packages][:memory])
     assert index[:packages][:memory][:installed].empty?, 'empty list should remain empty'
   end
 
   def test_migrate_handles_nil_installed
     index = { packages: { memory: { installed: nil } } }
-    Ssot::Lib::Common.migrate_installed_records(index[:packages][:memory])
+    Rulepack::Common.migrate_installed_records(index[:packages][:memory])
     assert_nil index[:packages][:memory][:installed]
   end
 end
@@ -251,16 +250,16 @@ end
 
 class TestVersionComparisonIntegration < Minitest::Test
   def test_pacman_style_numeric_comparison
-    assert_equal 1, Ssot::Lib::Common.compare_versions('1.10.0', '1.9.0')
-    assert_equal -1, Ssot::Lib::Common.compare_versions('1.0.0', '2.0.0')
-    assert_equal 0, Ssot::Lib::Common.compare_versions('1.0.0', '1.0.0')
-    assert_equal 1, Ssot::Lib::Common.compare_versions('2026.05', '2026.04')
+    assert_equal 1, Rulepack::Common.compare_versions('1.10.0', '1.9.0')
+    assert_equal -1, Rulepack::Common.compare_versions('1.0.0', '2.0.0')
+    assert_equal 0, Rulepack::Common.compare_versions('1.0.0', '1.0.0')
+    assert_equal 1, Rulepack::Common.compare_versions('2026.05', '2026.04')
   end
 
   def test_format_version_pacman_style
-    assert_equal '1.0.0-1', Ssot::Lib::Common.format_version(0, '1.0.0', 1)
-    assert_equal '1:1.0.0-1', Ssot::Lib::Common.format_version(1, '1.0.0', 1)
-    assert_equal '5:2.0.0-3', Ssot::Lib::Common.format_version(5, '2.0.0', 3)
+    assert_equal '1.0.0-1', Rulepack::Common.format_version(0, '1.0.0', 1)
+    assert_equal '1:1.0.0-1', Rulepack::Common.format_version(1, '1.0.0', 1)
+    assert_equal '5:2.0.0-3', Rulepack::Common.format_version(5, '2.0.0', 3)
   end
 end
 
@@ -272,12 +271,12 @@ class TestTransactionRollbackIntegration < Minitest::Test
       index_path = tmpdir.join('index.yaml')
       index_path.write("version: 3.0\npackages: {}\n")
 
-      backup = Ssot::Lib::Common.backup_index(index_path)
+      backup = Rulepack::Common.backup_index(index_path)
       assert backup.exist?, 'Backup should exist'
 
       index_path.write("version: 3.0\npackages:\n  test:\n    pkgver: 2.0.0\n")
 
-      assert Ssot::Lib::Common.restore_index(backup), 'Restore should return true'
+      assert Rulepack::Common.restore_index(backup), 'Restore should return true'
 
       restored = YAML.load_file(index_path)
       assert_nil restored[:packages]&.key?(:test), 'Should restore to backup state'
@@ -290,7 +289,7 @@ class TestTransactionRollbackIntegration < Minitest::Test
       original_content = "version: 3.0\npackages:\n  foo:\n    pkgver: 1.0.0\n"
       index_path.write(original_content)
 
-      backup = Ssot::Lib::Common.backup_index(index_path)
+      backup = Rulepack::Common.backup_index(index_path)
       assert_equal original_content, backup.read, 'Backup content should match original'
     end
   end
@@ -300,12 +299,12 @@ class TestTransactionRollbackIntegration < Minitest::Test
       index_path = tmpdir.join('index.yaml')
       index_path.write("test\n")
 
-      3.times { Ssot::Lib::Common.backup_index(index_path) }
+      3.times { Rulepack::Common.backup_index(index_path) }
 
       backups = Pathname.glob("#{index_path}.bak.*")
       assert_equal 3, backups.size, 'Should have 3 backups'
 
-      Ssot::Lib::Common.cleanup_backups(index_path)
+      Rulepack::Common.cleanup_backups(index_path)
 
       remaining = Pathname.glob("#{index_path}.bak.*")
       assert_equal 0, remaining.size, 'All backups should be cleaned up'
@@ -316,14 +315,14 @@ class TestTransactionRollbackIntegration < Minitest::Test
     with_tmpdir do |tmpdir|
       index_path = tmpdir.join('index.yaml')
       index_path.write("test\n")
-      assert Ssot::Lib::Common.cleanup_backups(index_path), 'cleanup should succeed with no backups'
+      assert Rulepack::Common.cleanup_backups(index_path), 'cleanup should succeed with no backups'
     end
   end
 
   def test_restore_nonexistent_backup_returns_false
     with_tmpdir do |tmpdir|
       fake_backup = tmpdir.join('nonexistent.bak')
-      result = Ssot::Lib::Common.restore_index(fake_backup, tmpdir.join('index.yaml'))
+      result = Rulepack::Common.restore_index(fake_backup, tmpdir.join('index.yaml'))
       refute result, 'Restore should return false for nonexistent backup'
     end
   end
@@ -334,7 +333,7 @@ end
 class TestCacheIntegration < Minitest::Test
   def setup
     @cache_test_key = 'test-cache-key'
-    @cache_dir = SSOT_ROOT.join('cache', @cache_test_key)
+    @cache_dir = ROOT.join('cache', @cache_test_key)
   end
 
   def teardown
@@ -343,50 +342,50 @@ class TestCacheIntegration < Minitest::Test
 
   def test_cache_key_for_url_is_sha256
     source = { type: 'url', url: 'https://example.com/test', sha256: 'abc123' }
-    key = Ssot::Lib::Common.cache_key_for_source(source, 'abc123')
+    key = Rulepack::Common.cache_key_for_source(source, 'abc123')
     assert_equal 'abc123', key
   end
 
   def test_cache_key_for_url_uses_sha256_when_provided
     source = { type: 'url', url: 'https://example.com/test', sha256: 'deadbeef' * 8 }
-    key = Ssot::Lib::Common.cache_key_for_source(source)
+    key = Rulepack::Common.cache_key_for_source(source)
     assert_equal 'deadbeef' * 8, key
   end
 
   def test_cache_key_for_url_raises_without_sha256
     source = { type: 'url', url: 'https://example.com/test' }
-    assert_raises(RuntimeError) { Ssot::Lib::Common.cache_key_for_source(source) }
+    assert_raises(RuntimeError) { Rulepack::Common.cache_key_for_source(source) }
   end
 
   def test_cache_key_for_git_is_commit_hash
     source = { type: 'git', url: 'https://github.com/owner/repo.git' }
-    key = Ssot::Lib::Common.cache_key_for_source(source, 'deadbeef' * 8)
+    key = Rulepack::Common.cache_key_for_source(source, 'deadbeef' * 8)
     assert_equal 'deadbeef' * 8, key
   end
 
   def test_cache_key_for_git_raises_without_commit_hash
     source = { type: 'git', url: 'https://github.com/owner/repo.git' }
-    assert_raises(RuntimeError) { Ssot::Lib::Common.cache_key_for_source(source) }
+    assert_raises(RuntimeError) { Rulepack::Common.cache_key_for_source(source) }
   end
 
   def test_cache_dir_format
-    dir = Ssot::Lib::Common.cache_dir('abc123')
-    assert_equal SSOT_ROOT.join('cache', 'abc123'), dir
+    dir = Rulepack::Common.cache_dir('abc123')
+    assert_equal ROOT.join('cache', 'abc123'), dir
   end
 
   def test_source_cached_detection_hit
     @cache_dir.mkpath
     @cache_dir.join('extracted').mkdir
 
-    assert Ssot::Lib::Common.source_cached?(@cache_test_key), 'Should detect cached source'
+    assert Rulepack::Common.source_cached?(@cache_test_key), 'Should detect cached source'
   end
 
   def test_source_cached_detection_miss_no_extracted_dir
     @cache_dir.mkpath
-    refute Ssot::Lib::Common.source_cached?(@cache_test_key), 'Should not detect cache without extracted/ dir'
+    refute Rulepack::Common.source_cached?(@cache_test_key), 'Should not detect cache without extracted/ dir'
   end
 
   def test_source_cached_detection_miss_no_cache_dir
-    refute Ssot::Lib::Common.source_cached?(@cache_test_key), 'Should not detect cache without cache dir'
+    refute Rulepack::Common.source_cached?(@cache_test_key), 'Should not detect cache without cache dir'
   end
 end

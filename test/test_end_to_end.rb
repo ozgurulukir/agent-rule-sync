@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# End-to-end integration tests for the full SSoT pipeline:
+# End-to-end integration tests for the full Rulepack pipeline:
 #   build → install → check → uninstall → verify
 
 require_relative 'helper'
@@ -10,16 +10,17 @@ require 'set'
 
 class TestEndToEndPipeline < Minitest::Test
   def setup
-    @tmpdir = Dir.mktmpdir('ssot-e2e-')
+    @tmpdir = Dir.mktmpdir('rulepack-e2e-')
     @home_dir = Pathname.new(@tmpdir).join('home')
     @home_dir.mkpath
-    @ssot_root = Pathname.new(@tmpdir).join('ssot')
-    FileUtils.cp_r(ROOT.join('ssot').to_s, @ssot_root.to_s, preserve: false)
-    @build_dir = @ssot_root.join('build')
-    FileUtils.rm_rf(@build_dir) if @build_dir.exist?
-    @build_dir.mkpath
+    @rulepack_root = Pathname.new(@tmpdir).join('rulepack')
+    @rulepack_root.mkpath
+    FileUtils.cp_r(ROOT.join('lib').to_s, @rulepack_root.join('lib').to_s, preserve: false)
+    FileUtils.cp_r(ROOT.join('data').to_s, @rulepack_root.join('data').to_s, preserve: false)
+    FileUtils.mkpath(@rulepack_root.join('build'))
+    @build_dir = @rulepack_root.join('build')
     @ruby = File.join(RbConfig::CONFIG['bindir'], 'ruby')
-    @env = { 'HOME' => @home_dir.to_s, 'SSOT_GIT_DEPTH' => '1' }
+    @env = { 'HOME' => @home_dir.to_s, 'RULEPACK_GIT_DEPTH' => '1' }
   end
 
   def teardown
@@ -29,39 +30,39 @@ class TestEndToEndPipeline < Minitest::Test
   # ─── Build helpers ──────────────────────────────────────────────────────────────
 
   def run_build(expected_success: true)
-    result = system(@ruby, @ssot_root.join('build.rb').to_s, chdir: @ssot_root.to_s)
+    result = system(@ruby, @rulepack_root.join('lib/rulepack/build.rb').to_s, chdir: @rulepack_root.to_s)
     assert_equal expected_success, result, "Build #{expected_success ? 'should' : 'should not'} succeed"
     result
   end
 
   def run_install(platform, *args)
-    result = system(@env, @ruby, @ssot_root.join('install.rb').to_s, platform, *args,
-                    chdir: @ssot_root.to_s)
+    result = system(@env, @ruby, @rulepack_root.join('lib/rulepack/install.rb').to_s, platform, *args,
+                    chdir: @rulepack_root.to_s)
     result
   end
 
   def run_check(platform)
-    system(@env, @ruby, @ssot_root.join('install.rb').to_s, '--check', platform,
-           chdir: @ssot_root.to_s)
+    system(@env, @ruby, @rulepack_root.join('lib/rulepack/install.rb').to_s, '--check', platform,
+           chdir: @rulepack_root.to_s)
     $?.exitstatus
   end
 
   def run_uninstall(platform, *args)
-    result = system(@env, @ruby, @ssot_root.join('uninstall.rb').to_s, platform, *args,
-                    chdir: @ssot_root.to_s)
+    result = system(@env, @ruby, @rulepack_root.join('lib/rulepack/uninstall.rb').to_s, platform, *args,
+                    chdir: @rulepack_root.to_s)
     result
   end
 
   def load_index
-    idx_path = @ssot_root.join('index.yaml')
+    idx_path = @rulepack_root.join('data', 'index.yaml')
     return nil unless idx_path.exist?
-    Ssot::Lib::Common.load_yaml(idx_path)
+    Rulepack::Common.load_yaml(idx_path)
   end
 
   def load_build_index
     idx_path = @build_dir.join('index.yaml')
     return nil unless idx_path.exist?
-    Ssot::Lib::Common.load_yaml(idx_path)
+    Rulepack::Common.load_yaml(idx_path)
   end
 
   # ─── Test: Clean Build ──────────────────────────────────────────────────────────
@@ -99,8 +100,8 @@ class TestEndToEndPipeline < Minitest::Test
       assert_includes platform_names, platform, "Build dir should include #{platform}"
     end
 
-    # index.json exists and has correct structure
-    json_path = @ssot_root.join('index.json')
+    # data/index.json exists and has correct structure
+    json_path = @rulepack_root.join('data', 'index.json')
     assert json_path.exist?, 'index.json should exist'
     parsed = JSON.parse(json_path.read)
     assert parsed['version']

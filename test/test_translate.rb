@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# Unit tests for Ssot::Translate (standalone translator runner)
+# Unit tests for translator runner
 # Covers: run_translator, apply_translator with copy and custom translators
 
 require_relative 'helper'
-require 'ssot/translate'
+require_relative File.join(File.expand_path('..', __dir__), 'lib', 'rulepack', 'translate')
 
 class TestTranslateCopy < Minitest::Test
   def test_copy_returns_content_unchanged
@@ -30,7 +30,7 @@ class TestTranslateRuleToSkill < Minitest::Test
       More content.
     MD
 
-    result = run_translator('custom:translators/rule-to-skill.rb', content, pkgname: 'test-pkg')
+    result = run_translator('custom:data/translators/rule-to-skill.rb', content, pkgname: 'test-pkg')
     assert_match(/# Test pkg/, result)
     assert_match(/## Section 1/, result)
     assert_match(/## Section 2/, result)
@@ -38,7 +38,7 @@ class TestTranslateRuleToSkill < Minitest::Test
 
   def test_custom_translator_missing_file
     assert_raises(RuntimeError) do
-      run_translator('custom:translators/nonexistent.rb', "test")
+      run_translator('custom:data/translators/nonexistent.rb', "test")
     end
   end
 end

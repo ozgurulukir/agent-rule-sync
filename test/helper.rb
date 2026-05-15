@@ -3,7 +3,7 @@
 # Test helper — sets up load paths and shared utilities
 
 $LOAD_PATH.unshift File.expand_path('..', __dir__)
-$LOAD_PATH.unshift File.join(File.expand_path('..', __dir__), 'ssot', 'lib')
+$LOAD_PATH.unshift File.join(File.expand_path('..', __dir__), 'lib', 'rulepack')
 
 require 'minitest/autorun'
 require 'pathname'
@@ -11,11 +11,10 @@ require 'tmpdir'
 require 'fileutils'
 
 ROOT = Pathname.new(__dir__).parent.expand_path
-SSOT_ROOT = ROOT.join('ssot')
 FIXTURES_ROOT = ROOT.join('test', 'fixtures')
 
-# Load SSoT modules
-require 'ssot/lib/common'
+# Load Rulepack modules
+require 'rulepack/common'
 
 module TestHelpers
   # Create a temporary directory and yield its Pathname

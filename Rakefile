@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Rakefile for SSoT test suite
+# Rakefile for Rulepack test suite
 # Usage: rake test, rake test_unit, rake test_integration, rake test_cache, rake test_pkgbuild, rake test_platform, rake test_uninstall
 
 require 'rake'

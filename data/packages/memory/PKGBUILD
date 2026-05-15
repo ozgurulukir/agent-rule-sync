@@ -1,0 +1,89 @@
+---
+pkgname: memory
+pkgver: 1.0.0
+pkgdesc: Workstation Memory Constraints rule
+arch: any
+order: 0
+source:
+- type: local
+  path: src/00-memory.md
+targets:
+- platform: opencode
+  format: directory
+  output: 00-memory.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: gemini-cli
+  format: import
+  output: memory-rule.md
+  transformer: strip-frontmatter
+  install:
+    type: copy
+- platform: qwen-code
+  format: import
+  output: memory-rule.md
+  transformer: strip-frontmatter
+  install:
+    type: copy
+- platform: crush
+  format: skill
+  output: 00-memory.md
+  translate: custom:data/translators/rule-to-skill.rb
+  transformer: copy
+- platform: goose
+  format: skill
+  output: 00-memory.md
+  translate: custom:data/translators/rule-to-skill.rb
+  transformer: copy
+- platform: droid
+  format: skill
+  output: 00-memory.md
+  translate: custom:data/translators/rule-to-skill.rb
+  transformer: copy
+- platform: cursor
+  format: directory
+  output: workstation-memory.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: windsurf
+  format: directory
+  output: memory.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: github-copilot
+  format: import
+  output: memory-instructions.md
+  transformer: copy
+  install:
+    type: copy
+- platform: claude-code
+  format: directory
+  output: memory.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: codex
+  format: skill
+  output: 00-memory.md
+  translate: custom:data/translators/rule-to-skill.rb
+  transformer: copy
+checksums:
+  source:
+  built: {}
+dependencies: []
+conflicts: []
+provides:
+- workstation-constraint
+tags:
+- constraints
+- memory
+- performance
+maintainer:
+license: MIT
+:pkgrel: 1
+:epoch: 0
+:requires:
+  :python: ">=3.8"

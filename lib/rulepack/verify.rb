@@ -1,0 +1,225 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Verify index vs disk state
+# Compares Rulepack index (what should be installed) against actual files on disk.
+# Reports: OK packages, drift (missing/modified), orphans (not in index).
+# Exit code 0 = no drift, 1 = drift found.
+
+require 'yaml'
+require 'pathname'
+require 'fileutils'
+require 'digest'
+require_relative 'common'
+require_relative 'installer'
+
+RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path
+PLATFORM_REGISTRY = Rulepack::Common.load_platform_registry
+
+def main
+  platform_arg = ARGV.first
+
+  unless Rulepack::Common::INDEX_YAML_PATH.exist?
+    abort "index.yaml not found. Run `ruby lib/rulepack/build.rb` first."
+  end
+
+  index = Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
+  packages = index[:packages] || {}
+
+  # Determine which platforms to verify
+  platforms_to_verify = if platform_arg
+                          [platform_arg]
+                        else
+                          # All platforms that have installed packages
+                          platforms_with_installed(packages)
+                        end
+
+  if platforms_to_verify.empty?
+    puts "No installed packages found. Nothing to verify."
+    exit 0
+  end
+
+  total_drifts = 0
+  total_orphans = 0
+  total_ok = 0
+  total_platforms = 0
+
+  platforms_to_verify.each do |platform_id|
+    platform_cfg = Rulepack::Common.platform_config(platform_id, PLATFORM_REGISTRY)
+    unless platform_cfg
+      puts "Unknown platform: #{platform_id}"
+      next
+    end
+
+    total_platforms += 1
+    puts "\n── #{platform_id} (#{platform_cfg[:display_name]}) ──"
+
+    base_path = resolve_base_path(platform_cfg)
+    platform_pkgs = packages.select { |_, pkg| pkg[:installed]&.any? { |i| i[:platform] == platform_id } }
+
+    if platform_pkgs.empty?
+      puts "  No packages installed."
+      next
+    end
+
+    platform_ok = 0
+    platform_drifts = 0
+
+    platform_pkgs.each do |pkgname, pkgdata|
+      inst = pkgdata[:installed].find { |i| i[:platform] == platform_id }
+      result = verify_package(platform_id, platform_cfg, pkgname, pkgdata, inst, base_path)
+      if result == :ok
+        platform_ok += 1
+      else
+        platform_drifts += 1
+      end
+    end
+
+    # Orphan scan for directory platforms
+    orphans = scan_orphans(platform_id, platform_cfg, base_path, packages)
+
+    puts "  #{platform_ok} OK | #{platform_drifts} drift(s) | #{orphans.size} orphan(s)" if platform_ok > 0 || platform_drifts > 0 || orphans.any?
+    total_drifts += platform_drifts
+    total_orphans += orphans.size
+    total_ok += platform_ok
+  end
+
+  puts "\n── Summary (#{total_platforms} platform(s)) ──"
+  puts "  #{total_ok} package(s) OK"
+  puts "  #{total_drifts} drift(s)" if total_drifts > 0
+  puts "  #{total_orphans} orphan(s)" if total_orphans > 0
+  exit 1 if total_drifts > 0
+end
+
+def platforms_with_installed(packages)
+  platforms = Set.new
+  packages.each_value do |pkg|
+    (pkg[:installed] || []).each { |i| platforms << i[:platform] }
+  end
+  platforms.to_a
+end
+
+def resolve_base_path(platform_cfg)
+  project_root = Rulepack::Common.project_root_for(platform_cfg, nil)
+  if project_root
+    return project_root
+  end
+  Pathname.new(Rulepack::Common.expand_user_path(platform_cfg[:base_path]))
+end
+
+def verify_package(platform_id, platform_cfg, pkgname, pkgdata, inst, base_path)
+  expected_output = inst[:output]
+  expected_checksum = inst[:checksum]
+  target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
+  format_type = target ? target[:format] : 'directory'
+
+  if format_type == 'skill' && platform_cfg[:type] == 'skill'
+    return verify_skill_build_artifact(platform_id, pkgname, expected_output, expected_checksum)
+  end
+
+  installed_path = Rulepack::Install.resolve_install_path_for_target(platform_cfg, target, base_path, base_path)
+
+  case format_type
+  when 'skill-bundle'
+    verify_skill_bundle_on_disk(installed_path, pkgname)
+  when 'skill'
+    verify_single_file_on_disk(installed_path, expected_checksum, pkgname, expected_output)
+  else
+    verify_single_file_on_disk(installed_path, expected_checksum, pkgname, expected_output)
+  end
+end
+
+def verify_skill_build_artifact(platform_id, pkgname, expected_output, expected_checksum)
+  build_artifact = Rulepack::Common::BUILD_DIR.join(platform_id, expected_output)
+  unless build_artifact.exist?
+    puts "  ⚠ MISSING build artifact: #{pkgname} (#{build_artifact})"
+    return :drift
+  end
+  actual_sha = Digest::SHA256.hexdigest(build_artifact.read)
+  if actual_sha == expected_checksum
+    puts "  ✓ #{pkgname} (#{expected_output}) — build artifact OK"
+    return :ok
+  end
+  puts "  ⚠ CHECKSUM mismatch (build artifact): #{pkgname}"
+  :drift
+end
+
+def verify_single_file_on_disk(path, expected_checksum, pkgname, expected_output)
+  unless path.exist?
+    puts "  ⚠ MISSING: #{pkgname} (#{expected_output}) at #{path}"
+    return :drift
+  end
+  actual_sha = Digest::SHA256.hexdigest(path.read)
+  if actual_sha == expected_checksum
+    puts "  ✓ #{pkgname} (#{expected_output})"
+    return :ok
+  end
+  puts "  ⚠ CHECKSUM mismatch: #{pkgname} (#{expected_output})"
+  :drift
+end
+
+def verify_skill_bundle_on_disk(bundle_path, pkgname)
+  manifest_path = bundle_path.join('manifest.json')
+  unless manifest_path.exist?
+    puts "  ⚠ MISSING manifest: #{pkgname} at #{manifest_path}"
+    return :drift
+  end
+  manifest = JSON.parse(manifest_path.read)
+  all_ok = true
+  (manifest['files'] || {}).each do |rel_path, expected_sha|
+    file_path = bundle_path.join(rel_path)
+    unless file_path.exist?
+      puts "  ⚠ MISSING: #{pkgname}/#{rel_path}"
+      all_ok = false
+      next
+    end
+    actual_sha = Digest::SHA256.hexdigest(file_path.read)
+    next if actual_sha == expected_sha
+    puts "  ⚠ CHECKSUM mismatch: #{pkgname}/#{rel_path}"
+    all_ok = false
+  end
+  if all_ok
+    puts "  ✓ #{pkgname} (skill-bundle, #{manifest['files']&.size || 0} file(s))"
+    return :ok
+  end
+  :drift
+end
+
+def scan_orphans(platform_id, platform_cfg, base_path, packages)
+  orphans = []
+  return orphans unless platform_cfg[:type] == 'directory'
+
+  rules_dir = base_path.join(platform_cfg[:rules_dir] || '')
+  skills_dir = base_path.join(platform_cfg[:skills_dir] || '')
+
+  expected_top = Set.new
+  packages.each do |pkgname, pkgdata|
+    (pkgdata[:installed] || []).each do |inst|
+      next unless inst[:platform] == platform_id
+      target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
+      next unless target
+      p = Rulepack::Install.resolve_install_path_for_target(platform_cfg, target, base_path, base_path)
+      expected_top << p.to_s
+    end
+  end
+
+  [rules_dir, skills_dir].each do |dir|
+    next unless dir.exist?
+    Dir.entries(dir).each do |entry|
+      full = File.join(dir, entry)
+      next if entry == '.' || entry == '..'
+      next if expected_top.include?(full)
+      next if entry.start_with?('.')
+      next if entry == 'manifest.json'
+      next if File.directory?(full) && expected_top.any? { |e| e.start_with?(full + '/') || e == full }
+      orphans << full
+    end
+  end
+
+  orphans.each do |orphan|
+    puts "  ? ORPHAN: #{orphan}"
+  end
+  orphans
+end
+
+main

@@ -1,6 +1,6 @@
-# Agent Rule Sync — PKGBUILD-based SSoT v4
+# Rulepack — PKGBUILD-based Agent Rule Manager
 
-Package-based Single Source of Truth management for AI agent rules and skills.
+Package-based rule management for AI coding agents, inspired by PKGBUILD/pacman.
 
 ## What Is This?
 
@@ -13,7 +13,7 @@ A **PKGBUILD-inspired package manager** for agent rules and skills:
 - **Build pipeline**: Fetch → Transform → Build artifacts per platform → Aggregate vendor skills → Install
 - **Multi-platform**: One source → multiple target platforms (OpenCode, Crush, Gemini CLI, etc.)
 - **Change detection**: SHA256 checksums track source and built artifacts
-- **Index database**: `ssot/index.yaml` tracks package state, versions, and installations
+- **Index database**: `data/index.yaml` tracks package state, versions, and installations
 
 > **Note**: PKGBUILD/pacman is used as **architectural inspiration** (package descriptor format, versioning scheme, build pipeline). SSoT does not track Arch Linux packages or use pacman as a dependency.
 
@@ -21,43 +21,43 @@ A **PKGBUILD-inspired package manager** for agent rules and skills:
 
 ```bash
 # Build all packages
-bin/ssot build
+bin/rulepack build
 
 # Build with timing info
-bin/ssot build --timing
+bin/rulepack build --timing
 
 # Aggregate vendor skills (for skill-based agents)
-bin/ssot aggregate  # or: ruby ssot/aggregate-skills.rb
+bin/rulepack aggregate
 
 # Install to a user-level platform
-bin/ssot install opencode          # real install
-bin/ssot install opencode --dry-run  # preview
-bin/ssot install --all --dry-run    # preview install to all platforms
-bin/ssot install --targets memory   # show target platforms for a package
+bin/rulepack install opencode          # real install
+bin/rulepack install opencode --dry-run  # preview
+bin/rulepack install --all --dry-run    # preview install to all platforms
+bin/rulepack install --targets memory   # show target platforms for a package
 
 # Install to a project-level platform (run from project root)
-bin/ssot install cursor --project .   # install to current project
-bin/ssot install cursor --project ~/projects/myapp
+bin/rulepack install cursor --project .   # install to current project
+bin/rulepack install cursor --project ~/projects/myapp
 
 # Verify installed state
-bin/ssot check opencode
+bin/rulepack check opencode
 
 # Uninstall from a platform
-bin/ssot uninstall opencode         # user-level
-bin/ssot uninstall cursor --project .  # project-level
+bin/rulepack uninstall opencode         # user-level
+bin/rulepack uninstall cursor --project .  # project-level
 
 # Verify index matches disk (detect drift)
-bin/ssot verify opencode           # specific platform
-bin/ssot verify                    # all platforms
+bin/rulepack verify opencode           # specific platform
+bin/rulepack verify                    # all platforms
 
 # Repair drift automatically
-bin/ssot fix opencode              # reinstall broken packages
-bin/ssot fix opencode --dry-run    # preview only
+bin/rulepack fix opencode              # reinstall broken packages
+bin/rulepack fix opencode --dry-run    # preview only
 
 # Query package database
-bin/ssot list
-bin/ssot show memory
-bin/ssot search security
+bin/rulepack list
+bin/rulepack show memory
+bin/rulepack search security
 ```
 
 ## Project Structure

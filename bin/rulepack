@@ -1,0 +1,147 @@
+#!/usr/bin/env ruby
+# Rulepack CLI — single entry point for all Rulepack operations
+# Usage: rulepack <command> [options]
+
+require "pathname"
+require "fileutils"
+require "yaml"
+
+ROOT = Pathname.new(__dir__).parent.expand_path
+$LOAD_PATH.unshift(ROOT.to_s)
+
+require "lib/rulepack/common"
+require "lib/rulepack/query"
+
+module Rulepack
+  class Error < StandardError; end
+
+  module CLI
+    def self.run(argv)
+      # Global timing flag
+      if argv.include?('--timing')
+        $SHOW_TIMING = true
+        argv.delete('--timing')
+      end
+
+      command = argv.shift || "help"
+      case command
+      when "build"
+        system(RbConfig.ruby, ROOT.join("lib/rulepack/build.rb").to_s)
+        system(RbConfig.ruby, ROOT.join("lib/rulepack/aggregate.rb").to_s)
+        0
+      when "install"
+        system(RbConfig.ruby, ROOT.join("lib/rulepack/install.rb").to_s, *argv)
+        0
+      when "uninstall"
+        system(RbConfig.ruby, ROOT.join("lib/rulepack/uninstall.rb").to_s, *argv)
+        0
+      when "query"
+        Rulepack::Query.run(argv)
+      when "list"
+        Rulepack::Query.run(["list-packages"] + argv)
+      when "show"
+        Rulepack::Query.run(["show"] + argv)
+      when "search"
+        Rulepack::Query.run(["search"] + argv)
+      when "status"
+        print_status
+        0
+      when "check"
+        system(RbConfig.ruby, ROOT.join("lib/rulepack/install.rb").to_s, "--check", *argv)
+        0
+      when "verify"
+        system(RbConfig.ruby, ROOT.join("lib/rulepack/verify.rb").to_s, *argv)
+        0
+      when "fix"
+        system(RbConfig.ruby, ROOT.join("lib/rulepack/fix.rb").to_s, *argv)
+        0
+      when "catalog"
+        catalog_path = ROOT.join("build", "catalog.json")
+        unless catalog_path.exist?
+          puts "Catalog not found. Run `rulepack build` first."
+          return 0
+        end
+        puts catalog_path.read
+        0
+      when "platforms"
+        Rulepack::Query.run(["list-platforms"])
+      when "help"
+        print_help
+        0
+      else
+        warn "Unknown command: #{command}"
+        print_help
+        1
+      end
+    rescue Rulepack::Error => e
+      warn "Error: #{e.message}"
+      exit 1
+    end
+
+    def self.print_help
+      puts <<~HELP
+        Rulepack — Single Source of Truth for Agent Rules & Skills
+
+        Usage: rulepack <command> [options]
+
+        Commands:
+          build                  Build all packages (fetch → transform → artifacts)
+          install <platform>     Install packages to a platform
+          uninstall <platform>   Remove packages from a platform
+          query <cmd>            Query package database
+          list                   List all packages
+          show <pkgname>         Show package details
+          search <tag>           Search packages by tag
+          status                 Show overall system status
+          check <platform>       Verify installed state matches index
+          verify [platform]      Comprehensive index vs disk reconciliation
+          fix [platform]         Repair drift (missing/modified files)
+          catalog                Show package catalog (JSON)
+          platforms              List all platforms
+          help                   Show this help
+
+        Global Flags:
+          --timing               Show operation timing
+          --verbose              Show debug output
+
+        Examples:
+          rulepack build && rulepack install opencode
+          rulepack install opencode --dry-run
+          rulepack uninstall opencode
+          rulepack status
+          rulepack search security
+          rulepack verify opencode
+          rulepack fix opencode
+      HELP
+    end
+
+    def self.print_status
+      index_path = ROOT.join("data", "index.yaml")
+      unless File.exist?(index_path)
+        puts "  No index found. Run `rulepack build` first."
+        return
+      end
+      index = Rulepack::Common.load_yaml(Pathname.new(index_path)) || {}
+      total = index[:packages]&.size || 0
+      installed_platforms = {}
+      index[:packages]&.each do |name, pkg|
+        Array(pkg[:installed]).each do |rec|
+          platform = rec[:platform]
+          installed_platforms[platform] ||= []
+          installed_platforms[platform] << name.to_s
+        end
+      end
+
+      puts "📦 Rulepack Status"
+      puts "  Total packages: #{total}"
+      puts "  Platforms: #{installed_platforms.size}"
+      puts
+      installed_platforms.each do |platform, pkgs|
+        puts "  #{platform}: #{pkgs.size} package(s)"
+        pkgs.each { |p| puts "    - #{p}" }
+      end
+    end
+  end
+end
+
+exit Rulepack::CLI.run(ARGV)
