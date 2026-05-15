@@ -962,23 +962,38 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 
 ---
 
-### P8.8 Add Integration Test for Full Build→Install→Uninstall Cycle
-**Status**: ⏳ PENDING
-**Date**: TBD
+### ✅ P8.8 Add Integration Test for Full Build→Install→Uninstall Cycle
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
 
-**Claim**: No end-to-end integration test exists that exercises the full pipeline.
+**Claim**: No end-to-end integration test existed that exercises the full pipeline.
 
-**Fix plan**:
-1. Create `test/test_end_to_end.rb` with tmpdir-based test
-2. Build → aggregate → install → check → uninstall → check
-3. Verify index state at each step
+**Fix**:
+1. Created `test/test_end_to_end.rb` with 14 tests covering:
+   - Clean build (all 10 packages, all 11 platform dirs, index.json)
+   - Rebuild idempotence
+   - Directory platform install/uninstall (opencode — symlinks)
+   - Dry-run does not modify index
+   - Import platform install/uninstall (gemini-cli — copy)
+   - Skill platform install/uninstall (goose — vendor aggregation)
+   - Skill-bundle install/uninstall (line-repetition-control — manifest)
+   - Full cycle: install → check → uninstall → check
+   - Idempotent install
+   - Idempotent uninstall
+   - Error handling (no build, unknown platform)
+   - Multi-platform independence
 
-**Files**: `test/test_end_to_end.rb` (new)
+**Bugs found and fixed during testing**:
+1. `ssot/lib/install.rb:resolve_check_path` — missing output filename for `target_dir` installs, causing `Errno::EISDIR` during `--check`
+2. `ssot/aggregate-skills.rb` — `agent_id.to_s` vs `agent_id` (symbol) mismatch in checksum lookup, causing empty vendor skill files
+
+**Test**: `rake test` — **202 tests, 663 assertions** (was 188/481), 0 failures, 0 errors
+**Files**: `test/test_end_to_end.rb` (new), `ssot/lib/install.rb` (bugfix), `ssot/aggregate-skills.rb` (bugfix)
 
 ---
 
-**Last Updated**: 2026-05-15 (Priority 0-7 ✅; P8.1-P8.4 IN PROGRESS)
-**Status**: P0-P7 Complete; P2.2/L4.2/L4.5/L4.6 deferred; P8.1-P8.4 in progress
+**Last Updated**: 2026-05-15 (P0-P8 ✅)
+**Status**: P0-P7 Complete; P8.1-P8.8 Complete; P2.2/L4.2/L4.5/L4.6 deferred; P0-P3, P5-P7 ✅
 
 ### ✅ Skill-Bundle Sub-Skill Selection + Manifest v2
 **Status**: ✅ COMPLETED

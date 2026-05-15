@@ -89,9 +89,17 @@ Rake::TestTask.new(:test_aggregate) do |t|
   t.warning = false
 end
 
+desc 'Run end-to-end pipeline tests (test_end_to_end.rb)'
+Rake::TestTask.new(:test_e2e) do |t|
+  t.libs << 'test'
+  t.test_files = FileList['test/test_end_to_end.rb']
+  t.verbose = false
+  t.warning = false
+end
+
 desc 'Print test summary'
 task :summary do
-  puts "\n📊 Test Suite — 188 tests, 481 assertions"
+  puts "\n📊 Test Suite — 202 tests, 663 assertions"
   puts "  test_common.rb               — 48 unit tests"
   puts "  test_integration.rb          — 29 integration tests"
   puts "  test_cache.rb                — 24 unit tests"
@@ -101,6 +109,7 @@ task :summary do
   puts "  test_query.rb                — 16 unit tests"
   puts "  test_translate.rb            —  4 unit tests"
   puts "  test_aggregate.rb            —  4 unit tests"
+  puts "  test_end_to_end.rb           — 14 end-to-end tests"
   puts ""
   puts "Run: rake test"
 end

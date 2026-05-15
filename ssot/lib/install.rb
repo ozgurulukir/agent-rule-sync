@@ -774,23 +774,26 @@ module Ssot
 
     def resolve_check_path(platform_cfg, target, base_path, project_root)
       install_cfg = target[:install] || {}
+      output = target[:output]
       if install_cfg[:target_dir]
         target_subdir = Ssot::Lib::Common.expand_user_path(install_cfg[:target_dir])
-        if platform_cfg[:type] == 'directory'
-          base_subdir = (target[:format] == 'skill' || target[:format] == 'skill-bundle') ?
-                        platform_cfg[:skills_dir] : platform_cfg[:rules_dir]
-          if Pathname.new(target_subdir).absolute?
-            Pathname.new(target_subdir)
-          else
-            base_path.join(base_subdir, target_subdir)
-          end
-        else
-          if Pathname.new(target_subdir).absolute?
-            Pathname.new(target_subdir)
-          else
-            base_path.join(target_subdir)
-          end
-        end
+        resolved = if platform_cfg[:type] == 'directory'
+                     base_subdir = (target[:format] == 'skill' || target[:format] == 'skill-bundle') ?
+                                   platform_cfg[:skills_dir] : platform_cfg[:rules_dir]
+                     if Pathname.new(target_subdir).absolute?
+                       Pathname.new(target_subdir)
+                     else
+                       base_path.join(base_subdir, target_subdir)
+                     end
+                   else
+                     if Pathname.new(target_subdir).absolute?
+                       Pathname.new(target_subdir)
+                     else
+                       base_path.join(target_subdir)
+                     end
+                   end
+        resolved = resolved.join(output) unless target[:format] == 'skill-bundle'
+        resolved
       else
         Ssot::Lib::Common.resolve_install_path(platform_cfg, target, project_root)
       end
