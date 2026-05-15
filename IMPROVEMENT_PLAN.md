@@ -820,22 +820,33 @@ ssot/query.rb:253      — assigned but unused variable: output
 
 ---
 
-### P8.3 Refactor install_single_target (198 lines → <80 each)
-**Status**: 🔄 IN PROGRESS
+### ✅ P8.3 Refactor install_single_target (198 lines → 10 focused methods)
+**Status**: ✅ COMPLETED
 **Date**: 2026-05-15
 
-**Claim**: `install_single_target` in `lib/install.rb:366` is 198 lines with cyclomatic complexity ~30. It handles symlink, copy, inject-append, skill-bundle, index recording, and version comparison all in one method.
+**Claim**: `install_single_target` in `lib/install.rb:366` was 198 lines with cyclomatic complexity ~30. It handled symlink, copy, inject-append, skill-bundle, index recording, and version comparison all in one method.
 
-**Fix plan**:
-1. Extract `do_install_symlink(target, install_path, content_path, dry_run)`
-2. Extract `do_install_copy(target, install_path, content_path, dry_run)`
-3. Extract `do_install_inject(target, install_path, content_path, dry_run)`
-4. Extract `do_install_skillbundle(target, install_path, content_path, pkgdata, select_list, dry_run)`
-5. Extract `record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, dry_run)`
-6. Keep `install_single_target` as orchestrator (~60 lines)
+**Fix**:
+Replaced 1 monolithic method (198 lines) with 10 focused methods:
+
+| Method | Lines | Responsibility |
+|--------|-------|---------------|
+| `install_single_target` | 16 | Orchestrator — dispatches by format |
+| `install_skill_bundle` | 32 | Skill-bundle directory copy with selection |
+| `install_file_or_skill` | 36 | Single-file install (directory/import) or skill-type index-only |
+| `perform_file_install` | 23 | Type dispatch: symlink/copy/inject/append |
+| `record_installation` | 18 | Common index recording (was duplicated 3×) |
+| `copy_sub_skills` | 27 | Copy selected sub-skills to destination |
+| `select_sub_skills` | 13 | `--select` flag or interactive menu |
+| `load_skill_bundle_manifest` | 6 | Parse manifest.json with error handling |
+| `warn_large_bundle` | 8 | Warn if >50 sub-skills without `--select` |
+| `write_selected_manifest` | 8 | Write filtered manifest to destination |
+
+**Before**: 198 lines, complexity ~30, 3× duplicated index recording
+**After**: 10 methods, max 36 lines each, single `record_installation` helper
 
 **Files**: `ssot/lib/install.rb`
-**Test**: `rake test` + `bin/ssot install opencode --dry-run` + `bin/ssot install golang-security --select sql`
+**Test**: `rake test` — all 172 tests pass, 427 assertions, 0 failures
 
 ---
 

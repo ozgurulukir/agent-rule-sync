@@ -368,115 +368,133 @@ module Ssot
                                installed_this_run,
                                dry_run: false, select_list: nil, quiet: false)
       format = target[:format]
-      output = target[:output]
+
+      case format
+      when 'skill-bundle'
+        return unless install_skill_bundle(pkgname, pkgdata, target, platform_cfg, base_path,
+                                           platform_id, index, installed_this_run,
+                                           dry_run: dry_run, select_list: select_list, quiet: quiet)
+      else
+        install_file_or_skill(pkgname, pkgdata, target, platform_cfg, base_path, project_root,
+                              platform_id, index, installed_this_run,
+                              dry_run: dry_run, quiet: quiet)
+      end
+    end
+
+    # ─── Skill-bundle install (selective directory copy) ───────────────────────────
+
+    def install_skill_bundle(pkgname, pkgdata, target, platform_cfg, base_path,
+                             platform_id, index, installed_this_run,
+                             dry_run: false, select_list: nil, quiet: false)
       install_cfg = target[:install] || {}
-      install_type = install_cfg[:type] || platform_cfg[:"#{format}_install"]&.[](:type) || 'copy'
+      Ssot::Lib::Common.log "  ⤷ #{pkgname} (skill-bundle) → #{install_cfg[:target_dir]} [copy]" unless quiet
 
-      # skill-bundle: selective directory copy
-      if format == 'skill-bundle'
-        Ssot::Lib::Common.log "  ⤷ #{pkgname} (skill-bundle) → #{install_cfg[:target_dir]} [copy]" unless quiet
-
-        # Warn about large bundles without --select
-        manifest_path = Ssot::Lib::Common::BUILD_DIR.join(platform_id, pkgname.to_s, 'manifest.json')
-        unless select_list
-          if manifest_path.exist?
-            m = JSON.parse(manifest_path.read)
-            sub_count = m['sub_skills']&.size.to_i
-            if sub_count > 50
-              Ssot::Lib::Common.log_warn "  ⚠ Large bundle: #{sub_count} sub-skills. Use --select <names> to install only specific ones."
-            end
-          end
-        end
-
-        build_src_dir = Ssot::Lib::Common::BUILD_DIR.join(platform_id, pkgname.to_s)
-        unless build_src_dir.exist? && build_src_dir.directory?
-          Ssot::Lib::Common.log_error "Skill-bundle build directory missing: #{build_src_dir}"
-          return
-        end
-
-        dest_dir = base_path.join(platform_cfg[:skills_dir]).join(install_cfg[:target_dir])
-        manifest_path = build_src_dir.join('manifest.json')
-        manifest = manifest_path.exist? ? JSON.parse(manifest_path.read) : nil
-        sub_skills = manifest&.dig('sub_skills') || []
-
-        if select_list && !select_list.empty?
-          selected = sub_skills.select { |ss| select_list.include?(ss['name']) }
-          if selected.empty?
-            Ssot::Lib::Common.log_warn "  ⚠ No matching sub-skills for --select #{select_list.join(',')} in #{pkgname}, skipping"
-            return
-          end
-          Ssot::Lib::Common.log "    🔍 Selecting sub-skills: #{selected.map { |ss| ss['name'] }.join(', ')}" unless quiet
-        elsif STDIN.isatty && sub_skills.size > 1
-          selected = prompt_sub_skill_selection(sub_skills, pkgname)
-          return unless selected
-        else
-          selected = sub_skills
-        end
-
-        if dry_run
-          selected.each do |ss|
-            Ssot::Lib::Common.log "    [DRY-RUN] Would copy sub-skill: #{ss['path']} → #{dest_dir.join(ss['path'])}" unless quiet
-          end
-        else
-          begin
-            if dest_dir.exist?
-              FileUtils.rm_rf(dest_dir)
-              Ssot::Lib::Common.log "    ✓ Removed existing: #{dest_dir}" unless quiet
-            end
-            FileUtils.mkpath(dest_dir)
-            selected.each do |ss|
-              if ss['path'] == '.'
-                ss['files'].each_key do |rel_path|
-                  src_file = build_src_dir.join(rel_path)
-                  dst_file = dest_dir.join(rel_path)
-                  FileUtils.mkpath(dst_file.parent)
-                  FileUtils.cp(src_file, dst_file)
-                end
-                Ssot::Lib::Common.log "    ✓ Copied sub-skill: . (#{ss['files'].size} file(s))" unless quiet
-              else
-                src_sub = build_src_dir.join(ss['path'])
-                dst_sub = dest_dir.join(ss['path'])
-                FileUtils.cp_r(src_sub, dst_sub)
-                Ssot::Lib::Common.log "    ✓ Copied sub-skill: #{ss['path']}" unless quiet
-              end
-            end
-            selected_manifest = {
-              generated_at: manifest&.dig('generated_at') || Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
-              pkgname: pkgname.to_s,
-              platform: platform_id.to_s,
-              sub_skills: selected
-            }
-            manifest_dest = dest_dir.join('manifest.json')
-            manifest_dest.write(JSON.pretty_generate(selected_manifest))
-            Ssot::Lib::Common.log "    ✓ Installed skill-bundle (#{selected.size} sub-skill(s))" unless quiet
-          rescue => e
-            Ssot::Lib::Common.log_error "Failed to install skill-bundle: #{e.message}"
-            return
-          end
-        end
-
-        unless dry_run
-          pkg_index = index[:packages][pkgname] || { installed: [] }
-          pkg_index[:installed] ||= []
-          installed_record = {
-            platform: platform_id,
-            version: pkgdata[:pkgver],
-            pkgrel: pkgdata[:pkgrel],
-            epoch: pkgdata[:epoch],
-            output: '.',
-            checksum: nil,
-            installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-          }
-          pkg_index[:installed].reject! { |r| r[:platform] == platform_id }
-          pkg_index[:installed] << installed_record
-        end
-
-        Ssot::Lib::Common.log "  ✓ Installed: #{pkgname}" unless quiet
-        installed_this_run << pkgname
-        return
+      build_src_dir = Ssot::Lib::Common::BUILD_DIR.join(platform_id, pkgname.to_s)
+      unless build_src_dir.exist? && build_src_dir.directory?
+        Ssot::Lib::Common.log_error "Skill-bundle build directory missing: #{build_src_dir}"
+        return false
       end
 
-      # Single-file formats (directory, import, skill)
+      manifest = load_skill_bundle_manifest(build_src_dir)
+      sub_skills = manifest&.dig('sub_skills') || []
+      warn_large_bundle(build_src_dir, sub_skills) unless select_list
+
+      selected = select_sub_skills(sub_skills, select_list, pkgname)
+      return false unless selected
+
+      dest_dir = base_path.join(platform_cfg[:skills_dir]).join(install_cfg[:target_dir])
+
+      if dry_run
+        selected.each { |ss| Ssot::Lib::Common.log "    [DRY-RUN] Would copy sub-skill: #{ss['path']} → #{dest_dir.join(ss['path'])}" unless quiet }
+      else
+        return false unless copy_sub_skills(build_src_dir, dest_dir, selected, pkgname, quiet: quiet)
+        write_selected_manifest(dest_dir, manifest, pkgname, platform_id, selected)
+      end
+
+      record_installation(index, pkgname, platform_id, pkgdata, '.', nil) unless dry_run
+      Ssot::Lib::Common.log "  ✓ Installed: #{pkgname}" unless quiet
+      installed_this_run << pkgname
+      true
+    end
+
+    def load_skill_bundle_manifest(build_src_dir)
+      manifest_path = build_src_dir.join('manifest.json')
+      manifest_path.exist? ? JSON.parse(manifest_path.read) : nil
+    rescue JSON::ParserError => e
+      Ssot::Lib::Common.log_warn "  ⚠ Invalid manifest.json: #{e.message}"
+      nil
+    end
+
+    def warn_large_bundle(build_src_dir, sub_skills)
+      manifest_path = build_src_dir.join('manifest.json')
+      return unless manifest_path.exist?
+      m = JSON.parse(manifest_path.read)
+      sub_count = m['sub_skills']&.size.to_i
+      Ssot::Lib::Common.log_warn "  ⚠ Large bundle: #{sub_count} sub-skills. Use --select <names> to install only specific ones." if sub_count > 50
+    rescue JSON::ParserError
+      # ignore
+    end
+
+    def select_sub_skills(sub_skills, select_list, pkgname)
+      if select_list && !select_list.empty?
+        selected = sub_skills.select { |ss| select_list.include?(ss['name']) }
+        if selected.empty?
+          Ssot::Lib::Common.log_warn "  ⚠ No matching sub-skills for --select #{select_list.join(',')} in #{pkgname}, skipping"
+          return nil
+        end
+        selected
+      elsif STDIN.isatty && sub_skills.size > 1
+        prompt_sub_skill_selection(sub_skills, pkgname)
+      else
+        sub_skills
+      end
+    end
+
+    def copy_sub_skills(build_src_dir, dest_dir, selected, pkgname, quiet: false)
+      if dest_dir.exist?
+        FileUtils.rm_rf(dest_dir)
+        Ssot::Lib::Common.log "    ✓ Removed existing: #{dest_dir}" unless quiet
+      end
+      FileUtils.mkpath(dest_dir)
+
+      selected.each do |ss|
+        if ss['path'] == '.'
+          ss['files'].each_key do |rel_path|
+            src_file = build_src_dir.join(rel_path)
+            dst_file = dest_dir.join(rel_path)
+            FileUtils.mkpath(dst_file.parent)
+            FileUtils.cp(src_file, dst_file)
+          end
+          Ssot::Lib::Common.log "    ✓ Copied sub-skill: . (#{ss['files'].size} file(s))" unless quiet
+        else
+          src_sub = build_src_dir.join(ss['path'])
+          dst_sub = dest_dir.join(ss['path'])
+          FileUtils.cp_r(src_sub, dst_sub)
+          Ssot::Lib::Common.log "    ✓ Copied sub-skill: #{ss['path']}" unless quiet
+        end
+      end
+      true
+    rescue => e
+      Ssot::Lib::Common.log_error "Failed to install skill-bundle: #{e.message}"
+      false
+    end
+
+    def write_selected_manifest(dest_dir, manifest, pkgname, platform_id, selected)
+      selected_manifest = {
+        generated_at: manifest&.dig('generated_at') || Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        pkgname: pkgname.to_s,
+        platform: platform_id.to_s,
+        sub_skills: selected
+      }
+      dest_dir.join('manifest.json').write(JSON.pretty_generate(selected_manifest))
+    end
+
+    # ─── Single-file install (directory/import/skill platform types) ───────────────
+
+    def install_file_or_skill(pkgname, pkgdata, target, platform_cfg, base_path, project_root,
+                              platform_id, index, installed_this_run,
+                              dry_run: false, quiet: false)
+      output = target[:output]
       built_path = Ssot::Lib::Common::BUILD_DIR.join(platform_id, output)
       unless built_path.exist?
         Ssot::Lib::Common.log_error "Built artifact missing: #{built_path}. Run `ruby ssot/build.rb` first."
@@ -486,29 +504,17 @@ module Ssot
       content = built_path.read
       content_sha256 = Digest::SHA256.hexdigest(content)
 
-      # Skill-type platforms: skip individual file install; aggregation handles it
+      # Skill-type platforms: record only, aggregation handles file install
       if platform_cfg[:type] == 'skill'
-        unless dry_run
-          pkg_index = index[:packages][pkgname] || { installed: [] }
-          pkg_index[:installed] ||= []
-          installed_record = {
-            platform: platform_id,
-            version: pkgdata[:pkgver],
-            pkgrel: pkgdata[:pkgrel],
-            epoch: pkgdata[:epoch],
-            output: output,
-            checksum: content_sha256,
-            installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-          }
-          pkg_index[:installed].reject! { |r| r[:platform] == platform_id && r[:output] == output }
-          pkg_index[:installed] << installed_record
-        end
+        record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256) unless dry_run
         Ssot::Lib::Common.log "  ✓ Installed: #{pkgname}" unless quiet
         installed_this_run << pkgname
         return
       end
 
-      # Resolve install path
+      install_cfg = target[:install] || {}
+      format = target[:format]
+      install_type = install_cfg[:type] || platform_cfg[:"#{format}_install"]&.[](:type) || 'copy'
       install_path = resolve_install_path_for_target(platform_cfg, target, base_path, project_root)
 
       unless dry_run
@@ -516,8 +522,14 @@ module Ssot
       end
 
       Ssot::Lib::Common.log "  ⤷ #{pkgname} (#{output}) → #{install_path} [#{install_type}]" unless quiet
+      perform_file_install(built_path, install_path, content, content_sha256, install_type, platform_cfg, output, dry_run, quiet)
 
-      # Perform install based on type
+      record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256) unless dry_run
+      Ssot::Lib::Common.log "  ✓ Installed: #{pkgname}" unless quiet
+      installed_this_run << pkgname
+    end
+
+    def perform_file_install(built_path, install_path, content, content_sha256, install_type, platform_cfg, output, dry_run, quiet)
       case install_type
       when 'symlink'
         if dry_run
@@ -538,29 +550,30 @@ module Ssot
           do_inject_append(install_path, content, install_type, platform_cfg, output)
         end
       else
-        Ssot::Lib::Common.log_error "Unknown install type: #{install_type} for #{pkgname}. Valid types: symlink, copy, inject, append."
-        return
+        Ssot::Lib::Common.log_error "Unknown install type: #{install_type}. Valid types: symlink, copy, inject, append."
       end
+    end
 
-      # Record installation
-      unless dry_run
-        pkg_index = index[:packages][pkgname] || { installed: [] }
-        pkg_index[:installed] ||= []
-        installed_record = {
-          platform: platform_id,
-          version: pkgdata[:pkgver],
-          pkgrel: pkgdata[:pkgrel],
-          epoch: pkgdata[:epoch],
-          output: output,
-          checksum: content_sha256,
-          installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-        }
+    # ─── Common: record installation in index ──────────────────────────────────────
+
+    def record_installation(index, pkgname, platform_id, pkgdata, output, checksum)
+      pkg_index = index[:packages][pkgname] || { installed: [] }
+      pkg_index[:installed] ||= []
+      record = {
+        platform: platform_id,
+        version: pkgdata[:pkgver],
+        pkgrel: pkgdata[:pkgrel],
+        epoch: pkgdata[:epoch],
+        output: output,
+        checksum: checksum,
+        installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+      }
+      if output == '.'
+        pkg_index[:installed].reject! { |r| r[:platform] == platform_id }
+      else
         pkg_index[:installed].reject! { |r| r[:platform] == platform_id && r[:output] == output }
-        pkg_index[:installed] << installed_record
       end
-
-      Ssot::Lib::Common.log "  ✓ Installed: #{pkgname}" unless quiet
-      installed_this_run << pkgname
+      pkg_index[:installed] << record
     end
 
     # ─── Install type handlers ───────────────────────────────────────────────────
