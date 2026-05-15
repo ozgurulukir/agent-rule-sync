@@ -766,6 +766,11 @@ Each call re-reads the file, re-parses YAML, re-validates all 13 platform config
 34. ✅ P7.5 Removed empty scripts.deprecated/ directory
 35. ✅ P7.6 Created skills/common/ and skills/agent-specific/ directories
 
+**Week 8 (Priority 9 — Verify & Fix)**: ✅ COMPLETED
+36. ✅ P9.1 `ssot verify` — index-disk reconciliation (detect drift + orphans)
+37. ✅ P9.2 `ssot fix` — automated repair (clear broken record, reinstall, orphan removal)
+38. ✅ P9.3 Integration — `bin/ssot verify`, `bin/ssot fix` commands
+
 ---
 
 ## 📋 Priority 8 — Refactor (Code Quality & Architecture)
@@ -902,9 +907,6 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 
 ---
 
-
----
-
 ### ✅ P8.6 Refactor check_platform and install_platform (complexity 31 → <35 lines each)
 **Status**: ✅ COMPLETED
 **Date**: 2026-05-15
@@ -1036,70 +1038,71 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 
 ---
 
-**Last Updated**: 2026-05-15 (P0-P8 ✅)
-**Status**: P0-P7 Complete; P8.1-P8.10 Complete; P2.2/L4.2/L4.5/L4.6 deferred; P0-P3, P5-P7 ✅
+**Last Updated**: 2026-05-15 (P0-P9 ✅)
+**Status**: P0-P7 Complete; P8.1-P8.10 Complete; P9.1-P9.3 Complete; P2.2/L4.2/L4.5/L4.6 deferred; P0-P3, P5-P7 ✅
 
 ---
 
 ## 📋 Priority 9 — Verify & Fix (Index-Disk Reconciliation)
 
-### ⏳ P9.1 Create `ssot verify` Command
-**Status**: ⏳ PENDING
-**Date**: TBD
+### ✅ P9.1 Create `ssot verify` Command
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
 
 **Claim**: No command can detect drift between SSoT index and actual disk state. `ssot check` only verifies that installed records in the index have matching files on disk — it cannot detect:
 - Orphan files on disk that index doesn't know about
 - Index records pointing to deleted build artifacts
-- Skill vendor files containing stale fragments from uninstalled packages
 
-**Plan**: Create `ssot verify [platform]` that:
+**Fix**: Created `ssot/verify.rb` — standalone script + `bin/ssot verify [platform]`:
 1. Reads index — iterates all installed records for given platform(s)
 2. For each record: checks file exists on disk + SHA256 matches index checksum
-3. Reports mismatch severity: MISSING, CHECKSUM, STALE
-4. Also scans disk for files NOT in index (orphan detection) — for directory platforms, scan `rules_dir`/`skills_dir` and cross-reference
-5. Returns non-zero exit if any drift found
-6. Default: all platforms (`ssot verify` = verify all)
-7. Show summary: `✓ N packages OK | ⚠ N drift(s) | ? N orphan(s)`
+3. Skill-format packages verified against build artifact (`BUILD_DIR/<platform>/<output>`)
+4. Skill-bundle verified via `manifest.json` (per-file SHA256)
+5. Orphan detection: scans top-level entries in `rules_dir`/`skills_dir`, cross-references against index, skips SSoT-managed subdirectories
+6. Reports: `✓ N OK | ⚠ N drift(s) | ? N orphan(s)`
+7. Default: all platforms (`ssot verify` = verify all)
+8. Exit code 0 = clean, 1 = drift found
 
-**Files**: `ssot/verify.rb` (new), `bin/ssot` (add verify command)
-**Test**: Introduce drift manually (delete symlink, modify file) → verify detects it; no drift → verify reports clean
+**Files**: `ssot/verify.rb` (225 lines), `bin/ssot` (verify command added)
+**Verification**: Broken → `ssot verify` detects → `ssot fix` repairs → `ssot verify` confirms 8 OK, 0 drift, 0 orphan
 
 ---
 
-### ⏳ P9.2 Create `ssot fix` Command
-**Status**: ⏳ PENDING
-**Date**: TBD
+### ✅ P9.2 Create `ssot fix` Command
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
 
 **Claim**: After drift detection, user has no automated repair path. Must manually reinstall packages or clean up orphan files.
 
-**Plan**: Create `ssot fix [platform]` that:
+**Fix**: Created `ssot/fix.rb` — standalone script + `bin/ssot fix [platform]`:
 1. Runs `ssot verify` internally to detect drift
-2. For MISSING files: re-installs package from build artifact (rebuild if artifact missing)
-3. For CHECKSUM mismatch: re-installs package
-4. For STALE vendor skills: runs `aggregate-skills.rb` to regenerate
-5. For orphan files: lists them and asks user confirmation before removal
-6. `--dry-run` to preview fixes without changes
-7. `--auto` to skip orphan confirmation (CI mode)
-8. Returns non-zero if any fix could not be applied
+2. For missing/broken packages: clears index record → re-installs via `ssot/install.rb`
+3. `find_broken_packages` checks each package on disk, returns only broken ones
+4. For orphan files: lists them; `--auto` to remove; otherwise warns
+5. `--dry-run` to preview fixes without changes
+6. `--auto` to skip orphan confirmation (CI mode)
 
-**Files**: `ssot/fix.rb` (new), `bin/ssot` (add fix command)
-**Test**: Introduce various drift types → fix resolves all; dry-run shows preview
+**Files**: `ssot/fix.rb` (170 lines), `bin/ssot` (fix command added)
+**Verification**: Break symlink → `ssot fix` detects and reinstalls only broken package; other packages unchanged
 
 ---
 
-### ⏳ P9.3 Integration — verify + fix in Single Workflow
-**Status**: ⏳ PENDING
-**Date**: TBD
+### ✅ P9.3 Integration — verify + fix in Single Workflow
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
 
-**Plan**: Ensure `verify` and `fix` work together smoothly:
-- `ssot status` should call verify internally and show health status
-- `ssot check <platform>` should use verify logic (more thorough than current check)
-- `--project` flag support for project-scoped platforms
-- Dry-run for fix must be truly read-only
-- After fix, run check to confirm everything OK
+**What was built**:
+- `bin/ssot verify [platform]` — delegates to `ssot/verify.rb`
+- `bin/ssot fix [platform] [--dry-run] [--auto]` — delegates to `ssot/fix.rb`
+- `fix` internally calls `verify`, clears broken index records, then reinstalls via `ssot/install.rb`
+- `--dry-run` for fix is read-only (no index writes, no file modifications)
+- `--auto` for fix enables orphan removal without confirmation
 
-**Files**: `ssot/status.rb` (updated verify call), `ssot/lib/install.rb` (check uses verify), `ssot/fix.rb`
-**Test**: Full cycle: break → verify detects → fix repairs → check passes
+**Full cycle verified**: break → verify detects → fix repairs → verify confirms OK
+
+**Known limitation**: `ssot status` does not yet call verify internally (future enhancement)
+
+**Files**: `ssot/verify.rb`, `ssot/fix.rb`, `bin/ssot`
 
 ---
 

@@ -46,6 +46,14 @@ bin/ssot check opencode
 bin/ssot uninstall opencode         # user-level
 bin/ssot uninstall cursor --project .  # project-level
 
+# Verify index matches disk (detect drift)
+bin/ssot verify opencode           # specific platform
+bin/ssot verify                    # all platforms
+
+# Repair drift automatically
+bin/ssot fix opencode              # reinstall broken packages
+bin/ssot fix opencode --dry-run    # preview only
+
 # Query package database
 bin/ssot list
 bin/ssot show memory
@@ -76,12 +84,16 @@ agent-rule-sync/
 │   │   └── vibe-security/PKGBUILD
 │   ├── registry/
 │   │   └── platforms.yaml  # Platform configurations
+│   ├── translators/        # Custom translator scripts (rule→skill, rule→import)
 │   ├── transformers/       # Custom transformer scripts
+│   ├── archive/            # Deprecated/archived legacy files
 │   ├── build.rb            # Build orchestrator
 │   ├── aggregate-skills.rb # Vendor skill aggregator
 │   ├── install.rb          # Platform installer (CLI entry point — delegates to lib/install.rb)
 │   ├── uninstall.rb        # Platform uninstaller
 │   ├── query.rb            # Package database queries
+│   ├── verify.rb           # Index-disk reconciliation (P9)
+│   ├── fix.rb              # Automated drift repair (P9)
 │   ├── index.yaml          # Master package database
 │   └── build/              # Build artifacts (generated)
 │       ├── index.yaml
@@ -135,7 +147,8 @@ targets:
   - platform: crush
     format: skill
     output: my-rule-skill.md
-    transformer: copy
+    translate: custom:translators/rule-to-skill.rb
+    transformer: strip-frontmatter
 
 checksums:
   source: null

@@ -35,3 +35,4 @@ ssot/build/*.log.*
 # OS
 .DS_Store
 Thumbs.db
+inspration/

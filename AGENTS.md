@@ -273,6 +273,8 @@ bin/ssot show memory        # Show package details
 bin/ssot search security    # Search packages
 bin/ssot platforms           # List platforms
 bin/ssot check opencode     # Verify installed state
+bin/ssot verify opencode    # Comprehensive index vs disk check
+bin/ssot fix opencode       # Repair drift automatically
 bin/ssot help               # Show help
 ```
 
@@ -731,6 +733,9 @@ See `ssot/transformers/` for implementations.
 | `ssot/install.rb` | Platform installer (CLI entry point — delegates to `ssot/lib/install.rb`) |
 | `ssot/uninstall.rb` | Platform uninstaller |
 | `ssot/query.rb` | Package database query tool |
+| `ssot/verify.rb` | Index-disk reconciliation (detect drift) |
+| `ssot/fix.rb` | Automated drift repair |
+| `ssot/aggregate-skills.rb` | Vendor skill aggregation |
 | `ssot/index.yaml` | Master package database |
 | `ssot/index.json` | Machine-readable index |
 | `ssot/build/index.yaml` | Build metadata (intermediate) |
@@ -788,11 +793,20 @@ bin/ssot check opencode
 bin/ssot list
 bin/ssot search security
 
+# Verify index vs disk (detect drift)
+bin/ssot verify opencode
+
+# Repair drift automatically
+bin/ssot fix opencode
+
 # Full rebuild + reinstall
 rm -rf ssot/build/ && bin/ssot build && bin/ssot install opencode
 
 # Full cycle: install → verify → uninstall → verify
 bin/ssot install opencode && bin/ssot check opencode && bin/ssot uninstall opencode && bin/ssot check opencode
+
+# Verify-fix-verify cycle
+bin/ssot verify opencode && bin/ssot fix opencode && bin/ssot verify opencode
 ```
 
 ---
@@ -819,7 +833,7 @@ To migrate:
 
 - **Single Source of Truth**: One authoritative source for all agent rules and skills, no scattered config files.
 - **Package-based distribution**: Each rule/skill is a package with a declarative PKGBUILD descriptor — inspired by Arch's ABS.
-- **Multi-platform deployment**: One PKGBUILD → multiple target platforms (12 agents), each with its own format/install method.
+- **Multi-platform deployment**: One PKGBUILD → multiple target platforms (14 agents), each with its own format/install method.
 - **Per-platform content adaptation**: Content must be translated (format conversion) and transformed (structural changes) per target platform's expectations.
 - **Full pipeline tooling**: Build → Aggregate → Install → Uninstall → Query, all scripted and testable.
 
@@ -830,7 +844,7 @@ To migrate:
 | **PKGBUILD descriptor** | ✅ | YAML, all required fields, validated on load |
 | **Source model** | ✅ | `local` (src/), `git` (clone + commit hash), `url` (SHA256) |
 | **Build pipeline** (`build.rb`) | ✅ | Fetch → translate → transform → write, 106 artifacts from 10 packages across 6 platforms |
-| **Translate layer** | ✅ | `apply_translator` in `common.rb`, `rule-to-skill.rb` translator, `translate.rb` CLI |
+| **Translate layer** | ✅ | `apply_translator` in `transform.rb`, 3 translators (`rule-to-skill.rb`, `rule-to-import.rb`, `normalize-markdown.rb`), `translate.rb` CLI. Wired into memory/shell PKGBUILDs for crush/goose/droid/codex targets |
 | **Transform layer** | ✅ | Built-in (`copy`, `strip-frontmatter`) + custom (`custom:<path>`) |
 | **Platform registry** | ✅ | 14 platforms in `platforms.yaml` |
 | **Platform format profiles** | ✅ | 14 YAML profiles (informational for LLM reference) |
@@ -854,11 +868,10 @@ To migrate:
 | **DRY project_root_for** | ✅ | Extracted to `Ssot::Lib::Common`, both install.rb and uninstall.rb delegate |
 | **Ruby syntax warnings** | ✅ | All Ruby files pass `ruby -wc` with zero warnings |
 
-### In Progress / Partial
+### In Progress
 
 | Item | Status | What's Needed |
 |------|--------|--------------|
-| **Translate layer integration** | 🟡 Framework ready, 0 PKGBUILD uses it | Add `translate` field to memory/shell PKGBUILDs for crush/goose/droid targets; write additional translators (`rule-to-import.rb`, `normalize-markdown.rb`) |
 | **Manually-installed skills packaged** | 🟡 6 packages created, some still unmanaged | `ast-grep`, `line-repetition-control`, `workstation-rules`, `goose`, `windsurf-rules`, `vibe-security` (agents target) — installed and tracked |
 
 ### Deferred (Not Needed / Low Priority)
@@ -891,7 +904,7 @@ Build artifact → Install → Target platform
 **Translate** changes the *format family* of the content (what kind of document it is).
 **Transform** changes the *structure or presentation* of the content (how it looks).
 
-Example: `memory` package's `crush` target needs `rule → skill` conversion (translate), then `strip-frontmatter` (transform). Currently only transform is wired up; translate layer is ready but unused.
+Example: `memory` package's `crush` target uses `rule-to-skill.rb` translator (translate) then `copy` transformer. 8 targets across memory/shell packages now use the translate layer.
 
 ---
 
