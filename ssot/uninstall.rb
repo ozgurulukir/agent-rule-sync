@@ -14,14 +14,7 @@ SSOT_ROOT = Pathname.new(__dir__).expand_path
 BUILD_DIR = SSOT_ROOT.join('build')
 INDEX_YAML_PATH = SSOT_ROOT.join('index.yaml')
 LOG_PATH = BUILD_DIR.join('uninstall.log')
-
-def log(msg)
-  Ssot::Lib::Common.log(msg, log_file: LOG_PATH)
-end
-
-def log_error(msg)
-  Ssot::Lib::Common.log_error(msg, log_file: LOG_PATH)
-end
+Ssot::Lib::Common.set_log_file(LOG_PATH)
 
 def project_root_for(platform_id, platform_cfg, project_arg)
   Ssot::Lib::Common.project_root_for(platform_cfg, project_arg)
@@ -60,12 +53,12 @@ unless platform_arg
 end
 
 platform_id = platform_arg
-log "🧹 Uninstalling packages from platform: #{platform_id} #{dry_run ? '(dry-run)' : ''}"
+Ssot::Lib::Common.log "🧹 Uninstalling packages from platform: #{platform_id} #{dry_run ? '(dry-run)' : ''}"
 puts "🧹 Uninstalling packages from platform: #{platform_id} #{dry_run ? '(dry-run)' : ''}"
 
 # Load index
 unless INDEX_YAML_PATH.exist?
-  log_error "Index not found: #{INDEX_YAML_PATH}. Run `ruby ssot/build.rb` first."
+  Ssot::Lib::Common.log_error "Index not found: #{INDEX_YAML_PATH}. Run `ruby ssot/build.rb` first."
   exit 1
 end
 
@@ -81,22 +74,22 @@ base_path = if project_root
               Pathname.new(Ssot::Lib::Common.expand_user_path(platform_cfg[:base_path]))
             end
 
-log "📁 Base path: #{base_path}"
-log "  Platform type: #{platform_cfg[:type]}"
+Ssot::Lib::Common.log "📁 Base path: #{base_path}"
+Ssot::Lib::Common.log "  Platform type: #{platform_cfg[:type]}"
 
 # Special handling for skill-based platforms: remove aggregated vendor skill
 if platform_cfg[:type] == 'skill'
-  log "  🎯 Skill platform: removing vendor skill"
+  Ssot::Lib::Common.log "  🎯 Skill platform: removing vendor skill"
   vendor_path = base_path.join(platform_cfg[:skill_file])
   if vendor_path.exist?
     if dry_run
-      log "    [DRY-RUN] Would remove vendor skill: #{vendor_path}"
+      Ssot::Lib::Common.log "    [DRY-RUN] Would remove vendor skill: #{vendor_path}"
     else
       FileUtils.rm(vendor_path)
-      log "    ✓ Removed vendor skill"
+      Ssot::Lib::Common.log "    ✓ Removed vendor skill"
     end
   else
-    log "    ℹ Vendor skill not found (already removed?)"
+    Ssot::Lib::Common.log "    ℹ Vendor skill not found (already removed?)"
   end
 
   # Clean installed records for this platform from index
@@ -108,7 +101,7 @@ if platform_cfg[:type] == 'skill'
       end
     end
     Ssot::Lib::Common.write_yaml_atomic(INDEX_YAML_PATH, index)
-    log "📝 Index cleaned for #{platform_id}"
+    Ssot::Lib::Common.log "📝 Index cleaned for #{platform_id}"
   end
   exit 0
 end
@@ -117,7 +110,7 @@ end
 installed_pkgs = index[:packages].select { |_, pkg| pkg[:installed]&.any? { |i| i[:platform] == platform_id } }
 
 if installed_pkgs.empty?
-  log "  No packages installed on #{platform_id}."
+  Ssot::Lib::Common.log "  No packages installed on #{platform_id}."
   puts "  No packages installed on #{platform_id}."
   exit 0
 end
@@ -127,14 +120,14 @@ uninstalled = Ssot::Lib::Common.uninstall_packages(index, platform_id, dry_run: 
 
 # For skill-based platforms: re-aggregate vendor skills after removals
 if platform_cfg[:type] == 'skill' && !dry_run
-  log "  🧱 Re-aggregating vendor skills for #{platform_id}..."
+  Ssot::Lib::Common.log "  🧱 Re-aggregating vendor skills for #{platform_id}..."
   puts "\n  🧱 Re-aggregating vendor skills for #{platform_id}..."
   system("ruby", "ssot/aggregate-skills.rb", platform_id.to_s)
   if $?.success?
-    log "    ✓ Vendor skill regenerated"
+    Ssot::Lib::Common.log "    ✓ Vendor skill regenerated"
     puts "    ✓ Vendor skill regenerated"
   else
-    log_error "Vendor skill aggregation failed"
+    Ssot::Lib::Common.log_error "Vendor skill aggregation failed"
   end
 end
 
@@ -143,22 +136,22 @@ unless dry_run
   begin
     index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
     Ssot::Lib::Common.write_yaml_atomic(INDEX_YAML_PATH, index)
-    log "📝 Index updated: #{INDEX_YAML_PATH}"
+    Ssot::Lib::Common.log "📝 Index updated: #{INDEX_YAML_PATH}"
     puts "\n📝 Index updated: #{INDEX_YAML_PATH}"
   rescue => e
-    log_error "Failed to write index: #{e.message}"
+    Ssot::Lib::Common.log_error "Failed to write index: #{e.message}"
     exit 1
   end
 else
-  log "[DRY-RUN] Index write skipped"
+  Ssot::Lib::Common.log "[DRY-RUN] Index write skipped"
   puts "\n[DRY-RUN] Index write skipped"
 end
 
 if uninstalled.empty?
-  log "  No packages were uninstalled."
+  Ssot::Lib::Common.log "  No packages were uninstalled."
 else
-  log "✅ Uninstall complete. #{uninstalled.size} package(s):"
-  uninstalled.uniq.each { |p| log "   • #{p}" }
+  Ssot::Lib::Common.log "✅ Uninstall complete. #{uninstalled.size} package(s):"
+  uninstalled.uniq.each { |p| Ssot::Lib::Common.log "   • #{p}" }
 end
 
 # End of file

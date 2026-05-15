@@ -798,8 +798,8 @@ ssot/query.rb:253      — assigned but unused variable: output
 
 ---
 
-### P8.2 Remove Duplicate Logging from build.rb and install.rb
-**Status**: 🔄 IN PROGRESS
+### ✅ P8.2 Remove Duplicate Logging from build.rb, install.rb, uninstall.rb
+**Status**: ✅ COMPLETED
 **Date**: 2026-05-15
 
 **Claim**: Logging is defined in 3 places with slightly different APIs. `Ssot::Lib::Common` has the canonical implementation; `build.rb` and `install.rb` have duplicates.
