@@ -29,7 +29,9 @@ module Ssot
           unless real_path.to_s.start_with?(SSOT_ROOT.to_s + File::SEPARATOR) || real_path == SSOT_ROOT
             raise "Custom transformer path outside repo (symlink attack?): #{custom_path}"
           end
-          load custom_path
+          abs_path = real_path.to_s
+          $LOADED_FEATURES.delete(abs_path)
+          require abs_path
           unless defined?(Transform) && Transform.respond_to?(:transform)
             raise "Custom transformer #{custom_path} must define Transform.transform(content, pkgname: nil) method"
           end
@@ -69,7 +71,9 @@ module Ssot
           unless real_path.to_s.start_with?(SSOT_ROOT.to_s + File::SEPARATOR) || real_path == SSOT_ROOT
             raise "Custom translator path outside repo (symlink attack?): #{custom_path}"
           end
-          load custom_path
+          abs_path = real_path.to_s
+          $LOADED_FEATURES.delete(abs_path)
+          require abs_path
           unless defined?(Translator) && Translator.respond_to?(:translate)
             raise "Custom translator #{custom_path} must define Translator.translate(content, args: {}) method"
           end
