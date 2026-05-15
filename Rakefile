@@ -67,12 +67,12 @@ end
 
 desc 'Print test summary'
 task :summary do
-  puts "\n📊 Test Suite — 172 tests, 399 assertions"
+  puts "\n📊 Test Suite — 172 tests, 427 assertions"
   puts "  test_common.rb               — 48 unit tests"
   puts "  test_integration.rb          — 29 integration tests"
   puts "  test_cache.rb                — 24 unit tests"
-  puts "  test_pkgbuild_validation.rb  — 23 unit tests"
-  puts "  test_platform.rb             — 22 unit tests"
+  puts "  test_pkgbuild_validation.rb  — 31 unit tests"
+  puts "  test_platform.rb             — 33 unit tests"
   puts "  test_uninstall.rb            —  7 unit tests"
   puts ""
   puts "Run: rake test"

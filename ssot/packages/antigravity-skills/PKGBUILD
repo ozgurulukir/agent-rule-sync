@@ -1,0 +1,71 @@
+---
+pkgname: antigravity-skills
+pkgver: '2026.05'
+pkgrel: 1
+epoch: 0
+pkgdesc: Antigravity Skills Vault — 300+ skills ported from Claude Code Agents, installable on any coding agent platform
+arch: any
+order: 10
+
+source:
+  - type: git
+    url: https://github.com/rmyndharis/antigravity-skills.git
+    ref: main
+    path: skills/
+    depth: 1
+
+targets:
+  - platform: opencode
+    format: skill-bundle
+    output: .
+    transformer: copy
+    install:
+      type: copy
+      target_dir: antigravity-skills/
+
+  - platform: cursor
+    format: skill-bundle
+    output: .
+    transformer: copy
+    install:
+      type: copy
+      target_dir: antigravity-skills/
+
+  - platform: windsurf
+    format: skill-bundle
+    output: .
+    transformer: copy
+    install:
+      type: copy
+      target_dir: antigravity-skills/
+
+  - platform: claude-code
+    format: skill-bundle
+    output: .
+    transformer: copy
+    install:
+      type: copy
+      target_dir: antigravity-skills/
+
+  - platform: antigravity
+    format: skill-bundle
+    output: .
+    transformer: copy
+    install:
+      type: copy
+      target_dir: antigravity-skills/
+
+checksums:
+  source: null
+  built: {}
+
+dependencies: []
+conflicts: []
+provides: []
+tags:
+  - antigravity
+  - skills
+  - vault
+  - coding-agents
+maintainer: null
+license: MIT

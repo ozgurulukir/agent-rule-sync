@@ -9,6 +9,30 @@ require 'json'
 
 module Ssot
   module Lib
+    module Config
+      module_function
+
+      def max_redirects
+        Integer(ENV.fetch('SSOT_MAX_REDIRECTS', '3'))
+      end
+
+      def read_timeout
+        Integer(ENV.fetch('SSOT_READ_TIMEOUT', '30'))
+      end
+
+      def cache_dir_name
+        ENV.fetch('SSOT_CACHE_DIR', 'cache')
+      end
+
+      def git_clone_depth
+        Integer(ENV.fetch('SSOT_GIT_DEPTH', '1'))
+      end
+
+      def log_level
+        ENV.fetch('SSOT_LOG_LEVEL', 'info').to_sym
+      end
+    end
+
     module Common
       SSOT_ROOT = Pathname.new(__dir__).expand_path.join('..').cleanpath
       BUILD_DIR = SSOT_ROOT.join('build')
@@ -17,7 +41,55 @@ module Ssot
       INDEX_JSON_PATH = SSOT_ROOT.join('index.json')
       LOG_PATH = BUILD_DIR.join('install.log')
 
+      @_default_log_file = LOG_PATH
+
       module_function
+
+      # ─── Shared Logging ──────────────────────────────────────────────────────────
+
+      # Set the default log file for shared logging
+      def set_log_file(path)
+        @_default_log_file = Pathname.new(path)
+      end
+
+      # Log a message with level filtering.
+      # Respects $LOG_LEVEL (global, set per-module): error < warn < info < debug
+      def log(msg, level: :info, log_file: nil)
+        log_file ||= @_default_log_file
+        timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
+        line = "[#{timestamp}] #{msg}"
+        level_order = { error: 0, warn: 1, info: 2, debug: 3 }
+        if level_order[level] <= level_order[$LOG_LEVEL || Ssot::Lib::Config.log_level]
+          puts line
+        end
+        FileUtils.mkpath(log_file.dirname)
+        File.open(log_file.to_s, 'a') { |f| f.puts(line) }
+      end
+
+      def log_error(msg, log_file: nil)
+        warn "❌ #{msg}"
+        log("ERROR: #{msg}", level: :error, log_file: log_file)
+      end
+
+      def log_warn(msg, log_file: nil)
+        warn "⚠️  #{msg}"
+        log("WARN: #{msg}", level: :warn, log_file: log_file)
+      end
+
+      def log_debug(msg, log_file: nil)
+        log("DEBUG: #{msg}", level: :debug, log_file: log_file)
+      end
+
+      # Time an operation and log elapsed time (respects $SHOW_TIMING)
+      def time(operation_name)
+        start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        result = yield
+        elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+        if $SHOW_TIMING
+          log("⏱  #{format('%.3f', elapsed)}s — #{operation_name}", log_file: nil)
+        end
+        result
+      end
 
 # ─── Build Cache ────────────────────────────────────────────────────────
 
@@ -31,7 +103,7 @@ module Ssot
       end
 
       def cache_dir(key)
-        SSOT_ROOT.join("cache", key.to_s)
+        SSOT_ROOT.join(Ssot::Lib::Config.cache_dir_name, key.to_s)
       end
 
       def source_cached?(key)
@@ -93,7 +165,7 @@ module Ssot
         actual_sha256 = Digest::SHA256.hexdigest(content)
 
         if expected_sha256 && actual_sha256 != expected_sha256
-          raise "SHA256 mismatch for #{url}: expected #{expected_sha256}, got #{actual_sha256}"
+          raise "SHA256 mismatch for #{url}: expected #{expected_sha256}, got #{actual_sha256}. Update the sha256 field in your PKGBUILD to: #{actual_sha256}"
         end
 
         # Store in cache
@@ -104,7 +176,7 @@ module Ssot
 
       # Fetch git source with cache support (single file)
       # Returns [content, commit_hash]
-      def cached_fetch_git_file(url, ref, git_path, depth: 1)
+      def cached_fetch_git_file(url, ref, git_path, depth: Ssot::Lib::Config.git_clone_depth)
         require 'tmpdir'
         Dir.mktmpdir("ssot-git-") do |tmp|
           commit_hash = fetch_git_source(url, ref, tmp, depth: depth)
@@ -125,7 +197,7 @@ module Ssot
 
       # Fetch git source with cache support (directory / skill-bundle)
       # Returns [persistent_dir_path, commit_hash]
-      def cached_fetch_git_dir(url, ref, git_path, depth: 1)
+      def cached_fetch_git_dir(url, ref, git_path, depth: Ssot::Lib::Config.git_clone_depth)
         commit_hash = nil
         require 'tmpdir'
         Dir.mktmpdir("ssot-git-") do |tmp|
@@ -309,7 +381,7 @@ module Ssot
         unless system(*cmd)
           # If main failed, try master (only when ref was default 'main')
           if ref == 'main' && !is_commit && !system('git', 'clone', '--depth=1', '--branch=master', '--quiet', url, dest_dir)
-            raise "git clone failed for #{url} (tried main and master)"
+            raise "git clone failed for #{url} (tried main and master). Check the URL is correct and you have network access."
           else
             raise "git clone failed for #{url}"
           end
@@ -319,7 +391,7 @@ module Ssot
         if is_commit
           Dir.chdir(dest_dir) do
             unless system('git', 'checkout', '--quiet', ref)
-              raise "git checkout #{ref} failed"
+              raise "git checkout #{ref} failed. Verify the ref (branch/tag/commit) exists in the repository."
             end
           end
         end
@@ -341,7 +413,7 @@ module Ssot
                  else
                    Pathname.new(expand_user_path(path_str))
                  end
-          raise "Local source not found: #{path}" unless path.exist?
+          raise "Local source not found: #{path}. Check that the path in PKGBUILD source is correct." unless path.exist?
 
           content = path.read
           checksum = Digest::SHA256.hexdigest(content)
@@ -361,7 +433,7 @@ module Ssot
           actual_sha256 = Digest::SHA256.hexdigest(content)
 
           if expected_sha256 && actual_sha256 != expected_sha256
-            raise "SHA256 mismatch for #{url}: expected #{expected_sha256}, got #{actual_sha256}"
+          raise "SHA256 mismatch for #{url}: expected #{expected_sha256}, got #{actual_sha256}. Update the sha256 field in your PKGBUILD to: #{actual_sha256}"
           end
 
           [content, actual_sha256]
@@ -387,7 +459,7 @@ module Ssot
                           SSOT_ROOT.join(custom_rel)
                         end.cleanpath
           unless custom_path.exist?
-            raise "Custom transformer not found: #{custom_path}"
+            raise "Custom transformer not found: #{custom_path}. Verify the path in your PKGBUILD transformer field."
           end
           # Security: ensure transformer path is within repo (symlink attack prevention)
           real_path = custom_path.realpath
@@ -428,7 +500,7 @@ module Ssot
                           SSOT_ROOT.join(custom_rel)
                         end.cleanpath
           unless custom_path.exist?
-            raise "Custom translator not found: #{custom_path}"
+            raise "Custom translator not found: #{custom_path}. Verify the path in your PKGBUILD translate field."
           end
           real_path = custom_path.realpath
           unless real_path.to_s.start_with?(SSOT_ROOT.to_s + File::SEPARATOR) || real_path == SSOT_ROOT
@@ -487,7 +559,7 @@ module Ssot
       def load_pkgbuild(pkgdir)
         pkgbuild_path = Pathname.new(pkgdir).join('PKGBUILD')
         unless pkgbuild_path.exist?
-          raise "PKGBUILD not found in #{pkgdir}"
+          raise "PKGBUILD not found in #{pkgdir}. Create ssot/packages/<name>/PKGBUILD or run `ssot build` from repo root."
         end
 
         raw = pkgbuild_path.read
@@ -496,7 +568,7 @@ module Ssot
         # Validate required fields
         %i[pkgname pkgver source targets].each do |field|
           unless data.key?(field)
-            raise "PKGBUILD missing required field: #{field}"
+            raise "PKGBUILD missing required field: #{field}. Ensure every PKGBUILD has #{field} defined."
           end
         end
 
@@ -577,44 +649,29 @@ module Ssot
           platform: platform_id.to_s,
           sub_skills: []
         }
-        seen_paths = {}
 
-        # Collect root-level files (not in a subdir)
-        Dir.glob("#{build_pkg_dir}/*", File::FNM_DOTMATCH).each do |entry_path|
-          entry = Pathname.new(entry_path)
-          next unless entry.file?
-          next if entry.basename.to_s == 'manifest.json'
-          rel_path = entry.basename.to_s
-          sub = manifest[:sub_skills].find { |s| s[:path] == '.' }
-          unless sub
-            sub = { path: '.', name: '.', sha256: '', files: {} }
-            manifest[:sub_skills] << sub
-          end
-          sub[:files][rel_path] = Digest::SHA256.hexdigest(entry.read)
-        end
-        if (sub = manifest[:sub_skills].find { |s| s[:path] == '.' })
-          sub[:sha256] = Digest::SHA256.hexdigest(sub[:files].sort.to_h.to_s)
-          seen_paths['.'] = true
+        # Single glob pass: collect all files, group by top-level dir
+        all_files = Dir.glob("#{build_pkg_dir}/**/*", File::FNM_DOTMATCH).select { |f| File.file?(f) }
+          .reject { |f| f.end_with?('/manifest.json') }
+
+        # Group files into sub-skills (top-level directory = sub-skill name)
+        groups = { '.' => [] }
+        all_files.each do |f|
+          rel = Pathname.new(f).relative_path_from(build_pkg_dir).to_s
+          top = rel.include?('/') ? rel.split('/').first : '.'
+          (groups[top] ||= []) << rel
         end
 
-        # Each top-level subdirectory is a sub-skill
-        Dir.glob("#{build_pkg_dir}/*/", File::FNM_DOTMATCH).each do |subdir_path|
-          subdir = Pathname.new(subdir_path)
-          sub_name = subdir.basename.to_s
-          next unless subdir.directory?
-          next if sub_name == '.' || sub_name == '..'  # skip FNM_DOTMATCH artifacts
-          sub_name = subdir.basename.to_s
-          next if seen_paths[sub_name]
+        groups.each do |name, files|
+          next if name == '..'
           sub_files = {}
-          Dir.glob("#{subdir}/**/*", File::FNM_DOTMATCH).each do |file_path|
-            file = Pathname.new(file_path)
-            next unless file.file?
-            rel_path = file.relative_path_from(build_pkg_dir).to_s
-            sub_files[rel_path] = Digest::SHA256.hexdigest(file.read)
+          files.sort.each do |rel|
+            path = build_pkg_dir.join(rel)
+            sub_files[rel] = Digest::SHA256.hexdigest(path.read)
           end
+          next if sub_files.empty?
           agg_sha = Digest::SHA256.hexdigest(sub_files.sort.to_h.to_s)
-          manifest[:sub_skills] << { path: sub_name, name: sub_name, sha256: agg_sha, files: sub_files }
-          seen_paths[sub_name] = true
+          manifest[:sub_skills] << { path: name, name: name, sha256: agg_sha, files: sub_files }
         end
 
         manifest_path = build_pkg_dir.join('manifest.json')
@@ -622,18 +679,21 @@ module Ssot
         manifest
       end
 
-      # Load platform registry
+      # Load platform registry (memoized — cached after first call)
       def load_platform_registry
-        # __dir__ points to ssot/lib, go up one level to ssot/
+        return @_platform_registry if @_platform_registry
+
         registry_path = Pathname.new(__dir__).join('../registry/platforms.yaml').cleanpath
         raw = load_yaml(registry_path)
 
-        # Validate each platform config
-        raw.each do |id, cfg|
-          validate_platform_config(id, cfg)
-        end
+        raw.each { |id, cfg| validate_platform_config(id, cfg) }
 
-        raw
+        @_platform_registry = raw
+      end
+
+      # Clear the platform registry cache (useful for testing)
+      def clear_platform_registry_cache!
+        @_platform_registry = nil
       end
 
       # Validate a single platform configuration
@@ -708,6 +768,17 @@ module Ssot
       # Get build directory for a platform
       def build_dir_for_platform(platform)
         Pathname.new('ssot/build').join(platform)
+      end
+
+      # Resolve project root for project-scoped platforms.
+      # Returns nil for user-scoped platforms.
+      def project_root_for(platform_cfg, project_arg)
+        scope = platform_cfg[:scope] || 'user'
+        if scope == 'project'
+          project_arg ? Pathname.new(project_arg).expand_path : Pathname.pwd
+        else
+          nil
+        end
       end
 
       # Validate PKGBUILD hash completely
@@ -956,154 +1027,6 @@ module Ssot
            rec[:epoch] ||= 0
          end
        end
-     end
-   end
- end
-
-      # ─── Build Cache ────────────────────────────────────────────────────────
-
-      # Build cache key from source entry
-      def cache_key_for_source(source_entry, source_hash = nil)
-        case source_entry[:type]
-        when "url" then source_entry[:sha256] || source_hash || raise("No sha256 for URL source")
-        when "git" then source_hash || raise("No commit hash for git source")
-        when "local" then source_hash || raise("No source hash for local source")
-        end
       end
-
-      def cache_dir(key)
-        SSOT_ROOT.join("cache", key.to_s)
-      end
-
-      def source_cached?(key)
-        dir = cache_dir(key)
-        dir.exist? && (dir.join("extracted").exist? || dir.join("source.tar.gz").exist?)
-      end
-
-      def cache_source(key, content_or_path, source_type: "file")
-        dir = cache_dir(key)
-        dir.mkpath
-        extracted = dir.join("extracted")
-        case source_type
-        when "content"
-          extracted.mkpath
-          extracted.join("source").write(content_or_path)
-        when "file"
-          src = Pathname.new(content_or_path)
-          if src.directory?
-            FileUtils.cp_r(src, extracted, preserve: false)
-          else
-            extracted.mkpath
-            extracted.join("source").write(src.read)
-          end
-        when "git_archive"
-          extracted.mkpath
-          system("tar", "-xzf", Pathname.new(content_or_path).to_s, "-C", extracted.to_s)
-        end
-      end
-
-      def get_cached_source(key, output_filename = nil)
-        extracted = cache_dir(key).join("extracted")
-        raise "Cache miss: #{key}" unless extracted.exist?
-        if output_filename
-          file = extracted.join(output_filename)
-          raise "Cached file not found: #{output_filename}" unless file.exist?
-          file.read
-        else
-          files = extracted.children.select(&:file?)
-          raise "No files in cache: #{key}" if files.empty?
-          files.first.read
-        end
-      end
-
-      def get_cached_git_source(key)
-        extracted = cache_dir(key).join("extracted")
-        return nil unless extracted.exist?
-        extracted
-      end
-
-      # ─── Cache-Aware Source Fetchers ────────────────────────────────────────
-
-      # Fetch URL with cache support
-      def cached_fetch_url(url, expected_sha256)
-        uri = URI.parse(url)
-        response = Net::HTTP.get_response(uri)
-        raise "Failed to fetch #{url}: #{response.code} #{response.message}" unless response.is_a?(Net::HTTPSuccess)
-
-        content = response.body
-        actual_sha256 = Digest::SHA256.hexdigest(content)
-
-        if expected_sha256 && actual_sha256 != expected_sha256
-          raise "SHA256 mismatch for #{url}: expected #{expected_sha256}, got #{actual_sha256}"
-        end
-
-        # Store in cache
-        cache_source(actual_sha256, content, source_type: 'content')
-
-        [content, actual_sha256]
-      end
-
-      # Fetch git source with cache support (single file)
-      # Returns [content, commit_hash]
-      def cached_fetch_git_file(url, ref, git_path, depth: 1)
-        require 'tmpdir'
-        Dir.mktmpdir("ssot-git-") do |tmp|
-          commit_hash = fetch_git_source(url, ref, tmp, depth: depth)
-          repo_base = Pathname.new(tmp)
-          source_in_repo = repo_base.join(git_path).cleanpath
-          unless source_in_repo.to_s.start_with?(repo_base.to_s + File::SEPARATOR) || source_in_repo == repo_base
-            raise "Path traversal in git source path: #{git_path} escapes repository"
-          end
-          unless source_in_repo.exist?
-            raise "Path not found in git repo: #{git_path}"
-          end
-          content = source_in_repo.read
-          # Cache by commit hash
-          cache_source(commit_hash, content, source_type: 'content')
-          [content, commit_hash]
-        end
-      end
-
-      # Fetch git source with cache support (directory / skill-bundle)
-      # Returns [persistent_dir_path, commit_hash]
-      def cached_fetch_git_dir(url, ref, git_path, depth: 1)
-        commit_hash = nil
-        require 'tmpdir'
-        Dir.mktmpdir("ssot-git-") do |tmp|
-          commit_hash = fetch_git_source(url, ref, tmp, depth: depth)
-          repo_base = Pathname.new(tmp)
-          source_in_repo = repo_base.join(git_path).cleanpath
-          unless source_in_repo.to_s.start_with?(repo_base.to_s + File::SEPARATOR) || source_in_repo == repo_base
-            raise "Path traversal in git source path: #{git_path} escapes repository"
-          end
-          unless source_in_repo.exist?
-            raise "Path not found in git repo: #{git_path}"
-          end
-          # Cache by commit hash
-          cache_source(commit_hash, source_in_repo, source_type: 'file')
-        end
-        # Return persistent cache dir + hash
-        [cache_dir(commit_hash).join('extracted'), commit_hash]
-      end
-
-      # Fetch git source with cache (generic: returns content/dir based on source type)
-      def fetch_source_with_cache(src_cfg, format:)
-        case src_cfg[:type]
-        when 'url'
-          cached_fetch_url(src_cfg[:url], src_cfg[:sha256])
-        when 'git'
-          git_url = src_cfg[:url]
-          git_ref = src_cfg[:ref] || 'main'
-          git_path = Pathname.new(src_cfg[:path] || '.')
-          git_depth = src_cfg[:depth] || 1
-          if format == 'skill-bundle' || (git_path.exist? && git_path.directory?)
-            cached_fetch_git_dir(git_url, git_ref, git_path, depth: git_depth)
-          else
-            cached_fetch_git_file(git_url, git_ref, git_path, depth: git_depth)
-          end
-        when 'local'
-          read_source(src_cfg)
-        else
-          raise "Unsupported source type for caching: #{src_cfg[:type]}"
-        end
-      end
+    end
+  end

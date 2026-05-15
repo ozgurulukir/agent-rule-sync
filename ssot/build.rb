@@ -19,29 +19,23 @@ LOG_PATH = BUILD_DIR.join('build.log')
 # ─── Logging ────────────────────────────────────────────────────────────────────
 
 def log(msg)
-  timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
-  line = "[#{timestamp}] #{msg}"
-  puts line
-  FileUtils.mkpath(BUILD_DIR)
-  File.open(LOG_PATH, 'a') { |f| f.puts(line) }
+  Ssot::Lib::Common.log(msg, log_file: LOG_PATH)
 end
 
 def log_error(msg)
-  warn "❌ #{msg}"
-  log("ERROR: #{msg}")
+  Ssot::Lib::Common.log_error(msg, log_file: LOG_PATH)
 end
 
 def log_warn(msg)
-  warn "⚠️  #{msg}"
-  log("WARN: #{msg}")
+  Ssot::Lib::Common.log_warn(msg, log_file: LOG_PATH)
 end
 
 # ─── Helpers ────────────────────────────────────────────────────────────────────
 
-def fetch_url(url_str, expected_sha256 = nil, max_redirects: 3)
+def fetch_url(url_str, expected_sha256 = nil, max_redirects: Ssot::Lib::Config.max_redirects)
   uri = URI.parse(url_str)
   max_redirects.times do
-    response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https', read_timeout: 30) do |http|
+    response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https', read_timeout: Ssot::Lib::Config.read_timeout) do |http|
       http.request_get(uri.request_uri)
     end
 
@@ -51,7 +45,7 @@ def fetch_url(url_str, expected_sha256 = nil, max_redirects: 3)
       computed = Digest::SHA256.hexdigest(content)
 
       if expected_sha256 && expected_sha256 != computed
-        raise "SHA256 mismatch for #{url_str}: expected #{expected_sha256}, got #{computed}"
+        raise "SHA256 mismatch for #{url_str}: expected #{expected_sha256}, got #{computed}. Update the sha256 field in your PKGBUILD to: #{computed}"
       end
 
       return content
@@ -65,14 +59,6 @@ def fetch_url(url_str, expected_sha256 = nil, max_redirects: 3)
   end
 
   raise "Too many redirects for #{url_str}"
-end
-
-def apply_transformer(content, transformer_cfg, pkgname:)
-  Ssot::Lib::Common.apply_transformer(transformer_cfg, content, pkgname: pkgname)
-end
-
-def validate_output_filename(output, pkgname)
-  Ssot::Lib::Common.validate_output_filename(output, pkgname)
 end
 
 # ─── Load registry and index ────────────────────────────────────────────────────
@@ -116,6 +102,8 @@ pkgbuilds.each do |pkgbuild_path|
   end
 
   log "Building: #{pkgname} (#{Ssot::Lib::Common.format_version(pkg[:epoch], pkg[:pkgver], pkg[:pkgrel])})"
+
+  Ssot::Lib::Common.time("build #{pkgname}") do
   puts "Building: #{pkgname} (#{Ssot::Lib::Common.format_version(pkg[:epoch], pkg[:pkgver], pkg[:pkgrel])})"
 
   # Initialize package index entry if missing
@@ -187,7 +175,6 @@ pkgbuilds.each do |pkgbuild_path|
           log "  pkgver updated: #{pkg[:pkgver]} → #{new_pkgver}"
           pkg[:pkgver] = new_pkgver
           pkg_index[:pkgver] = new_pkgver
-          log "  DEBUG: after update pkg_index[:pkgver]=#{pkg_index[:pkgver]} pkg[:pkgver]=#{pkg[:pkgver]}"
         end
       end
 
@@ -222,7 +209,6 @@ pkgbuilds.each do |pkgbuild_path|
           log "  pkgver updated: #{pkg[:pkgver]} → #{new_pkgver}"
           pkg[:pkgver] = new_pkgver
           pkg_index[:pkgver] = new_pkgver
-          log "  DEBUG: after update pkg_index[:pkgver]=#{pkg_index[:pkgver]} pkg[:pkgver]=#{pkg[:pkgver]}"
         end
       end
     else
@@ -323,7 +309,7 @@ pkgbuilds.each do |pkgbuild_path|
       unless pkg_index[:available_targets].include?(platform_id)
         pkg_index[:available_targets] << platform_id
       end
-      pkg_index[:checksums][:built][platform_id] = pkg_index[:source_sha256]
+      pkg_index[:checksums][:built][platform_id.to_s] = pkg_index[:source_sha256]
     else
       # Single-file formats: directory, import, skill
       log "  → Building for #{platform_id} (#{output})"
@@ -331,7 +317,7 @@ pkgbuilds.each do |pkgbuild_path|
 
       # Validate output filename (path traversal protection)
       begin
-        validate_output_filename(output, pkgname)
+        Ssot::Lib::Common.validate_output_filename(output, pkgname)
       rescue => e
         log_error e.message
         next
@@ -356,7 +342,7 @@ pkgbuilds.each do |pkgbuild_path|
       # ─── TRANSFORM step ────────────────────────────────────────────────────────
       # Structural/format changes (copy, strip-frontmatter, custom)
       begin
-        transformed = apply_transformer(source_content, transformer, pkgname: pkgname)
+        transformed = Ssot::Lib::Common.apply_transformer(transformer, source_content, pkgname: pkgname)
       rescue => e
         log_error "Transformer failed for #{pkgname}/#{platform_id}: #{e.message}"
         next
@@ -382,12 +368,13 @@ pkgbuilds.each do |pkgbuild_path|
       unless pkg_index[:available_targets].include?(platform_id)
         pkg_index[:available_targets] << platform_id
       end
-      pkg_index[:checksums][:built][platform_id] = built_sha256
+      pkg_index[:checksums][:built][platform_id.to_s] = built_sha256
     end
   end
 
   # Update index
   index_data[:packages][pkgname] = pkg_index
+  end  # time("build #{pkgname}")
 end
 
 # ─── Write build index ─────────────────────────────────────────────────────────

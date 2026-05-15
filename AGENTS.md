@@ -20,7 +20,7 @@ This repository implements a **Single Source of Truth (SSoT)** management system
 
 ---
 
-## Supported Platforms (12 agents)
+## Supported Platforms (13 agents)
 
 | Agent | Type | Scope | Config Location | Install Command |
 |-------|------|-------|-----------------|-----------------|
@@ -36,6 +36,7 @@ This repository implements a **Single Source of Truth (SSoT)** management system
 | [GitHub Copilot](docs/agents/agents/github-copilot.md) | import | project | `.github/copilot-instructions.md` | `bin/ssot install github-copilot --project .` |
 | [Claude Code](docs/agents/agents/claude-code.md) | directory | project | `.claude/rules/` | `bin/ssot install claude-code --project .` |
 | [Codex CLI](docs/agents/agents/codex.md) | skill | project | `AGENTS.md` | `bin/ssot install codex --project .` |
+| [Antigravity](docs/agents/agents/antigravity.md) | directory | project | `.agent/skills/` | `bin/ssot install antigravity --project .` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
@@ -85,7 +86,7 @@ See [Platforms](docs/agents/PLATFORMS.md) for full details.
 
 2. **Aggregate** (`ssot/aggregate-skills.rb`) — For skill-based agents (Crush, Goose, Droid), collect rule fragments and common/agent-specific skills, concatenate into a single vendored skill file per agent under `ssot/build/<agent>/skills/vendor/`.
 
-3. **Install** (`ssot/install.rb <platform> [--dry-run]`) — Read `ssot/index.yaml`, for each package built for target platform, install via symlink/copy/inject/append depending on format and platform registry. Update `ssot/index.yaml` with installed state. Supports `--all` (all platforms), `--targets <pkg>` (show targets), `--check` (verify), `--dry-run`, `--force`, `--select`.
+3. **Install** (`ssot/install.rb <platform> [--dry-run]`) — Read `ssot/index.yaml`, for each package built for target platform, install via symlink/copy/inject/append depending on format and platform registry. Update `ssot/index.yaml` with installed state. Supports `--all` (all platforms), `--targets <pkg>` (show targets), `--check` (verify), `--dry-run`, `--force`, `--select`. For skill-bundles >1 sub-skill, shows interactive numbered menu in a TTY.
 
 4. **Query** (`ssot/query.rb`) — Inspect package database: list packages, show details, search, check installed status.
 
@@ -114,6 +115,105 @@ The system uses a **pacman-inspired versioning scheme**:
 
 **Upgrade**: Automatic on re-install if newer version detected.  
 **Downgrade**: Blocked by default; use `--force` to override.
+
+---
+
+## Creating a New Package
+
+To add a new rule or skill as a SSoT package, follow these steps:
+
+### 1. Create the package directory
+
+```bash
+mkdir -p ssot/packages/<pkgname>/src/
+```
+
+### 2. Add the source file
+
+Place your rule or skill content in `ssot/packages/<pkgname>/src/` as a Markdown file:
+
+```bash
+touch ssot/packages/<pkgname>/src/<filename>.md
+```
+
+The source file is your canonical content — all platform-specific transformations start from this file.
+
+### 3. Write the PKGBUILD descriptor
+
+Create `ssot/packages/<pkgname>/PKGBUILD` (YAML). At minimum:
+
+```yaml
+---
+pkgname: my-rule
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: What this rule/skill does
+arch: any
+order: 0
+
+source:
+  - type: local
+    path: src/<filename>.md
+
+targets:
+  - platform: opencode          # first target platform
+    format: directory
+    output: <filename>.md
+    transformer: copy
+    install:
+      type: symlink
+
+checksums:
+  source: null
+  built: {}
+
+dependencies: []
+conflicts: []
+provides: []
+tags:
+  - <tag1>
+  - <tag2>
+maintainer: null
+license: MIT
+```
+
+See [PKGBUILD Format](#pkgbuild-format) above for all available fields, source types (`local`/`url`/`git`), target formats (`directory`/`import`/`skill`/`skill-bundle`), and transformers (`copy`/`strip-frontmatter`/`custom:path`).
+
+### 4. Choose target platforms
+
+Refer to the [Supported Platforms](#supported-platforms-12-agents) table to pick platforms. Each target entry in PKGBUILD maps to one platform:
+
+| Platform type | format | output | install.type |
+|--------------|--------|--------|-------------|
+| `directory` agents (OpenCode, Cursor, etc.) | `directory` | `filename.md` | `symlink` or `copy` |
+| `skill` agents (Crush, Goose, Droid) | `skill` | `filename.md` | inherits from registry (`copy`) |
+| `import` agents (Gemini CLI, Qwen Code) | `import` | `filename.md` | `copy` or `inject` |
+| Multi-skill bundles | `skill-bundle` | `.` | `copy` with `target_dir` |
+
+### 5. Build and install
+
+```bash
+# Build all packages (your new package included)
+bin/ssot build
+
+# Install to a specific platform
+bin/ssot install opencode
+
+# Verify it's installed
+bin/ssot check opencode
+```
+
+### Quick reference table
+
+| Step | Action | File/Directory |
+|------|--------|---------------|
+| 1 | Create package dir | `ssot/packages/<pkgname>/` |
+| 2 | Add source file | `ssot/packages/<pkgname>/src/<file>.md` |
+| 3 | Write descriptor | `ssot/packages/<pkgname>/PKGBUILD` |
+| 4 | Set targets | `targets:` array in PKGBUILD |
+| 5 | Build | `bin/ssot build` |
+| 6 | Install | `bin/ssot install <platform>` |
 
 ---
 
@@ -370,7 +470,7 @@ targets:
 - For `git` source: `url`, `ref` (branch/tag/commit), `path` (subdir within repo), `depth` (optional) supported
 
 **Sub-skill Selection** (`--select`):
-Use `--select` to install only specific sub-skills from a bundle:
+Use `--select` to install only specific sub-skills from a bundle, or skip the flag for an interactive menu:
 
 ```bash
 # Install only the "auth" sub-skill
@@ -382,6 +482,23 @@ bin/ssot install golang-security --select auth,sql,xss
 # Install all sub-skills (default, no --select)
 bin/ssot install golang-security
 ```
+
+When running in a real terminal without `--select`, SSoT shows a pacman-style numbered menu:
+
+```
+📦 antigravity-skills contains 306 sub-skills.
+Select sub-skills to install:
+  1) accessibility-compliance-accessibility-audit
+  2) agent-orchestration-improve-agent
+  ...
+  306) workflow-patterns
+
+Enter numbers (e.g. 1,2,3, 5-10, or 'all'):
+```
+
+- Numbers and ranges: `1,2,3` or `5-10` or `1-5,10,50-55`
+- `all` or empty → install all sub-skills
+- Only activates in a real TTY; pipes/CI skip the menu and install all
 
 Sub-skill names are the top-level directory names within the bundle (e.g., `auth/`, `sql-injection/`).
 
@@ -412,8 +529,8 @@ Build generates `manifest.json` with per-sub-skill checksums:
 - Uninstall: Target directory tree is removed
 - Index: `output` recorded as `.`; no single-file checksum (directory checksum future work)
 
-**Meta-packages** (pacman-style):
-Group multiple related packages under a virtual meta-package using `depends`:
+**Meta-packages** (documentation-only):
+The `depends` field is metadata stored in the index for human/LLM reference. It groups related packages or sub-skills under a virtual name. **Dependency resolution is not implemented** (deferred — see P2.2). Users install sub-packages individually.
 
 ```yaml
 pkgname: golang-security-all
@@ -424,7 +541,10 @@ depends:
   - golang-security/xss
 ```
 
-**Supported Platforms**: Any `directory`-type platform with a `skills_dir` (OpenCode, Cursor, Windsurf, Claude Code). Not applicable to `skill` or `import` platforms.
+To install all sub-skills of a meta-package:
+```bash
+bin/ssot install golang-security --select auth,sql,xss
+```
 
 ---
 
@@ -577,7 +697,7 @@ end
 
 Each platform has a format profile at `ssot/platforms/<agent>.yaml`. These describe heading style, bullet style, frontmatter policy, emoji handling, etc. **Informational for LLM reference — not enforced by the build system.**
 
-Profiles exist for all 12 agents: opencode, crush, goose, droid, gemini-cli, qwen-code, oh-my-pi, cursor, windsurf, github-copilot, claude-code, codex, agents.
+Profiles exist for all 14 platform profiles: opencode, crush, goose, droid, gemini-cli, qwen-code, oh-my-pi, cursor, windsurf, github-copilot, claude-code, codex, antigravity, agents.
 
 ### Transformer Pattern
 
@@ -603,7 +723,7 @@ See `ssot/transformers/` for implementations.
 | `ssot/platforms/` | Platform format profiles (informational — heading style, bullet style, content expectations) |
 | `ssot/translators/` | Custom translator scripts (translate step — content format conversion) |
 | `ssot/transformers/` | Custom transformer scripts (transform step — structural changes) |
-| `ssot/lib/` | Library modules (`common.rb`, `install.rb`) |
+| `ssot/lib/` | Library modules (`common.rb`, `install.rb`) — shared logging, config, timing |
 | `ssot/build.rb` | Build orchestrator (translate → transform → write) |
 | `ssot/translate.rb` | Standalone translator runner (CLI) |
 | `ssot/aggregate-skills.rb` | Vendor skill aggregation |
@@ -632,15 +752,15 @@ rake test_platform     # Platform registry tests (22 tests)
 rake test_uninstall    # Uninstall tests (7 tests)
 ```
 
-**Test coverage** (172 tests, 399 assertions, 0 failures, 0 errors):
+**Test coverage** (172 tests, 427 assertions, 0 failures, 0 errors):
 
 | File | Tests | Coverage |
 |------|-------|----------|
 | `test/test_common.rb` | 48 | `compare_versions`, `vercmp`, `format_version`, `validate_output_filename`, `validate_target_dir`, `expand_user_path`, `strip_frontmatter` |
 | `test/test_integration.rb` | 29 | Build index, skill-bundle manifest generation (6 tests), version comparison, schema migration (idempotent), transaction rollback, cache integration |
 | `test/test_cache.rb` | 24 | Cache key (url/git/local), cache dir, source_cached?, cache_source (content/file), get_cached_source, cached_fetch_url errors |
-| `test/test_pkgbuild_validation.rb` | 23 | `load_pkgbuild` (valid, missing file/fields, invalid formats), `validate_pkgbuild` (valid, all invalid fields, nil guards, skill-bundle constraints) |
-| `test/test_platform.rb` | 22 | Platform registry loading/validation, `platform_config` lookup, `resolve_install_path` (all types), `safe_relative`, `build_dir_for_platform`, `check_prerequisites` |
+| `test/test_pkgbuild_validation.rb` | 31 | `load_pkgbuild` (valid, missing file/fields, invalid formats), `validate_pkgbuild` (valid, all invalid fields, nil guards, skill-bundle constraints) |
+| `test/test_platform.rb` | 33 | Platform registry loading/validation, `platform_config` lookup, `resolve_install_path` (all types), `safe_relative`, `build_dir_for_platform`, `check_prerequisites` |
 | `test/test_uninstall.rb` | 7 | Index mutation (in-place removal, dry-run safety, dedup), disk write verification, skip-not-installed |
 
 ### Manual Validation
@@ -700,12 +820,12 @@ To migrate:
 |-------|--------|-------|
 | **PKGBUILD descriptor** | ✅ | YAML, all required fields, validated on load |
 | **Source model** | ✅ | `local` (src/), `git` (clone + commit hash), `url` (SHA256) |
-| **Build pipeline** (`build.rb`) | ✅ | Fetch → translate → transform → write, 102 artifacts from 9 packages across 5 platforms |
+| **Build pipeline** (`build.rb`) | ✅ | Fetch → translate → transform → write, 106 artifacts from 10 packages across 6 platforms |
 | **Translate layer** | ✅ | `apply_translator` in `common.rb`, `rule-to-skill.rb` translator, `translate.rb` CLI |
 | **Transform layer** | ✅ | Built-in (`copy`, `strip-frontmatter`) + custom (`custom:<path>`) |
-| **Platform registry** | ✅ | 12 platforms + shared `agents` platform in `platforms.yaml` |
-| **Platform format profiles** | ✅ | 13 YAML profiles (informational for LLM reference) |
-| **Install** (`install.rb`) | ✅ | Per-platform install, upgrade/downgrade logic, `--dry-run`, `--force`, `--select`; modular lib/install.rb |
+| **Platform registry** | ✅ | 14 platforms in `platforms.yaml` |
+| **Platform format profiles** | ✅ | 14 YAML profiles (informational for LLM reference) |
+| **Install** (`install.rb`) | ✅ | Per-platform install, upgrade/downgrade logic, `--dry-run`, `--force`, `--select`; modular lib/install.rb; interactive sub-skill menu on TTY |
 | **Uninstall** (`install.rb`) | ✅ | Idempotent, re-aggregates vendor skills, dry-run |
 | **Transaction atomicity** | ✅ | Backup/restore/cleanup on install failure |
 | **Build cache** | ✅ | Content-addressed (URL by SHA256, git by commit hash) |
@@ -714,9 +834,15 @@ To migrate:
 | **Version management** | ✅ | pacman-style epoch:pkgver-pkgrel, compare/upgrade/downgrade |
 | **Query tool** | ✅ | list, show, search, installed, check, orphans, depends, provides |
 | **Index** | ✅ | YAML + JSON, atomic writes, legacy migration |
-| **Test suite** | ✅ | 172 tests, 419 assertions, 0 failures (test_common, test_integration, test_cache, test_pkgbuild, test_platform, test_uninstall) |
+| **Test suite** | ✅ | 172 tests, 427 assertions, 0 failures (test_common, test_integration, test_cache, test_pkgbuild, test_platform, test_uninstall) |
 | **Standalone scripts** | ✅ | `build.rb`, `install.rb`, `uninstall.rb`, `query.rb`, `aggregate-skills.rb`, `translate.rb` |
 | **Modular install.rb** | ✅ | Library layer (`ssot/lib/install.rb`, `ssot/lib/common.rb`), `--all`, `--targets <pkg>`, `--check <platform>` |
+| **Unified logging** | ✅ | `Ssot::Lib::Common.log*` shared across build.rb, install.rb, uninstall.rb — level filtering via `$LOG_LEVEL` |
+| **Config module** | ✅ | `Ssot::Lib::Config` — 5 env vars (`SSOT_MAX_REDIRECTS`, `SSOT_READ_TIMEOUT`, `SSOT_CACHE_DIR`, `SSOT_GIT_DEPTH`, `SSOT_LOG_LEVEL`) |
+| **Platform registry cache** | ✅ | `load_platform_registry` memoized with `@_platform_registry` — ~3× fewer YAML reads |
+| **Performance timing** | ✅ | `Ssot::Lib::Common.time` helper + `--timing` flag — per-package build timing |
+| **Error messages** | ✅ | All 11+ key error messages include actionable guidance ("what + how to fix") |
+| **DRY project_root_for** | ✅ | Extracted to `Ssot::Lib::Common`, both install.rb and uninstall.rb delegate |
 
 ### In Progress / Partial
 

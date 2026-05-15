@@ -17,6 +17,12 @@ module Ssot
 
   module CLI
     def self.run(argv)
+      # Global timing flag
+      if argv.include?('--timing')
+        $SHOW_TIMING = true
+        argv.delete('--timing')
+      end
+
       command = argv.shift || "help"
       case command
       when "build"
@@ -78,6 +84,10 @@ module Ssot
           check <platform>       Verify installed state matches index
           platforms              List all platforms
           help                   Show this help
+
+        Global Flags:
+          --timing               Show operation timing
+          --verbose              Show debug output
 
         Examples:
           ssot build && ssot install opencode

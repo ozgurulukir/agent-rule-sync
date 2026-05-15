@@ -260,7 +260,7 @@ module Ssot
           # Check if build artifact exists
           if build_index
             built = build_index[:packages]&.[](name.to_sym)
-            checksum = built&.[](:checksums)&.[](:built)&.[](platform.to_sym)
+            checksum = built&.[](:checksums)&.[](:built)&.[](platform.to_s)
             if checksum && rec[:checksum] != checksum
               issues << "#{name} checksum mismatch on #{platform}"
             end

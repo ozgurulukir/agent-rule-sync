@@ -1,0 +1,24 @@
+# Antigravity Platform Format Profile
+# LLM Reference: describes what Google Antigravity expects for rules and skills.
+# NOT enforced by build system — informational for translator authoring.
+
+rules:
+  format: none  # Antigravity does not use rules directory
+  note: "No rules support — skills only via .agent/skills/*/"
+
+skills:
+  format: directory_or_bundle  # single SKILL.md or skill-bundle directory
+  content_type: markdown
+  frontmatter: strip
+  content:
+    - "# Skill Name"
+    - "## Overview"
+    - "## Capabilities"
+    - "## Usage"
+  bullet_style: dash
+  code_block: fenced
+  note: "Skills go to .agent/skills/*/"
+
+notes: |
+  Antigravity reads .agent/skills/*/SKILL.md.
+  Project-scoped. No rules directory support.

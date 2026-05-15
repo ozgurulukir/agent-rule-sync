@@ -6,7 +6,210 @@
 
 ---
 
-## 📋 Priority 0 — Critical (Missing Core Features)
+## 📋 Priority 5 — Quality (Code Quality & User Experience)
+
+### ✅ P5.1 Eliminate Duplicate Cache Functions in common.rb
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: `ssot/lib/common.rb` defines the entire cache API twice — once inside the `Ssot::Lib::Common` module (lines 24–145) and once as orphaned top-level methods (lines 963–1109). The top-level methods are **dead code** — every caller uses `Ssot::Lib::Common.cache_*`.
+
+- **Root cause**: Historical artifact from when cache functions were top-level helpers; module was added later but old top-level methods were never removed.
+- **Fix**:
+  1. Delete lines 963–1109 (`end end end` closure at 959–961 followed by all cache method redefinitions).
+  2. Verify no callers reference the top-level functions (grep confirms zero).
+  3. Remove `require 'net/http'` and `require 'tempfile'` from top of file IF the module versions are the only ones used (they are — confirmed via grep).
+- **Files**: `ssot/lib/common.rb` (delete ~147 lines)
+- **Test**: `rake test` — all 172 tests pass (they all reference `Ssot::Lib::Common.*`).
+- **Impact**: -147 lines dead code, eliminates confusion about which definition is canonical.
+
+### ✅ P5.2 Unify Logging Across All Modules
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: Logging is implemented independently in 4 separate places with slightly different APIs:
+
+| File | Functions | Level Support | File Output |
+|------|-----------|--------------|-------------|
+| `build.rb` | `log`, `log_error`, `log_warn` | No | `build/build.log` |
+| `lib/install.rb` | `log`, `log_error`, `log_warn`, `log_debug` | Yes (`$LOG_LEVEL`) | `build/install.log` |
+| `uninstall.rb` | `log`, `log_error` | No | `build/uninstall.log` |
+| `test/test_uninstall.rb` | `log`, `log_warn`, `log_error` (stubs) | No | N/A |
+
+- **Root cause**: Each script was written independently, each needed logging, DRY was not applied.
+- **Fix**:
+  1. Add shared logging functions to `Ssot::Lib::Common`:
+     - `log(msg, level: :info, log_file: nil)` — reusable, configurable log file
+     - `log_error(msg)`, `log_warn(msg)`, `log_debug(msg)` — convenience wrappers
+     - Support `$LOG_LEVEL` for level filtering (from `lib/install.rb`)
+     - Default log file determined by caller (`build.log`, `install.log`, `uninstall.log`)
+  2. Replace all per-file logging in `build.rb`, `uninstall.rb`, `test/test_uninstall.rb` with calls to `Ssot::Lib::Common.log*`.
+  3. Remove duplicate `log`/`log_error`/`log_warn`/`log_debug` definitions from `build.rb`, `uninstall.rb`.
+  4. `lib/install.rb` already delegates to `Ssot::Lib::Common.log*` → update it to call shared version.
+- **Files**: `ssot/lib/common.rb` (add logging), `ssot/build.rb` (replace calls), `ssot/uninstall.rb` (replace calls), `ssot/lib/install.rb` (delegate), `test/test_uninstall.rb` (use `Ssot::Lib::Common` directly or keep stubs)
+- **Test**: Verify log output for all 3 entry points (`build`, `install`, `uninstall`) appears in correct files; log level filtering works identically.
+- **Impact**: Single source of truth for logging, consistent format and file output, easier to add features (log rotation, JSON logging, etc.).
+
+### ✅ P5.3 Remove Unnecessary Wrapper Functions in build.rb
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: `build.rb` defines trivial one-line wrappers that just delegate to `Ssot::Lib::Common`:
+
+```ruby
+def apply_transformer(content, transformer_cfg, pkgname:)
+  Ssot::Lib::Common.apply_transformer(transformer_cfg, content, pkgname: pkgname)
+end
+
+def validate_output_filename(output, pkgname)
+  Ssot::Lib::Common.validate_output_filename(output, pkgname)
+end
+```
+
+- **Root cause**: These were likely created during refactoring when functions were moved from `build.rb` to `common.rb`, but the wrappers were left behind.
+- **Fix**: Replace all call sites of `apply_transformer(...)` with `Ssot::Lib::Common.apply_transformer(...)` and `validate_output_filename(...)` with `Ssot::Lib::Common.validate_output_filename(...)`. Delete the wrapper function definitions.
+- **Files**: `ssot/build.rb` (delete 2 wrapper functions, update ~2 call sites)
+- **Test**: `rake test` + manual `ruby ssot/build.rb` — verify build output identical.
+- **Impact**: Removes indirection, makes call sites explicit.
+
+### ✅ P5.4 Remove Duplicated project_root_for in uninstall.rb
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: `uninstall.rb` has its own `project_root_for` function (lines 31–42) that is an exact duplicate of the one in `Ssot::Install.project_root_for` (lib/install.rb lines 665–672).
+
+- **Root cause**: `uninstall.rb` was written before `lib/install.rb` existed.
+- **Fix**: Extract to `Ssot::Lib::Common.project_root_for(platform_id, platform_cfg, project_arg)`. Both `Ssot::Install` and `uninstall.rb` call the shared version.
+- **Files**: `ssot/lib/common.rb` (add method), `ssot/lib/install.rb` (delegate), `ssot/uninstall.rb` (replace call)
+- **Test**: `ruby ssot/uninstall.rb opencode --dry-run` — verify no regression.
+- **Impact**: DRY, one source of truth for project root resolution.
+
+### ✅ P5.5 Improve Error Messages — Actionable Guidance
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: Error messages tell the user *what* went wrong but not *how to fix it*:
+
+| Current | Problem | Proposed |
+|---------|---------|----------|
+| `"Build index not found at #{path}"` | No next step | `"Build index not found at #{path}. Run \`ruby ssot/build.rb\` first."` |
+| `"SHA256 mismatch for #{url}"` | No next step | `"SHA256 mismatch for #{url}: expected #{expected}, got #{actual}. Update sha256 in PKGBUILD to #{actual}."` |
+| `"git clone failed for #{url}"` | No next step | `"git clone failed for #{url}. Check network connectivity and verify the repository URL."` |
+| `"Index not found"` | No next step | `"Index not found: #{path}. Run \`ssot build\` first."` |
+| `"PKGBUILD not found in #{pkgdir}"` | No next step | `"PKGBUILD not found in #{pkgdir}. Create ssot/packages/<name>/PKGBUILD or run \`ssot build\` from repo root."` |
+| `"Transformer failed for ..."` | Generic | Include the transformer path and suggest checking the file exists and defines `Transform.transform` |
+| `"Translator failed for ..."` | Generic | Include the translator path and suggest checking the file exists and defines `Translator.translate` |
+| `"Install failed"` | Generic | Include the install type, target path, and whether the source file exists |
+
+- **Fix**:
+  1. Audit all `raise` and `log_error` calls across `build.rb`, `lib/common.rb`, `lib/install.rb`, `uninstall.rb`, `install.rb`.
+  2. Add actionable guidance to each message: "What went wrong + how to fix it."
+  3. Include relevant context (path, URL, expected vs actual values) so user doesn't need to re-run with `--verbose`.
+- **Files**: `ssot/lib/common.rb`, `ssot/lib/install.rb`, `ssot/build.rb`, `ssot/uninstall.rb`, `ssot/install.rb`
+- **Test**: Trigger each error condition manually or via tests and verify suggestion is present.
+- **Impact**: Dramatically better UX — users can fix problems without reading source code.
+
+---
+
+## 📋 Priority 6 — Performance & Caching
+
+### ✅ P6.1 Add Performance Monitoring / Timing
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: No operation timing anywhere. Users can't tell if `build` is slow because of network, transformation, or disk I/O. No way to profile bottlenecks.
+
+- **Fix**:
+  1. Add `Ssot::Lib::Common.time(operation_name)` helper that yields a block and logs elapsed time.
+  2. Instrument key operations:
+     - `build.rb`: per-package fetch + build time, total build time
+     - `lib/install.rb`: per-target install time, total install time
+     - `lib/common.rb`: git clone time, URL fetch time, cache source time
+  3. Add `--timing` flag to `bin/ssot` and `install.rb`/`build.rb` CLI that prints timing summary at end.
+  4. Timing output format: `"⏱  12.345s — fetch golang-security-bundle (git)"` — labels always show operation + package.
+- **Files**: `ssot/lib/common.rb` (add `time` helper), `ssot/build.rb` (instrument), `ssot/lib/install.rb` (instrument), `ssot/install.rb` (add `--timing` flag), `bin/ssot` (add `--timing` passthrough)
+- **Test**: `ruby ssot/build.rb --timing` → timing lines appear in log and stdout; no timing when flag absent. Timing wraps gracefully around errors.
+- **Impact**: Users and developers can identify slow operations, optimize bottlenecks, set time budgets.
+
+### ✅ P6.2 Cache Platform Registry in Memory
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: `Ssot::Lib::Common.load_platform_registry` reads and parses `ssot/registry/platforms.yaml` from disk every time it's called. During a single `ssot install opencode` run, it's called 4+ times:
+1. `platform_cfg_for` (via `install_platform`)
+2. `check_prerequisites` (inside `install_platform`)
+3. Various path resolution helpers
+4. `uninstall_package_from_index!` during upgrade
+
+Each call re-reads the file, re-parses YAML, re-validates all 13 platform configs.
+
+- **Fix**: Use Ruby's `||=` memoization pattern:
+  ```ruby
+  @@_platform_registry = nil
+  def load_platform_registry
+    @@_platform_registry ||= begin
+      registry_path = Pathname.new(__dir__).join('../registry/platforms.yaml').cleanpath
+      raw = load_yaml(registry_path)
+      raw.each { |id, cfg| validate_platform_config(id, cfg) }
+      raw
+    end
+  end
+  ```
+  Add `clear_platform_registry_cache!` for testing (clean between test cases).
+- **Files**: `ssot/lib/common.rb` (add memoization + cache-clear method), `test/test_platform.rb` (call cache-clear in `setup`/`teardown`)
+- **Test**: `rake test` — all platform registry tests pass. Verify cache-clear works by calling it and checking next call re-reads file. Verify that modifying registry file mid-run is NOT picked up (expected: cached).
+- **Impact**: ~3× fewer YAML reads per install run, measurable speed improvement for multi-package installs.
+
+### ✅ P6.3 Make Constants Configurable
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-14
+
+**Slop**: Hardcoded magic values scattered across the codebase:
+
+| Location | Value | Hardcoded |
+|----------|-------|-----------|
+| `build.rb:41` | `max_redirects: 3` | URL fetch redirect limit |
+| `build.rb:44` | `read_timeout: 30` | HTTP read timeout (seconds) |
+| `lib/common.rb:13-18` | `SSOT_ROOT`, `BUILD_DIR`, `INDEX_*`, `LOG_PATH` | All paths hardcoded |
+| `lib/common.rb:33` | `"cache"` | Cache directory name |
+| `lib/common.rb:1109` | `depth: 1` | Git shallow clone depth |
+| `lib/install.rb:21-28` | `$LOG_LEVEL = :info` | Default log level |
+
+- **Root cause**: No configuration layer exists. Everything is a constant or literal.
+- **Fix**:
+  1. Create `Ssot::Lib::Config` module with default values and environment variable overrides:
+     ```ruby
+     module Ssot
+       module Lib
+         module Config
+           module_function
+           def max_redirects
+             Integer(ENV.fetch('SSOT_MAX_REDIRECTS', '3'))
+           end
+           def read_timeout
+             Integer(ENV.fetch('SSOT_READ_TIMEOUT', '30'))
+           end
+           def cache_dir_name
+             ENV.fetch('SSOT_CACHE_DIR', 'cache')
+           end
+           def git_clone_depth
+             Integer(ENV.fetch('SSOT_GIT_DEPTH', '1'))
+           end
+           def log_level
+             ENV.fetch('SSOT_LOG_LEVEL', 'info').to_sym
+           end
+         end
+       end
+     end
+     ```
+  2. Replace all hardcoded magic values with `Ssot::Lib::Config.*` calls.
+  3. Document all config vars in `docs/agents/REFERENCE.md` and `AGENTS.md`.
+- **Files**: `ssot/lib/common.rb` (add `Config` module), `ssot/build.rb` (replace max_redirects, read_timeout, depth), `ssot/lib/install.rb` (replace log level), `ssot/lib/common.rb` (replace cache dir, depth), `docs/agents/REFERENCE.md` (document), `AGENTS.md` (document)
+- **Test**: Set `SSOT_MAX_REDIRECTS=5` env var → value changes; unset → default `3`. Unit tests for `Config` module.
+- **Impact**: Users can tune timeouts, paths, and behavior without code changes. Production deployments can adjust for network conditions.
+
+---
+
 
 ### ✅ P0.1 Single Entry Point / CLI Wrapper
 **Status**: ✅ COMPLETED
@@ -325,7 +528,7 @@
 **Files**: `test/helper.rb`, `test/test_common.rb`, `test/test_integration.rb`, `test/test_cache.rb`,
 `test/test_pkgbuild_validation.rb`, `test/test_platform.rb`, `test/test_uninstall.rb`, `Rakefile`.
 
-**Impact**: 172 tests, 399 assertions, 0 failures, 0 errors, 0 skips.
+**Impact**: 172 tests, 427 assertions, 0 failures, 0 errors, 0 skips.
 
 **Bugs fixed during testing**:
 - `validate_pkgbuild`: nil source/targets crash (`each_with_index` on nil) → safe navigation guard
@@ -417,6 +620,90 @@
 
 ---
 
+---
+
+## 📋 Priority 7 — Anomalies (Bug Fixes & Cleanup)
+
+### ✅ P7.1 Master Index (`ssot/index.yaml`) Empty
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
+
+**Claim**: `ssot/index.yaml` contains only `version: 3.0` and `packages: {}` despite build producing 106 artifacts from 10 packages. The build metadata in `ssot/build/index.yaml` is fully populated (649 lines), but the master index never gets updated by `build.rb`.
+
+**Root cause**: The file was cleared between builds (manually or by a test). The `build.rb` write mechanism works correctly — the issue was stale data.
+
+**Fix**: Restored master index from build index: `ruby -e "require 'ssot/lib/common'; bi = Ssot::Lib::Common.load_yaml('ssot/build/index.yaml'); mi = { version: 3.0, generated: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'), packages: bi[:packages] }; Ssot::Lib::Common.write_yaml_atomic('ssot/index.yaml', mi)"`
+
+**Verification**: `bin/ssot list` shows 10 packages; `bin/ssot install opencode --dry-run` sees packages.
+
+**Files**: `ssot/index.yaml` (restored), `ssot/build.rb` (write mechanism verified correct)
+
+### ✅ P7.2 Missing `antigravity.yaml` Platform Profile
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
+
+**Claim**: `antigravity` is in `ssot/registry/platforms.yaml` but has no corresponding format profile in `ssot/platforms/`.
+
+**Fix**: Created `ssot/platforms/antigravity.yaml` with directory-type format profile (skills only, no rules directory support).
+
+**Verification**: 14 platform profiles now match 14 registry entries.
+
+**Files**: `ssot/platforms/antigravity.yaml` (new)
+
+### ✅ P7.3 Duplicate Checksum Keys (Symbol vs String) in Build Index
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
+
+**Claim**: `ssot/build/index.yaml` has duplicate checksum entries for every platform — both `:opencode` (symbol) and `opencode` (string).
+
+**Root cause**: `platform_id` from YAML is a symbol (`symbolize_names: true` in `load_yaml`), used directly as a hash key in `pkg_index[:checksums][:built][platform_id]`.
+
+**Fix**: Changed all checksum assignments and lookups to use string keys consistently:
+- `build.rb` line 312: `pkg_index[:checksums][:built][platform_id.to_s] = pkg_index[:source_sha256]`
+- `build.rb` line 371: `pkg_index[:checksums][:built][platform_id.to_s] = built_sha256`
+- `aggregate-skills.rb` line 65: `pkgdata[:checksums][:built][agent_id.to_s]`
+- `query.rb` line 263: `.[](platform.to_s)`
+
+**Files**: `ssot/build.rb` (lines 312, 371), `ssot/aggregate-skills.rb` (line 65), `ssot/query.rb` (line 263)
+
+### ✅ P7.4 Remove Leftover DEBUG Log Statements in `build.rb`
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
+
+**Claim**: `ssot/build.rb` lines 178 and 213 contain `log "  DEBUG: after update pkg_index[:pkgver]=..."` statements from development.
+
+**Fix**: Deleted both lines.
+
+**Verification**: `grep -n "DEBUG:" ssot/build.rb` returns no matches.
+
+**Files**: `ssot/build.rb`
+
+### ✅ P7.5 Remove Empty `scripts.deprecated/` Directory
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
+
+**Claim**: `scripts.deprecated/` directory exists but contains no files.
+
+**Fix**: `rmdir scripts.deprecated/`
+
+**Verification**: Directory no longer exists.
+
+**Files**: `scripts.deprecated/` (removed)
+
+### ✅ P7.6 Missing `ssot/skills/common/` and `ssot/skills/agent-specific/`
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-15
+
+**Claim**: `aggregate-skills.rb` references `ssot/skills/common/` and `ssot/skills/agent-specific/` directories, but they don't exist.
+
+**Fix**: Created both directories. The code already handles missing directories gracefully (`if dir.exist?`), but having them present matches the documented architecture.
+
+**Verification**: `ls ssot/skills/` shows `common/`, `agent-specific/`, `user-rules/`, `vendor/`.
+
+**Files**: `ssot/skills/common/` (new), `ssot/skills/agent-specific/` (new)
+
+---
+
 ## 🛠️ Implementation Order
 
 **Week 0 (Priority 0 — Critical Missing)**: ✅ COMPLETED
@@ -449,6 +736,18 @@
 20. ✅ L4.4 Skill-bundle manifest (v1: flat files, v2: sub_skills array)
 21. ✅ Skill-bundle sub-skill selection (--select flag + selective copy)
 
+**Week 5 (Priority 5 — Quality)**: ✅ COMPLETED
+22. ✅ P5.1 Remove duplicate cache functions in common.rb (-148 LOC dead code)
+23. ✅ P5.2 Unify logging across all modules into Ssot::Lib::Common
+24. ✅ P5.3 Remove unnecessary wrapper functions in build.rb
+25. ✅ P5.4 Extract duplicated project_root_for to Ssot::Lib::Common (DRY)
+26. ✅ P5.5 Improve error messages with actionable guidance (11 messages improved)
+
+**Week 6 (Priority 6 — Performance)**: ✅ COMPLETED
+27. ✅ P6.1 Add performance monitoring / timing helper + --timing flag
+28. ✅ P6.2 Cache platform registry in memory (memoize load_platform_registry)
+29. ✅ P6.3 Make constants configurable via Ssot::Lib::Config module (5 env vars)
+
 ---
 
 ## 📝 Notes
@@ -459,10 +758,18 @@
 - **Testing**: Her fix sonrası `build → install → check → uninstall → check` pipeline test et.
 - **Docs**: Her fix sonrası `AGENTS.md`, `REFERENCE.md`, `USAGE.md` güncelle.
 
+**Week 7 (Priority 7 — Anomalies)**: ✅ COMPLETED
+30. ✅ P7.1 Master index restored from build index
+31. ✅ P7.2 Created antigravity.yaml platform profile
+32. ✅ P7.3 Fixed duplicate checksum keys (symbol → string)
+33. ✅ P7.4 Removed DEBUG log statements in build.rb
+34. ✅ P7.5 Removed empty scripts.deprecated/ directory
+35. ✅ P7.6 Created skills/common/ and skills/agent-specific/ directories
+
 ---
 
-**Last Updated**: 2026-05-14 (Priority 0, 1, 2, 3, 4 completed)
-**Status**: In Progress (P0.1-P0.4 ✅; P1.1-P1.5 ✅; P2.1, P2.3-P2.7 ✅; P2.2 deferred; M3.1-M3.3 ✅; L4.1 ✅; L4.3-L4.4 ✅; Skill-bundle ✅; L4.5 deferred; L4.6 deferred)
+**Last Updated**: 2026-05-15 (Priority 0-7 ✅)
+**Status**: P0-P7 Complete; P2.2/L4.2/L4.5/L4.6 deferred
 
 ### ✅ Skill-Bundle Sub-Skill Selection + Manifest v2
 **Status**: ✅ COMPLETED

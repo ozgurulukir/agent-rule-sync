@@ -16,29 +16,15 @@ INDEX_YAML_PATH = SSOT_ROOT.join('index.yaml')
 LOG_PATH = BUILD_DIR.join('uninstall.log')
 
 def log(msg)
-  timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
-  line = "[#{timestamp}] #{msg}"
-  puts line
-  FileUtils.mkpath(BUILD_DIR)
-  File.open(LOG_PATH, 'a') { |f| f.puts(line) }
+  Ssot::Lib::Common.log(msg, log_file: LOG_PATH)
 end
 
 def log_error(msg)
-  warn "❌ #{msg}"
-  log("ERROR: #{msg}")
+  Ssot::Lib::Common.log_error(msg, log_file: LOG_PATH)
 end
 
 def project_root_for(platform_id, platform_cfg, project_arg)
-  scope = platform_cfg[:scope] || 'user'
-  if scope == 'project'
-    if project_arg
-      Pathname.new(project_arg).expand_path
-    else
-      Pathname.pwd
-    end
-  else
-    nil
-  end
+  Ssot::Lib::Common.project_root_for(platform_cfg, project_arg)
 end
 
 # Parse args
@@ -79,7 +65,7 @@ puts "🧹 Uninstalling packages from platform: #{platform_id} #{dry_run ? '(dry
 
 # Load index
 unless INDEX_YAML_PATH.exist?
-  log_error "Index not found: #{INDEX_YAML_PATH}. Run build first."
+  log_error "Index not found: #{INDEX_YAML_PATH}. Run `ruby ssot/build.rb` first."
   exit 1
 end
 

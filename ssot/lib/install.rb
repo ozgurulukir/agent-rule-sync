@@ -25,7 +25,7 @@ module Ssot
       select_list = options.fetch(:select_list, nil)
       project_arg = options.fetch(:project_arg, nil)
 
-      $LOG_LEVEL = verbose_mode ? :debug : :info
+      $LOG_LEVEL = verbose_mode ? :debug : Ssot::Lib::Config.log_level
 
       if check_mode
         return check_platform(platform_id, project_arg: project_arg)
@@ -89,7 +89,7 @@ module Ssot
       select_list = options.fetch(:select_list, nil)
       project_arg = options.fetch(:project_arg, nil)
 
-      $LOG_LEVEL = verbose_mode ? :debug : :info
+      $LOG_LEVEL = verbose_mode ? :debug : Ssot::Lib::Config.log_level
 
       registry  = Ssot::Lib::Common.load_platform_registry
       platforms = registry.keys
@@ -376,6 +376,18 @@ module Ssot
       if format == 'skill-bundle'
         log "  ⤷ #{pkgname} (skill-bundle) → #{install_cfg[:target_dir]} [copy]" unless quiet
 
+        # Warn about large bundles without --select
+        manifest_path = Ssot::Lib::Common::BUILD_DIR.join(platform_id, pkgname.to_s, 'manifest.json')
+        unless select_list
+          if manifest_path.exist?
+            m = JSON.parse(manifest_path.read)
+            sub_count = m['sub_skills']&.size.to_i
+            if sub_count > 50
+              log_warn "  ⚠ Large bundle: #{sub_count} sub-skills. Use --select <names> to install only specific ones."
+            end
+          end
+        end
+
         build_src_dir = Ssot::Lib::Common::BUILD_DIR.join(platform_id, pkgname.to_s)
         unless build_src_dir.exist? && build_src_dir.directory?
           log_error "Skill-bundle build directory missing: #{build_src_dir}"
@@ -394,6 +406,9 @@ module Ssot
             return
           end
           log "    🔍 Selecting sub-skills: #{selected.map { |ss| ss['name'] }.join(', ')}" unless quiet
+        elsif STDIN.isatty && sub_skills.size > 1
+          selected = prompt_sub_skill_selection(sub_skills, pkgname)
+          return unless selected
         else
           selected = sub_skills
         end
@@ -464,7 +479,7 @@ module Ssot
       # Single-file formats (directory, import, skill)
       built_path = Ssot::Lib::Common::BUILD_DIR.join(platform_id, output)
       unless built_path.exist?
-        log_error "Built artifact missing: #{built_path}"
+        log_error "Built artifact missing: #{built_path}. Run `ruby ssot/build.rb` first."
         return
       end
 
@@ -523,7 +538,7 @@ module Ssot
           do_inject_append(install_path, content, install_type, platform_cfg, output)
         end
       else
-        log_error "Unknown install type: #{install_type} for #{pkgname}"
+        log_error "Unknown install type: #{install_type} for #{pkgname}. Valid types: symlink, copy, inject, append."
         return
       end
 
@@ -663,12 +678,7 @@ module Ssot
     end
 
     def project_root_for(platform_id, platform_cfg, project_arg)
-      scope = platform_cfg[:scope] || 'user'
-      if scope == 'project'
-        project_arg ? Pathname.new(project_arg).expand_path : Pathname.pwd
-      else
-        nil
-      end
+      Ssot::Lib::Common.project_root_for(platform_cfg, project_arg)
     end
 
     def resolve_install_path_for_target(platform_cfg, target, base_path, project_root)
@@ -695,6 +705,37 @@ module Ssot
       else
         Ssot::Lib::Common.resolve_install_path(platform_cfg, target, project_root)
       end
+    end
+
+    # Interactive sub-skill selection menu (pacman-style)
+    # Returns array of selected sub-skills, or nil to skip
+    def prompt_sub_skill_selection(sub_skills, pkgname)
+      puts "\n📦 #{pkgname} contains #{sub_skills.size} sub-skills."
+      puts "Select sub-skills to install:"
+      sub_skills.each_with_index do |ss, i|
+        puts "  #{i + 1}) #{ss['name']}"
+      end
+      print "\nEnter numbers (e.g. 1,2,3, 5-10, or 'all'): "
+      input = STDIN.gets&.strip || ''
+      return sub_skills if input.empty? || input.downcase == 'all'
+
+      indices = []
+      input.split(',').each do |part|
+        part = part.strip
+        if part.include?('-')
+          start_s, end_s = part.split('-', 2)
+          next unless start_s.match?(/^\d+$/) && end_s.match?(/^\d+$/)
+          (start_s.to_i..end_s.to_i).each { |i| indices << i }
+        elsif part.match?(/^\d+$/)
+          indices << part.to_i
+        end
+      end
+      indices.uniq!
+      indices.select! { |i| i >= 1 && i <= sub_skills.size }
+      return sub_skills if indices.empty?
+      selected = indices.map { |i| sub_skills[i - 1] }
+      puts "  → Selected #{selected.size} sub-skill(s)\n\n"
+      selected
     end
 
     def resolve_check_path(platform_cfg, target, base_path, project_root)
@@ -724,28 +765,19 @@ module Ssot
     # ─── Logging ────────────────────────────────────────────────────────────────
 
     def log(msg, level: :info)
-      timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
-      line = "[#{timestamp}] #{msg}"
-      level_order = { error: 0, warn: 1, info: 2, debug: 3 }
-      if level_order[level] <= level_order[$LOG_LEVEL || :info]
-        puts line
-      end
-      FileUtils.mkpath(Ssot::Lib::Common::BUILD_DIR)
-      File.open(Ssot::Lib::Common::LOG_PATH, 'a') { |f| f.puts(line) }
+      Ssot::Lib::Common.log(msg, level: level, log_file: Ssot::Lib::Common::LOG_PATH)
     end
 
     def log_error(msg)
-      warn "❌ #{msg}"
-      log("ERROR: #{msg}", level: :error)
+      Ssot::Lib::Common.log_error(msg, log_file: Ssot::Lib::Common::LOG_PATH)
     end
 
     def log_warn(msg)
-      warn "⚠️  #{msg}"
-      log("WARN: #{msg}", level: :warn)
+      Ssot::Lib::Common.log_warn(msg, log_file: Ssot::Lib::Common::LOG_PATH)
     end
 
     def log_debug(msg)
-      log("DEBUG: #{msg}", level: :debug)
+      Ssot::Lib::Common.log_debug(msg, log_file: Ssot::Lib::Common::LOG_PATH)
     end
   end
 end

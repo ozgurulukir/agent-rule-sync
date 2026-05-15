@@ -62,7 +62,7 @@ skill_agents.each do |agent_id|
   
    index[:packages].each do |pkgname, pkgdata|
      # Check if this package has a built artifact for this agent
-     built_checksum = pkgdata[:checksums] && pkgdata[:checksums][:built] && pkgdata[:checksums][:built][agent_id]
+     built_checksum = pkgdata[:checksums] && pkgdata[:checksums][:built] && pkgdata[:checksums][:built][agent_id.to_s]
      next unless built_checksum
 
      # Find PKGBUILD to get target details

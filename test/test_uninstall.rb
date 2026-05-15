@@ -6,11 +6,6 @@
 require_relative 'helper'
 require 'yaml'
 
-# uninstall_packages calls top-level log/log_warn/log_error — provide no-ops for tests
-def log(_msg); end
-def log_warn(_msg); end
-def log_error(_msg); end
-
 class TestUninstallPackages < Minitest::Test
   def setup
     @tmpdir = Dir.mktmpdir('ssot-uninstall-test-')

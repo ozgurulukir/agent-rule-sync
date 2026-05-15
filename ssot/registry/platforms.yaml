@@ -178,3 +178,12 @@ agents:
     type: symlink
   skill_install:
     type: copy
+antigravity:
+  type: directory
+  scope: project
+  display_name: Google Antigravity
+  base_path: "."
+  rules_dir: ""
+  skills_dir: ".agent/skills/"
+  skill_install:
+    type: copy

@@ -23,6 +23,9 @@ A **PKGBUILD-inspired package manager** for agent rules and skills:
 # Build all packages
 bin/ssot build
 
+# Build with timing info
+bin/ssot build --timing
+
 # Aggregate vendor skills (for skill-based agents)
 bin/ssot aggregate  # or: ruby ssot/aggregate-skills.rb
 
@@ -55,7 +58,7 @@ bin/ssot search security
 agent-rule-sync/
 ├── ssot/                           # Single Source of Truth root
 │   ├── lib/                        # Library modules
-│   │   ├── common.rb               # Shared utilities (version, cache, fetch, validate)
+│   │   ├── common.rb               # Shared utilities (version, cache, fetch, validate, logging, config, timing)
 │   │   └── install.rb              # Installer library (modular API)
 │   ├── packages/                   # Package definitions (each has PKGBUILD + src/)
 │   │   ├── memory/PKGBUILD
@@ -220,10 +223,31 @@ depends:
 | GitHub Copilot | import | project | `.github/copilot-instructions.md` | [GitHub Copilot](docs/agents/agents/github-copilot.md) |
 | Claude Code | directory | project | `.claude/rules/` | [Claude Code](docs/agents/agents/claude-code.md) |
 | Codex CLI | skill | project | `AGENTS.md` | [Codex CLI](docs/agents/agents/codex.md) |
+| Antigravity | directory | project | `.agent/skills/` | [Antigravity](docs/agents/agents/antigravity.md) |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
 See [Platforms](docs/agents/PLATFORMS.md) for the complete reference.
+
+## Interactive Sub-skill Selection
+
+When installing a skill-bundle with multiple sub-skills in a terminal, SSoT shows an interactive numbered menu (pacman-style):
+
+```
+📦 antigravity-skills contains 306 sub-skills.
+Select sub-skills to install:
+  1) accessibility-compliance-accessibility-audit
+  2) agent-orchestration-improve-agent
+  ...
+  306) workflow-patterns
+
+Enter numbers (e.g. 1,2,3, 5-10, or 'all'):
+```
+
+- Enter `1,2,3` or `5-10` to select ranges
+- Enter `all` or press Enter to install everything
+- Runs only in a real TTY (no menu in pipes/CI)
+- Use `--select <names>` to skip the menu entirely
 
 ## Query Tool
 
@@ -250,6 +274,9 @@ bin/ssot platforms
 # Dry-run install (no filesystem changes)
 bin/ssot install opencode --dry-run
 
+# Dry-run install with timing
+bin/ssot install opencode --dry-run --timing
+
 # Uninstall dry-run
 bin/ssot uninstall opencode --dry-run
 
@@ -274,7 +301,7 @@ The system validates:
 Run the automated test suite with `rake test` (Minitest):
 
 ```bash
-rake test              # All tests (172 tests, 399 assertions)
+rake test              # All tests (172 tests, 427 assertions)
 rake test_unit         # Unit tests only (48 tests)
 rake test_integration  # Integration tests only (29 tests)
 rake test_cache        # Cache tests (24 tests)
@@ -283,7 +310,7 @@ rake test_platform     # Platform registry tests (22 tests)
 rake test_uninstall    # Uninstall tests (7 tests)
 ```
 
-**Test coverage** (172 tests, 399 assertions, 0 failures):
+**Test coverage** (172 tests, 427 assertions, 0 failures):
 - **test_common.rb** (48): version comparison, format_version, filename/dir validation, user path expansion, frontmatter stripping
 - **test_integration.rb** (29): build index, skill-bundle manifest (6 tests), version comparison, schema migration, transaction rollback, cache integration
 - **test_cache.rb** (24): cache key generation, cache dir, source_cached?, cache_source, get_cached_source, fetch errors
@@ -308,6 +335,16 @@ Packages use a three-component version scheme inspired by pacman:
 # Force downgrade (not recommended unless necessary)
 ruby ssot/install.rb opencode --force
 ```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SSOT_MAX_REDIRECTS` | `3` | Maximum HTTP redirects for URL source fetches |
+| `SSOT_READ_TIMEOUT` | `30` | HTTP read timeout in seconds |
+| `SSOT_CACHE_DIR` | `cache` | Cache directory name under `ssot/` |
+| `SSOT_GIT_DEPTH` | `1` | Git shallow clone depth |
+| `SSOT_LOG_LEVEL` | `info` | Log level filtering (`error`, `warn`, `info`, `debug`) |
 
 ## Deprecated: Old System
 
