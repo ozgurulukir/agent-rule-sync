@@ -404,7 +404,7 @@ end
 # ─── Generate catalog.json ─────────────────────────────────────────────────────
 
 begin
-  system(RbConfig.ruby, RULEPACK_ROOT.join('lib', 'rulepack', 'generate-catalog.rb').to_s)
+  load RULEPACK_ROOT.join('lib', 'rulepack', 'generate-catalog.rb').to_s
 rescue StandardError => e
   Rulepack::Common.log_error "Failed to generate catalog: #{e.message}"
 end

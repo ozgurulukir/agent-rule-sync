@@ -17,24 +17,23 @@ module Rulepack
 
   module CLI
     def self.run(argv)
-      # Global timing flag
       if argv.include?('--timing')
         Rulepack::Common.show_timing = true
         argv.delete('--timing')
       end
 
       command = argv.shift || "help"
+      full_argv = argv
+
       case command
       when "build"
-        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/build.rb").to_s)
-        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/aggregate.rb").to_s)
-        0
+        r = invoke("lib/rulepack/build.rb", full_argv)
+        return r if r != 0
+        invoke("lib/rulepack/aggregate.rb", full_argv)
       when "install"
-        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/install.rb").to_s, *argv)
-        0
+        invoke("lib/rulepack/install.rb", full_argv)
       when "uninstall"
-        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/uninstall.rb").to_s, *argv)
-        0
+        invoke("lib/rulepack/uninstall.rb", full_argv)
       when "query"
         Rulepack::Query.run(argv)
       when "list"
@@ -47,14 +46,11 @@ module Rulepack
         print_status
         0
       when "check"
-        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/install.rb").to_s, "--check", *argv)
-        0
+        invoke("lib/rulepack/install.rb", ["--check"] + full_argv)
       when "verify"
-        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/verify.rb").to_s, *argv)
-        0
+        invoke("lib/rulepack/verify.rb", full_argv)
       when "fix"
-        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/fix.rb").to_s, *argv)
-        0
+        invoke("lib/rulepack/fix.rb", full_argv)
       when "catalog"
         catalog_path = ROOT.join("build", "catalog.json")
         unless catalog_path.exist?
@@ -75,7 +71,18 @@ module Rulepack
       end
     rescue Rulepack::Error => e
       warn "Error: #{e.message}"
-      exit 1
+      1
+    end
+
+    def self.invoke(script, script_argv)
+      old_argv = ARGV.dup
+      ARGV.replace(script_argv)
+      load ROOT.join(script).to_s
+      0
+    rescue SystemExit => e
+      e.status
+    ensure
+      ARGV.replace(old_argv)
     end
 
     def self.print_help

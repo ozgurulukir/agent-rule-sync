@@ -1341,14 +1341,7 @@ Check with: `rubocop --only Naming/RescuedExceptionsVariableName`
 ---
 
 ### 🟡 P11.3 Fix `install --all` Transaction Rollback
-**Status**: ⬜ PENDING
-**Slop**: `install_all` wraps all platforms in a single transaction. If platform 5/14 fails, the backup/restore undoes previously **successful** platforms 1-4, leaving orphan files on disk.
-
-**Fix**: Per-platform backup or no rollback on individual platform failure.
-
-**Files**: `lib/rulepack/installer.rb` (install_all → install_single_platform error handling)
-
----
+**Status**: ⏳ ANALYSIS (install_single_platform already catches StandardError; rollback only fires on catastrophic errors like SystemExit/NoMemoryError — effectively LOW risk)
 
 ### 🟡 P11.4 Replace Ruby Subprocess Calls with Direct Module Loading
 **Status**: ⬜ PENDING
