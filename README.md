@@ -67,7 +67,7 @@ rulepack/
 ├── bin/rulepack              # CLI entry point
 ├── lib/rulepack/             # Library modules (20 .rb files)
 │   ├── common.rb             # Constants, Config, basic IO
-│   ├── installer.rb          # Installer library (was ssot/lib/install.rb)
+│   ├── installer.rb          # Installer library
 │   ├── build.rb              # Build orchestrator
 │   ├── query.rb              # Package database queries
 │   └── ... (logging.rb, cache.rb, backup.rb, version.rb, source.rb,
