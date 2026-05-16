@@ -736,7 +736,6 @@ See `data/transformers/` for implementations.
 | `lib/rulepack/verify.rb` | Index-disk reconciliation (detect drift) |
 | `lib/rulepack/fix.rb` | Automated drift repair |
 | `lib/rulepack/generate-catalog.rb` | Package catalog generator (JSON) |
-| `lib/rulepack/aggregate.rb` | Vendor skill aggregation |
 | `data/index.yaml` | Master package database |
 | `data/index.json` | Machine-readable index |
 | `build/index.yaml` | Build metadata (intermediate) |
@@ -862,7 +861,7 @@ To migrate:
 | **Test suite** | ✅ | 202 tests, 663 assertions, 0 failures (test_common, test_integration, test_cache, test_pkgbuild, test_platform, test_uninstall, test_query, test_translate, test_aggregate, test_end_to_end) |
 | **Standalone scripts** | ✅ | `build.rb`, `install.rb`, `uninstall.rb`, `query.rb`, `aggregate.rb`, `translate.rb` |
 | **Modular installer** | ✅ | Library layer (`lib/rulepack/installer.rb`, `lib/rulepack/common.rb`), `--all`, `--targets <pkg>`, `--check <platform>` |
-| **Unified logging** | ✅ | `Rulepack::Common.log*` shared across build.rb, install.rb, uninstall.rb — level filtering via `$LOG_LEVEL` |
+| **Unified logging** | ✅ | `Rulepack::Common.log*` shared across build.rb, install.rb, uninstall.rb — level filtering via `Rulepack::Common.log_level` |
 | **Config module** | ✅ | `Rulepack::Config` — 5 env vars (`RULEPACK_MAX_REDIRECTS`, `RULEPACK_READ_TIMEOUT`, `RULEPACK_CACHE_DIR`, `RULEPACK_GIT_DEPTH`, `RULEPACK_LOG_LEVEL`) |
 | **Platform registry cache** | ✅ | `load_platform_registry` memoized with `@_platform_registry` — ~3× fewer YAML reads |
 | **Performance timing** | ✅ | `Rulepack::Common.time` helper + `--timing` flag — per-package build timing |
