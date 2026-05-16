@@ -253,6 +253,9 @@ pkgbuilds.each do |pkgbuild_path|
     targets = pkg[:targets]
     targets = [targets] unless targets.is_a?(Array)
 
+    manifest_generated = false
+    manifest_path = nil
+
     targets.each do |tgt|
       platform_id = tgt[:platform]
       format = tgt[:format]
@@ -265,15 +268,12 @@ pkgbuilds.each do |pkgbuild_path|
         Rulepack::Common.log "  → Building for #{platform_id} (skill-bundle: #{pkgname})"
         puts "  → Building for #{platform_id} (skill-bundle: #{pkgname})"
 
-        # skill-bundle: copy entire source directory tree
         sd = pkg_index[:source_dir] || raise('internal error: source_dir not set for skill-bundle')
         source_dir = Pathname.new(sd)
-        # Build directory: build/<platform>/<pkgname>/
         build_platform_dir = BUILD_DIR.join(platform_id)
         begin
           build_pkg_dir = build_platform_dir.join(pkgname.to_s)
           FileUtils.mkpath(build_pkg_dir)
-          # Copy all contents recursively, preserving hidden files and empty directories
           FileUtils.cp_r("#{source_dir}/.", build_pkg_dir, preserve: false)
         rescue StandardError => e
           Rulepack::Common.log_error "Failed to copy skill-bundle source: #{e.message}"
@@ -283,12 +283,18 @@ pkgbuilds.each do |pkgbuild_path|
         Rulepack::Common.log '    ✓ Built skill-bundle (directory copied)'
         puts '    ✓ Built skill-bundle (directory copied)'
 
-        # ─── L4.4 Skill-bundle manifest ─────────────────────────────────────────────
-        # Generate per-file SHA256 checksums for integrity verification
-        manifest = Rulepack::Common.generate_skill_bundle_manifest(build_pkg_dir, pkgname,
-                                                                   platform_id)
-        Rulepack::Common.log "    ✓ Skill-bundle manifest generated: #{manifest[:sub_skills].size} sub-skill(s)"
-        puts "    ✓ Skill-bundle manifest generated: #{manifest[:sub_skills].size} sub-skill(s)"
+        if manifest_generated
+          FileUtils.cp(manifest_path, build_pkg_dir.join('manifest.json'))
+        else
+          manifest_data = Rulepack::Common.generate_skill_bundle_manifest(
+            build_pkg_dir, pkgname, platform_id
+          )
+          manifest_path = build_pkg_dir.join('manifest.json')
+          manifest_generated = true
+          count = manifest_data[:sub_skills].size
+          Rulepack::Common.log "    ✓ Manifest generated: #{count} sub-skill(s)"
+          puts "    ✓ Manifest generated: #{count} sub-skill(s)"
+        end
 
         # Record in package index (no single checksum for bundle; use source_sha256 i.e. commit hash or nil)
         pkg_index[:available_targets] << platform_id unless pkg_index[:available_targets].include?(platform_id)
