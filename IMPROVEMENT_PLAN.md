@@ -1155,8 +1155,8 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 
 ---
 
-**Last Updated**: 2026-05-16 (P0-P11 ✅, docs restructured)
-**Status**: P0-P9 ✅ | P10 ✅ (124→23) | P11.1-P11.6 ✅ | P11.3 ⏳ (low risk)
+**Last Updated**: 2026-05-16
+**Status**: P0-P9 ✅ | P10 ✅ (124→23) | P11.1-P11.6 ✅ | P11.3 ⏳ (low risk) | P12 🔴 (open)
 
 ---
 
@@ -1236,5 +1236,32 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
   - **Meta-packages**: `depends` field documents pacman-style meta-packages (e.g., `golang-security-all`)
 - **Files**: `lib/rulepack/build.rb` (manifest generation), `lib/rulepack/install.rb` (--select, selective copy), `docs/agents/REFERENCE.md`, `docs/agents/USAGE.md`, `AGENTS.md`
 - **Impact**: Users can install only needed sub-skills, reducing disk footprint and install time.
+
+---
+
+## 📋 Priority 12 — Bug: `rulepack build` Sıfırlıyor `data/index.yaml`
+
+**Status**: 🔴 OPEN
+**Date**: 2026-05-16
+
+**Bug**: `rulepack build` writes `data/index.yaml` (master index) with only build metadata, discarding all installed package records. After build, `rulepack status` shows "Platforms: 0" because installed records are lost.
+
+**Root cause**: `build.rb` → `aggregate.rb` → `generate-catalog.rb` pipeline writes to `data/index.yaml` as the final step, but this file is the **master index** (tracking installed packages). The build writes a fresh index with only PKGBUILD metadata, replacing the existing index that contained installed records.
+
+**Timeline of bug**:
+1. `rulepack build` builds 9 packages → writes `build/index.yaml` (build artifacts)
+2. `rulepack install --all` installs packages → writes installed records to `data/index.yaml`
+3. `rulepack status` shows 13 platforms ✅
+4. `rulepack build` again → overwrites `data/index.yaml` with build-only data
+5. `rulepack status` shows "Platforms: 0" ❌
+
+**Fix options**:
+- **A (minimal)**: Stop build from writing `data/index.yaml`; only write `build/index.yaml`. The master index is the **install** script's responsibility.
+- **B (merge)**: After build completes, merge build metadata into existing master index without overwriting installed records.
+- **C (single source)**: Use `build/index.yaml` as canonical source; don't maintain a separate `data/index.yaml` for installed records.
+
+**Files**: `lib/rulepack/build.rb` (writes `data/index.yaml`), `lib/rulepack/aggregate.rb` (also writes index), `lib/rulepack/generate-catalog.rb` (catalog generator, reads `BUILD_INDEX_PATH`)
+
+**Test**: `build → install → build → status` should show same platforms before and after second build.
 
 ---
