@@ -25,6 +25,7 @@ module Rulepack
       verbose_mode = options.fetch(:verbose_mode, false)
       select_list = options.fetch(:select_list, nil)
       project_arg = options.fetch(:project_arg, nil)
+      specific_package = options.fetch(:specific_package, nil)
 
       Rulepack::Common.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
 
@@ -56,7 +57,8 @@ module Rulepack
       begin
         install_platform(index, build_index, platform_id,
                          dry_run: dry_run, force_mode: force_mode,
-                         select_list: select_list, project_arg: project_arg)
+                         select_list: select_list, project_arg: project_arg,
+                         specific_package: specific_package)
 
         # Write index after successful install
         if dry_run
@@ -189,7 +191,7 @@ module Rulepack
     # Returns Set of installed package names for this run.
 
     def install_platform(index, build_index, platform_id, dry_run: false, force_mode: false, select_list: nil,
-                         project_arg: nil, quiet: false)
+                         project_arg: nil, quiet: false, specific_package: nil)
       installed_this_run = Set.new
       platform_id = platform_id.to_s
 
@@ -201,6 +203,8 @@ module Rulepack
       Rulepack::Common.log "  Platform type: #{platform_cfg[:type]}" unless quiet
 
       build_index[:packages].each do |pkgname, pkgdata|
+        next if specific_package && pkgname.to_s != specific_package
+
         targets = filter_targets_for_platform(pkgdata, platform_id)
         if targets.empty?
           Rulepack::Common.log "  ⊘ package '#{pkgname}': no target for #{platform_id}, skipping" unless quiet

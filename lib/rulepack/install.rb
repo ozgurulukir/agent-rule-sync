@@ -149,15 +149,50 @@ unless platform_arg || check_mode
   exit 1
 end
 
+# ─── Resolve: is the argument a package or a platform? ──────────────────────────
+
+actual_platform = platform_arg
+target_package = nil
+
+if platform_arg && !check_mode && !targets_mode
+  build_idx = if RULEPACK_ROOT.join('build', 'index.yaml').exist?
+                Rulepack::Common.load_yaml(RULEPACK_ROOT.join('build', 'index.yaml'))
+              end
+  if build_idx && build_idx[:packages]
+    arg = platform_arg.downcase
+    match = build_idx[:packages].keys.find { |k| k.to_s.downcase == arg }
+    match ||= build_idx[:packages].keys.find { |k| k.to_s.downcase.start_with?(arg) && k.to_s.length >= arg.length * 2 }
+    if match
+      target_package = match.to_s
+      actual_platform = nil
+    end
+  end
+end
+
 # ─── Dispatch ──────────────────────────────────────────────────────────────────
 
 if check_mode
-  Rulepack::Install.check_platform(platform_arg, project_arg: project_arg)
+  Rulepack::Install.check_platform(actual_platform || platform_arg, project_arg: project_arg)
+
+elsif target_package
+  # Single package install: find its platforms, install to first or --platform
+  pkg_platform = nil
+  pkgdata = build_idx[:packages][target_package.to_sym]
+  targets = (pkgdata[:targets] || []).map { |t| t[:platform] }
+  pkg_platform = targets.first unless targets.empty?
+  unless pkg_platform
+    puts "❌ #{target_package} has no target platforms"
+    exit 1
+  end
+  Rulepack::Common.log "📦 Installing #{target_package} → #{pkg_platform}"
+  Rulepack::Install.run(pkg_platform,
+                        dry_run: dry_run, force_mode: force_mode,
+                        verbose_mode: verbose_mode, select_list: select_list,
+                        project_arg: project_arg, specific_package: target_package)
+
 else
-  Rulepack::Install.run(platform_arg,
-                        dry_run: dry_run,
-                        force_mode: force_mode,
-                        verbose_mode: verbose_mode,
-                        select_list: select_list,
+  Rulepack::Install.run(actual_platform,
+                        dry_run: dry_run, force_mode: force_mode,
+                        verbose_mode: verbose_mode, select_list: select_list,
                         project_arg: project_arg)
 end
