@@ -26,6 +26,13 @@ targets:
   install:
     type: copy
     target_dir: line-repetition-control/
+- platform: oh-my-pi
+  format: skill-bundle
+  output: .
+  transformer: copy
+  install:
+    type: copy
+    target_dir: line-repetition-control/
 checksums:
   source:
   built: {}

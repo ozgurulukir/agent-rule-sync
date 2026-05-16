@@ -55,6 +55,13 @@ targets:
       type: copy
       target_dir: antigravity-skills/
 
+  - platform: oh-my-pi
+    format: skill-bundle
+    output: .
+    transformer: copy
+    install:
+      type: copy
+      target_dir: antigravity-skills/
 checksums:
   source: null
   built: {}

@@ -7,6 +7,7 @@ require 'fileutils'
 require 'digest'
 require 'net/http'
 require 'uri'
+require 'open3'
 require_relative 'common'
 
 LOG_PATH = Rulepack::Common::BUILD_DIR.join('build.log')
@@ -19,7 +20,14 @@ def run_pkgver_func(pkg, pkgname, pkg_index, source_dir)
   return true unless pkg[:pkgver_func]
 
   Rulepack::Common.log "  Running pkgver_func: #{pkg[:pkgver_func]}"
-  new_pkgver = Dir.chdir(source_dir) { `#{pkg[:pkgver_func]}`.strip }
+  stdout_err, status = Dir.chdir(source_dir) do
+    Open3.capture2e(pkg[:pkgver_func])
+  end
+  new_pkgver = stdout_err.strip
+  unless status.success?
+    Rulepack::Common.log_error "pkgver_func failed for #{pkgname}: #{stdout_err}"
+    return false
+  end
   if new_pkgver.empty?
     Rulepack::Common.log_error "pkgver_func returned empty version for #{pkgname}"
     return false
@@ -299,7 +307,7 @@ pkgbuilds.each do |pkgbuild_path|
         begin
           Rulepack::Common.validate_output_filename(output, pkgname)
         rescue StandardError => e
-          log_error e.message
+          Rulepack::Common.log_error e.message
           next
         end
 

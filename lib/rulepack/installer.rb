@@ -16,6 +16,14 @@ module Rulepack
   module Install
     module_function
 
+    # Context object to hold installation state and reduce argument counts
+    InstallContext = Struct.new(
+      :index, :build_index, :platform_id, :platform_cfg, :base_path, :project_root,
+      :dry_run, :force_mode, :needed_mode, :collision_strategy, :quiet,
+      :select_list, :installed_this_run,
+      keyword_init: true
+    )
+
     # ─── Main entry point ────────────────────────────────────────────────────────
 
     def run(platform_id, options = {})
@@ -27,6 +35,7 @@ module Rulepack
       select_list = options.fetch(:select_list, nil)
       project_arg = options.fetch(:project_arg, nil)
       specific_package = options.fetch(:specific_package, nil)
+      collision_strategy = options.fetch(:collision_strategy, 'stop')
 
       Rulepack::Common.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
 
@@ -56,11 +65,14 @@ module Rulepack
       end
 
       begin
-        install_platform(index, build_index, platform_id,
-                         dry_run: dry_run, force_mode: force_mode,
-                         needed_mode: needed_mode,
-                         select_list: select_list, project_arg: project_arg,
-                         specific_package: specific_package)
+        ctx = InstallContext.new(
+          index: index, build_index: build_index, platform_id: platform_id,
+          dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
+          collision_strategy: collision_strategy, select_list: select_list,
+          project_root: project_arg ? Pathname.new(project_arg).expand_path : nil,
+          installed_this_run: []
+        )
+        install_platform(ctx, specific_package: specific_package)
 
         # Write index after successful install
         if dry_run
@@ -173,6 +185,7 @@ module Rulepack
                        needed_mode: options.fetch(:needed_mode, false),
                        select_list: options.fetch(:select_list, nil),
                        project_arg: options.fetch(:project_arg, nil),
+                       collision_strategy: options.fetch(:collision_strategy, 'stop'),
                        quiet: true)
     rescue StandardError => e
       Rulepack::Common.log_warn "Failed to install platform #{platform_id}: #{e.message}"
@@ -193,43 +206,38 @@ module Rulepack
     # ─── Install a single platform ───────────────────────────────────────────────
     # Returns Set of installed package names for this run.
 
-    def install_platform(index, build_index, platform_id, dry_run: false, force_mode: false, needed_mode: false, select_list: nil,
-                         project_arg: nil, quiet: false, specific_package: nil)
-      installed_this_run = Set.new
-      platform_id = platform_id.to_s
+    def install_platform(ctx, specific_package: nil)
+      ctx.platform_id = ctx.platform_id.to_s
+      ctx.platform_cfg = platform_cfg_for(ctx.platform_id)
+      warn_prerequisites(ctx.platform_id, ctx.platform_cfg, ctx.quiet)
 
-      platform_cfg = platform_cfg_for(platform_id)
-      warn_prerequisites(platform_id, platform_cfg, quiet)
+      ctx.base_path = resolve_install_base_path(ctx.platform_cfg, ctx.project_root)
+      Rulepack::Common.log "📁 Base path: #{ctx.base_path}" unless ctx.quiet
+      Rulepack::Common.log "  Platform type: #{ctx.platform_cfg[:type]}" unless ctx.quiet
 
-      base_path = resolve_install_base_path(platform_cfg, project_arg)
-      Rulepack::Common.log "📁 Base path: #{base_path}" unless quiet
-      Rulepack::Common.log "  Platform type: #{platform_cfg[:type]}" unless quiet
+      ctx.build_index[:packages].each do |pkgname, pkgdata|
+        next if specific_package && pkgname.to_s != specific_package.to_s
 
-      build_index[:packages].each do |pkgname, pkgdata|
-        next if specific_package && pkgname.to_s != specific_package
-
-        targets = filter_targets_for_platform(pkgdata, platform_id)
+        targets = filter_targets_for_platform(pkgdata, ctx.platform_id)
         if targets.empty?
-          Rulepack::Common.log "  ⊘ package '#{pkgname}': no target for #{platform_id}, skipping" unless quiet
+          Rulepack::Common.log "  ⊘ package '#{pkgname}': no target for #{ctx.platform_id}, skipping" unless ctx.quiet
           next
         end
 
-        next unless should_install_or_upgrade?(pkgname, pkgdata, platform_id, index,
-                                               force_mode, needed_mode, dry_run, quiet, select_list)
+        next unless should_install_or_upgrade?(pkgname, pkgdata, ctx)
 
-        ensure_package_in_index(index, pkgname, pkgdata)
+        ensure_package_in_index(ctx.index, pkgname, pkgdata)
 
         targets.each do |target|
-          install_single_target(index, build_index, pkgname, pkgdata, target,
-                                platform_cfg, base_path, nil, platform_id,
-                                installed_this_run,
-                                dry_run: dry_run, select_list: select_list, quiet: quiet)
+          install_single_target(pkgname, pkgdata, target, ctx)
         end
       end
 
-      aggregate_vendor_skills(platform_id, platform_cfg, base_path) if platform_cfg[:type] == 'skill' && !dry_run
+      if ctx.platform_cfg[:type] == 'skill' && !ctx.dry_run
+        aggregate_vendor_skills(ctx.platform_id, ctx.platform_cfg, ctx.base_path, ctx.collision_strategy)
+      end
 
-      installed_this_run
+      ctx.installed_this_run
     end
 
     # ─── Check platform ──────────────────────────────────────────────────────────
@@ -284,10 +292,9 @@ module Rulepack
       pkgdata[:targets]&.select { |t| t[:platform] == platform_id } || []
     end
 
-    def should_install_or_upgrade?(pkgname, pkgdata, platform_id, index, force_mode, needed_mode, dry_run, quiet,
-                                   select_list = nil)
-      pkg_index = index[:packages][pkgname] || { installed: [] }
-      existing_records = (pkg_index[:installed] || []).select { |r| r[:platform] == platform_id }
+    def should_install_or_upgrade?(pkgname, pkgdata, ctx)
+      pkg_index = ctx.index[:packages][pkgname] || { installed: [] }
+      existing_records = (pkg_index[:installed] || []).select { |r| r[:platform] == ctx.platform_id }
       return true if existing_records.empty?
 
       existing = existing_records.first
@@ -299,8 +306,8 @@ module Rulepack
 
       case cmp
       when 0
-        if needed_mode
-          unless quiet
+        if ctx.needed_mode
+          unless ctx.quiet
             ver = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
             Rulepack::Common.log "  ↺ #{pkgname} #{ver} already installed (--needed)"
           end
@@ -308,54 +315,54 @@ module Rulepack
         end
 
         targets = Array(pkgdata[:targets])
-        has_skill_bundle = targets.any? { |t| t[:platform] == platform_id && t[:format] == 'skill-bundle' }
-        if select_list && has_skill_bundle
+        has_skill_bundle = targets.any? { |t| t[:platform] == ctx.platform_id && t[:format] == 'skill-bundle' }
+        if ctx.select_list && has_skill_bundle
           ver = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
           Rulepack::Common.log "  🔄 Re-installing #{pkgname} #{ver} (--select specified)"
-          uninstall_single_package_from_index!(index, pkgname, platform_id) unless dry_run
+          uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id) unless ctx.dry_run
           true
-        elsif !select_list && has_skill_bundle
+        elsif !ctx.select_list && has_skill_bundle
           # Reinstall skill-bundle to restore any sub-skills previously removed via --select
           ver = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
           Rulepack::Common.log "  🔄 Restoring #{pkgname} #{ver} all sub-skills"
-          uninstall_single_package_from_index!(index, pkgname, platform_id) unless dry_run
+          uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id) unless ctx.dry_run
           true
         else
-          unless quiet
+          unless ctx.quiet
             ver = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
             Rulepack::Common.log "  ↺ #{pkgname} already installed (#{ver})"
           end
           false
         end
       when 1
-        unless quiet
+        unless ctx.quiet
           old_v = Rulepack::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])
           new_v = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
           Rulepack::Common.log "  🔄 Upgrading #{pkgname} #{old_v} → #{new_v}"
         end
-        uninstall_single_package_from_index!(index, pkgname, platform_id) unless dry_run
+        uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id) unless ctx.dry_run
         true
       else
-        handle_downgrade(pkgname, pkgdata, existing, force_mode, dry_run, quiet)
+        handle_downgrade(pkgname, pkgdata, existing, ctx)
       end
     end
 
-    def handle_downgrade(pkgname, pkgdata, existing, force_mode, dry_run, quiet)
-      if force_mode
-        unless quiet
+    def handle_downgrade(pkgname, pkgdata, existing, ctx)
+      if ctx.force_mode
+        unless ctx.quiet
           old_v = Rulepack::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])
           new_v = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
           Rulepack::Common.log_warn "Downgrade forced for #{pkgname}: #{old_v} → #{new_v}"
         end
-        uninstall_single_package_from_index!(index, pkgname, platform_id) unless dry_run
+        uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id) unless ctx.dry_run
         true
       else
-        unless quiet
+        unless ctx.quiet
           old_v = Rulepack::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])
           new_v = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
           Rulepack::Common.log_error "Downgrade detected for #{pkgname}: installed #{old_v}, candidate #{new_v}"
         end
-        Rulepack::Common.log_error 'Use --force to allow downgrade' unless quiet
+        Rulepack::Common.log_error 'Use --force to allow downgrade' unless ctx.quiet
         false
       end
     end
@@ -466,21 +473,14 @@ module Rulepack
     # ─── Install a single target ─────────────────────────────────────────────────
 
     # rubocop:disable Metrics/ParameterLists
-    def install_single_target(index, _build_index, pkgname, pkgdata, target,
-                              platform_cfg, base_path, project_root, platform_id,
-                              installed_this_run,
-                              dry_run: false, select_list: nil, quiet: false)
+    def install_single_target(pkgname, pkgdata, target, ctx)
       format = target[:format]
 
       case format
       when 'skill-bundle'
-        opts = { dry_run: dry_run, select_list: select_list, quiet: quiet }
-        nil unless install_skill_bundle(pkgname, pkgdata, target, platform_cfg, base_path,
-                                        platform_id, index, installed_this_run, opts)
+        install_skill_bundle(pkgname, pkgdata, target, ctx)
       else
-        opts = { dry_run: dry_run, quiet: quiet }
-        install_file_or_skill(pkgname, pkgdata, target, platform_cfg, base_path, project_root,
-                              platform_id, index, installed_this_run, opts)
+        install_file_or_skill(pkgname, pkgdata, target, ctx)
       end
     end
     # rubocop:enable Metrics/ParameterLists
@@ -488,11 +488,15 @@ module Rulepack
     # ─── Skill-bundle install (selective directory copy) ───────────────────────────
 
     # rubocop:disable Metrics/ParameterLists
-    def install_skill_bundle(pkgname, pkgdata, target, platform_cfg, base_path,
-                             platform_id, index, installed_this_run, opts)
-      dry_run = opts[:dry_run]
-      select_list = opts[:select_list]
-      quiet = opts[:quiet]
+    def install_skill_bundle(pkgname, pkgdata, target, ctx)
+      dry_run = ctx.dry_run
+      select_list = ctx.select_list
+      quiet = ctx.quiet
+      platform_id = ctx.platform_id
+      platform_cfg = ctx.platform_cfg
+      base_path = ctx.base_path
+      index = ctx.index
+      installed_this_run = ctx.installed_this_run
       install_cfg = target[:install] || {}
       Rulepack::Common.log "  ⤷ #{pkgname} (skill-bundle) → #{install_cfg[:target_dir]} [copy]" unless quiet
 
@@ -518,7 +522,9 @@ module Rulepack
           end
         end
       else
-        return false unless copy_sub_skills(build_src_dir, dest_dir, selected, pkgname, quiet: quiet)
+        strategy = opts[:collision_strategy] || 'stop'
+        return false unless copy_sub_skills(build_src_dir, dest_dir, selected, pkgname,
+                                           strategy: strategy, quiet: quiet)
 
         write_selected_manifest(dest_dir, manifest, pkgname, platform_id, selected)
       end
@@ -567,10 +573,20 @@ module Rulepack
       end
     end
 
-    def copy_sub_skills(build_src_dir, dest_dir, selected, _pkgname, quiet: false)
+    def copy_sub_skills(build_src_dir, dest_dir, selected, pkgname, strategy: 'stop', quiet: false)
       if dest_dir.exist?
-        FileUtils.rm_rf(dest_dir)
-        Rulepack::Common.log "    ✓ Removed existing: #{dest_dir}" unless quiet
+        case strategy
+        when 'overwrite', 'append' # append for directory bundle is treated as overwrite/merge
+          Rulepack::Common.backup_file(dest_dir)
+          FileUtils.rm_rf(dest_dir)
+          Rulepack::Common.log "    ✓ Replaced existing directory: #{dest_dir} (with backup)" unless quiet
+        when 'ignore'
+          Rulepack::Common.log "    ⚠ Collision: #{dest_dir} exists, skipping" unless quiet
+          return true
+        else # stop
+          Rulepack::Common.log_error "Collision detected: #{dest_dir} exists. Use --on-collision to proceed."
+          raise "Collision at #{dest_dir}"
+        end
       end
       FileUtils.mkpath(dest_dir)
 
@@ -609,10 +625,15 @@ module Rulepack
     # ─── Single-file install (directory/import/skill platform types) ───────────────
 
     # rubocop:disable Metrics/ParameterLists
-    def install_file_or_skill(pkgname, pkgdata, target, platform_cfg, base_path, project_root,
-                              platform_id, index, installed_this_run, opts)
-      dry_run = opts[:dry_run]
-      quiet = opts[:quiet]
+    def install_file_or_skill(pkgname, pkgdata, target, ctx)
+      dry_run = ctx.dry_run
+      quiet = ctx.quiet
+      platform_cfg = ctx.platform_cfg
+      base_path = ctx.base_path
+      platform_id = ctx.platform_id
+      index = ctx.index
+      installed_this_run = ctx.installed_this_run
+      strategy = ctx.collision_strategy
       output = target[:output]
       built_path = Rulepack::Common::BUILD_DIR.join(platform_id, output)
       unless built_path.exist?
@@ -634,13 +655,13 @@ module Rulepack
       install_cfg = target[:install] || {}
       format = target[:format]
       install_type = install_cfg[:type] || platform_cfg[:"#{format}_install"]&.[](:type) || 'copy'
-      install_path = resolve_install_path_for_target(platform_cfg, target, base_path, project_root)
+      install_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
 
       install_path.parent.mkpath unless dry_run
 
       Rulepack::Common.log "  ⤷ #{pkgname} (#{output}) → #{install_path} [#{install_type}]" unless quiet
       perform_file_install(built_path, install_path, content, content_sha256, install_type, platform_cfg, output,
-                           dry_run, quiet)
+                           dry_run, quiet, pkgname, strategy)
 
       record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256) unless dry_run
       Rulepack::Common.log "  ✓ Installed: #{pkgname}" unless quiet
@@ -650,25 +671,25 @@ module Rulepack
 
     # rubocop:disable Metrics/ParameterLists
     def perform_file_install(built_path, install_path, content, content_sha256, install_type, platform_cfg, output,
-                             dry_run, quiet)
+                             dry_run, quiet, pkgname, collision_strategy)
       case install_type
       when 'symlink'
         if dry_run
           Rulepack::Common.log "    [DRY-RUN] Would symlink: #{built_path} → #{install_path}" unless quiet
         else
-          do_symlink(built_path, install_path)
+          do_symlink(built_path, install_path, pkgname, collision_strategy)
         end
       when 'copy'
         if dry_run
           Rulepack::Common.log "    [DRY-RUN] Would copy: #{built_path} → #{install_path}" unless quiet
         else
-          do_copy(built_path, install_path, content_sha256)
+          do_copy(built_path, install_path, content_sha256, pkgname, collision_strategy)
         end
       when 'inject', 'append'
         if dry_run
           Rulepack::Common.log "    [DRY-RUN] Would #{install_type}: #{output} → #{install_path}" unless quiet
         else
-          do_inject_append(install_path, content, install_type, platform_cfg, output)
+          do_inject_append(install_path, content, install_type, platform_cfg, output, pkgname, collision_strategy)
         end
       else
         Rulepack::Common.log_error "Unknown install type: #{install_type}. Valid types: symlink, copy, inject, append."
@@ -700,33 +721,57 @@ module Rulepack
 
     # ─── Install type handlers ───────────────────────────────────────────────────
 
-    def do_symlink(built_path, install_path)
+    def do_symlink(built_path, install_path, pkgname, strategy)
       if install_path.symlink?
         if install_path.readlink == built_path.relative_path_from(install_path.parent)
           Rulepack::Common.log '    ↺ Already symlinked'
-        else
-          FileUtils.rm(install_path)
-          FileUtils.ln_s(built_path.relative_path_from(install_path.parent), install_path)
-          Rulepack::Common.log '    ✓ Replaced symlink'
+          return
         end
-      elsif install_path.exist?
-        Rulepack::Common.log_warn "    ⚠ Target exists and is not a symlink, skipping: #{install_path}"
+      end
+
+      if install_path.exist? || install_path.symlink?
+        case strategy
+        when 'overwrite', 'append' # append doesn't make sense for symlinks, treat as overwrite
+          Rulepack::Common.backup_file(install_path) if install_path.file? && !install_path.symlink?
+          FileUtils.rm_f(install_path)
+          target_rel = built_path.realpath.relative_path_from(install_path.parent.realpath)
+          FileUtils.ln_s(target_rel, install_path)
+          Rulepack::Common.log "    ✓ Replaced symlink (strategy: #{strategy})"
+        when 'ignore'
+          Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
+        else # stop
+          Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
+          raise "Collision at #{install_path}"
+        end
       else
-        FileUtils.ln_s(built_path.relative_path_from(install_path.parent), install_path)
+        target_rel = built_path.realpath.relative_path_from(install_path.parent.realpath)
+        FileUtils.ln_s(target_rel, install_path)
         Rulepack::Common.log '    ✓ Symlinked'
       end
     rescue StandardError => e
       Rulepack::Common.log_error "Symlink failed: #{e.message}"
+      raise e
     end
 
-    def do_copy(built_path, install_path, content_sha256)
+    def do_copy(built_path, install_path, content_sha256, pkgname, strategy)
       if install_path.exist?
         existing_sha = Digest::SHA256.hexdigest(install_path.read)
-        if existing_sha == content_sha256
-          Rulepack::Common.log '    ↺ Already up-to-date'
-        else
+        return Rulepack::Common.log '    ↺ Already up-to-date' if existing_sha == content_sha256
+
+        case strategy
+        when 'append'
+          Rulepack::Common.backup_file(install_path)
+          result = Rulepack::Common.update_marked_content(install_path, pkgname, built_path.read)
+          Rulepack::Common.log "    ✓ #{result.capitalize} (marker-based append with backup)"
+        when 'overwrite'
+          Rulepack::Common.backup_file(install_path)
           FileUtils.cp(built_path, install_path)
-          Rulepack::Common.log '    ✓ Updated'
+          Rulepack::Common.log '    ✓ Updated (with backup)'
+        when 'ignore'
+          Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
+        else # stop
+          Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
+          raise "Collision at #{install_path}"
         end
       else
         FileUtils.cp(built_path, install_path)
@@ -734,15 +779,17 @@ module Rulepack
       end
     rescue StandardError => e
       Rulepack::Common.log_error "Copy failed: #{e.message}"
+      raise e
     end
 
-    def do_inject_append(install_path, content, install_type, platform_cfg, output)
-      if install_type == 'append'
+    def do_inject_append(install_path, content, install_type, platform_cfg, output, pkgname, strategy)
+      if install_type == 'append' || strategy == 'append'
         if content_already_present?(install_path, content)
           Rulepack::Common.log '    ↺ Already present (skipping duplicate append)'
         else
-          Rulepack::Common.atomic_append(install_path, content)
-          Rulepack::Common.log '    ✓ Appended'
+          Rulepack::Common.backup_file(install_path) if install_path.exist?
+          result = Rulepack::Common.update_marked_content(install_path, pkgname, content)
+          Rulepack::Common.log "    ✓ #{result.capitalize} (with backup)"
         end
       elsif install_type == 'inject'
         directive = platform_cfg[:rule_install]&.[](:directive) || '@import'
@@ -752,8 +799,17 @@ module Rulepack
           if existing.start_with?(import_line)
             Rulepack::Common.log '    ↺ Already injected'
           else
-            Rulepack::Common.atomic_write(install_path, import_line + existing)
-            Rulepack::Common.log '    ✓ Injected'
+            case strategy
+            when 'overwrite', 'append'
+              Rulepack::Common.backup_file(install_path)
+              Rulepack::Common.atomic_write(install_path, import_line + existing)
+              Rulepack::Common.log "    ✓ Injected (with backup, strategy: #{strategy})"
+            when 'ignore'
+              Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
+            else # stop
+              Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
+              raise "Collision at #{install_path}"
+            end
           end
         else
           Rulepack::Common.atomic_write(install_path, import_line)
@@ -762,11 +818,12 @@ module Rulepack
       end
     rescue StandardError => e
       Rulepack::Common.log_error "Install failed (#{install_type}): #{e.message}"
+      raise e
     end
 
     # ─── Vendor skill aggregation ────────────────────────────────────────────────
 
-    def aggregate_vendor_skills(platform_id, platform_cfg, base_path)
+    def aggregate_vendor_skills(platform_id, platform_cfg, base_path, collision_strategy = 'stop')
       Rulepack::Common.log "  🧱 Aggregating vendor skills for #{platform_id}..."
       puts "\n  🧱 Aggregating vendor skills for #{platform_id}..."
       aggregate_script = Rulepack::Common::RULEPACK_ROOT.join('lib/rulepack/aggregate.rb')
@@ -787,9 +844,32 @@ module Rulepack
         if vendor_file.exist?
           install_path = base_path.join(platform_cfg[:skill_file])
           install_path.parent.mkpath
-          FileUtils.cp(vendor_file, install_path)
-          Rulepack::Common.log "  ✓ Installed vendor skill to #{install_path}"
-          puts "  ✓ Installed vendor skill to #{install_path}"
+
+          if install_path.exist?
+            case collision_strategy
+            when 'append'
+              Rulepack::Common.backup_file(install_path)
+              result = Rulepack::Common.update_marked_content(install_path, "#{platform_id}_vendor", vendor_file.read)
+              Rulepack::Common.log "  ✓ #{result.capitalize} vendor skill to #{install_path} (with backup)"
+              puts "  ✓ #{result.capitalize} vendor skill to #{install_path} (with backup)"
+            when 'overwrite'
+              Rulepack::Common.backup_file(install_path)
+              FileUtils.cp(vendor_file, install_path)
+              Rulepack::Common.log "  ✓ Overwrote vendor skill to #{install_path} (with backup)"
+              puts "  ✓ Overwrote vendor skill to #{install_path} (with backup)"
+            when 'ignore'
+              Rulepack::Common.log "  ⚠ Collision: #{install_path} exists, skipping vendor skill install"
+              puts "  ⚠ Collision: #{install_path} exists, skipping"
+            else # stop
+              Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
+              puts "  ❌ Collision: #{install_path} exists. Use --on-collision to proceed."
+              raise "Collision at #{install_path}"
+            end
+          else
+            FileUtils.cp(vendor_file, install_path)
+            Rulepack::Common.log "  ✓ Installed vendor skill to #{install_path}"
+            puts "  ✓ Installed vendor skill to #{install_path}"
+          end
         else
           Rulepack::Common.log_error "Vendor skill not generated: #{vendor_file}"
         end
@@ -818,7 +898,7 @@ module Rulepack
       Rulepack::Common.platform_config(platform_id, registry)
     rescue StandardError => e
       warn "PLATFORM_CFG_ERROR: #{e.message}"
-      log_error e.message
+      Rulepack::Common.log_error e.message
       exit 1
     end
 
@@ -826,32 +906,6 @@ module Rulepack
       Rulepack::Common.project_root_for(platform_cfg, project_arg)
     end
 
-    def resolve_install_path_for_target(platform_cfg, target, base_path, project_root)
-      install_cfg = target[:install] || {}
-      output = target[:output]
-
-      if install_cfg[:target_dir]
-        target_subdir = Rulepack::Common.expand_user_path(install_cfg[:target_dir])
-        if platform_cfg[:type] == 'directory'
-          base_subdir = if %w[skill skill-bundle].include?(target[:format])
-                          platform_cfg[:skills_dir]
-                        else
-                          platform_cfg[:rules_dir]
-                        end
-          if Pathname.new(target_subdir).absolute?
-            Pathname.new(target_subdir).join(output)
-          else
-            base_path.join(base_subdir, target_subdir, output)
-          end
-        elsif Pathname.new(target_subdir).absolute?
-          Pathname.new(target_subdir).join(output)
-        else
-          base_path.join(target_subdir, output)
-        end
-      else
-        Rulepack::Common.resolve_install_path(platform_cfg, target, project_root)
-      end
-    end
 
     # Interactive sub-skill selection menu (pacman-style)
     # Returns array of selected sub-skills, or nil to skip

@@ -16,17 +16,17 @@
 claude update  # if installed via npm
 ```
 
-## SSoT Integration
+## Rulepack Integration
 
 ```bash
 cd /path/to/project
-ruby ssot/install.rb claude-code --project .
-# Creates symlinks: .claude/rules/*.md → ssot/build/claude-code/
+bin/rulepack install claude-code --project .
+# Creates symlinks: .claude/rules/*.md → build/claude-code/
 ```
 
 ## Notes
 
-Claude Code does not have a global config file; it uses per-project `CLAUDE.md`. The SSoT system installs individual rule files into `.claude/rules/` for modular organization.
+Claude Code does not have a global config file; it uses per-project `CLAUDE.md`. The Rulepack system installs individual rule files into `.claude/rules/` for modular organization.
 
 ## See Also
 

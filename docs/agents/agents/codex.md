@@ -15,17 +15,17 @@
 codex update  # npm
 ```
 
-## SSoT Integration
+## Rulepack Integration
 
 ```bash
 cd /path/to/project
-ruby ssot/install.rb codex --project .
+bin/rulepack install codex --project .
 # Generates vendor skill (build/codex/skills/vendor/codex.md) and copies to AGENTS.md
 ```
 
 ## Notes
 
-Codex CLI uses the same `AGENTS.md` format as OpenCode but as a single concatenated skill file rather than individual rule files. The SSoT system aggregates all rule fragments and skills into one file for Codex.
+Codex CLI uses the same `AGENTS.md` format as OpenCode but as a single concatenated skill file rather than individual rule files. The Rulepack system aggregates all rule fragments and skills into one file for Codex.
 
 ## See Also
 

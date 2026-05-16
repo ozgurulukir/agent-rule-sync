@@ -15,7 +15,7 @@ skills:
   code_block: fenced
 
 aggregation: |
-  Droid uses a single droid.md. SSoT vendor aggregation (ssot/aggregate-skills.rb)
+  Droid uses a single droid.md. Rulepack vendor aggregation (lib/rulepack/aggregate.rb)
   writes all skill/rule fragments into this file via "---\n\n" separator.
 
 notes: |

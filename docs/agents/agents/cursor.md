@@ -6,6 +6,7 @@
 - **Rules dir**: `.cursor/rules/`
 - **Skills dir**: `.cursor/skills/`
 - **Install method**: symlink
+- **Provider**: Cursor AI (OpenAI/Anthropic/Unders backends)
 - **Config**: Project-level rules (version-controlled), global MCP at `~/.cursor/mcp.json`
 - **Features**: AI-first IDE (VS Code fork), supports multiple LLM backends (GPT-4, Claude, Unders), inline commands (`//fix`, `//explain`), `.mdc` frontmatter support
 - **MCP**: Project-level `.cursor/mcp.json`, global `~/.cursor/mcp.json`
@@ -16,17 +17,17 @@
 
 Built-in updater: Menu → Help → Check for Updates
 
-## SSoT Integration
+## Rulepack Integration
 
 ```bash
 cd /path/to/project
-ruby ssot/install.rb cursor --project .
-# Creates symlinks: .cursor/rules/workstation-*.md → ssot/build/cursor/
+bin/rulepack install cursor --project .
+# Creates symlinks: .cursor/rules/workstation-*.md → build/cursor/
 ```
 
 ## Notes
 
-Cursor stores global rules in cloud/DB; project rules are version-controlled in repo. Use project-level rules for SSoT sync. Supports both markdown (`.md`) and mdc (`.mdc`) formats with frontmatter.
+Cursor stores global rules in cloud/DB; project rules are version-controlled in repo. Use project-level rules for Rulepack sync. Supports both markdown (`.md`) and mdc (`.mdc`) formats with frontmatter.
 
 ## See Also
 

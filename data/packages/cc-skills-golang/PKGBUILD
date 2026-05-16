@@ -43,6 +43,13 @@ targets:
     install:
       type: copy
       target_dir: cc-skills-golang/
+  - platform: oh-my-pi
+    format: skill-bundle
+    output: .
+    transformer: copy
+    install:
+      type: copy
+      target_dir: cc-skills-golang/
 
 checksums:
   source: null

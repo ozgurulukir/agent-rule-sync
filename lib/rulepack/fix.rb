@@ -189,7 +189,7 @@ end
 
 def resolve_install_path(platform_cfg, target, base_path)
   if target
-    Rulepack::Install.resolve_install_path_for_target(platform_cfg, target, base_path, base_path)
+    Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
   else
     base_path
   end

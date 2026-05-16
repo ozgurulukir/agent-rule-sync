@@ -20,10 +20,10 @@
 opencode upgrade  # self-updater (supports curl, npm, pnpm, bun, brew)
 ```
 
-## SSoT Integration
+## Rulepack Integration
 
 ```bash
-ruby ssot/install.rb opencode   # → ~/.config/opencode/rules/*.md (symlinks)
+bin/rulepack install opencode   # → ~/.config/opencode/rules/*.md (symlinks)
 ```
 
 ## Notes

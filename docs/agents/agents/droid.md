@@ -16,16 +16,16 @@
 droid update  # if available
 ```
 
-## SSoT Integration
+## Rulepack Integration
 
 ```bash
-ruby ssot/install.rb droid
+bin/rulepack install droid
 # Copies build/droid/skills/vendor/droid.md → ~/.factory/AGENTS.md
 ```
 
 ## Notes
 
-Droid is the Factory AI coding agent. The binary is `droid` (not `factory-droid`). Uses `--append-system-prompt-file` for custom rules injection, making it compatible with SSoT-generated AGENTS.md.
+Droid is the Factory AI coding agent. The binary is `droid` (not `factory-droid`). Uses `--append-system-prompt-file` for custom rules injection, making it compatible with Rulepack-generated AGENTS.md.
 
 ## See Also
 

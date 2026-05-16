@@ -1,6 +1,6 @@
 # Agent Rule Sync — Documentation
 
-This is the PKGBUILD-based Single Source of Truth (SSoT) system for managing AI agent rules, skills, and documentation across multiple platforms.
+This is the PKGBUILD-based system for managing AI agent rules, skills, and documentation across multiple platforms.
 
 ## Quick Links
 
@@ -27,6 +27,8 @@ This is the PKGBUILD-based Single Source of Truth (SSoT) system for managing AI 
 | GitHub Copilot | import | project | `.github/copilot-instructions.md` | [GitHub Copilot](agents/github-copilot.md) |
 | Claude Code | directory | project | `.claude/rules/` | [Claude Code](agents/claude-code.md) |
 | Codex CLI | skill | project | `AGENTS.md` | [Codex CLI](agents/codex.md) |
+| Antigravity | directory | project | `.agent/skills/` | [Antigravity](agents/antigravity.md) |
+| Agents | directory | user | `~/.config/agents/rules/` | [Agents](agents/agents.md) |
 
 ## Overview
 
@@ -36,8 +38,8 @@ This repository maintains a **single source of truth** for agent behavior defini
 - **Transforms** content per-platform via transformers (copy, strip-frontmatter, custom)
 - **Aggregates** skill-based agents' vendor files from rule fragments
 - **Installs** to multiple agent platforms (user-level and project-level)
-- **Tracks** installed state via `ssot/index.yaml` + `ssot/index.json`
+- **Tracks** installed state via `data/index.yaml` + `data/index.json`
 
-**Core scripts**: `build.rb` → `aggregate-skills.rb` → `install.rb` / `uninstall.rb` / `query.rb`
+**Core scripts**: `lib/rulepack/build.rb` → `lib/rulepack/aggregate.rb` → `lib/rulepack/install.rb` / `lib/rulepack/uninstaller.rb` / `lib/rulepack/query.rb`
 
 See [Architecture](ARCHITECTURE.md) for the full design.

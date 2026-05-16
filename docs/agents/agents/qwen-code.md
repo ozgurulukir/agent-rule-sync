@@ -6,6 +6,7 @@
 - **Config file**: `config.yaml`
 - **Rules file**: `~/.config/qwen/QWEN.md`
 - **Install method**: inject `@import` lines into QWEN.md
+- **Provider**: Alibaba Cloud (Qwen)
 - **Auth**: Qwen OAuth
 - **MCP**: context7 (`npx -y @upstash/context7-mcp`)
 - **Skills**: ast-grep
@@ -24,16 +25,16 @@ qwen auth   # re-auth if needed
 # CLI updates via npm globally
 ```
 
-## SSoT Integration
+## Rulepack Integration
 
 ```bash
-ruby ssot/install.rb qwen-code
+bin/rulepack install qwen-code
 # Injects @import lines into ~/.config/qwen/QWEN.md
 ```
 
 ## Notes
 
-Qwen Code has sophisticated query pipeline that automatically translates non-English input and searches in both languages. The permission system is granular; ensure SSoT rules don't trigger "ask" for common operations.
+Qwen Code has sophisticated query pipeline that automatically translates non-English input and searches in both languages. The permission system is granular; ensure Rulepack rules don't trigger "ask" for common operations.
 
 ## See Also
 

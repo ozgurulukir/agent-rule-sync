@@ -276,10 +276,10 @@ class TestTransactionRollbackIntegration < Minitest::Test
 
       index_path.write("version: 3.0\npackages:\n  test:\n    pkgver: 2.0.0\n")
 
-      assert Rulepack::Common.restore_index(backup), 'Restore should return true'
+      assert Rulepack::Common.restore_index(backup, index_path), 'Restore should return true'
 
-      restored = YAML.load_file(index_path)
-      assert_nil restored[:packages]&.key?(:test), 'Should restore to backup state'
+      restored = YAML.safe_load(File.read(index_path), permitted_classes: [Symbol], symbolize_names: true)
+      assert_nil restored[:packages][:test], 'Should restore to backup state'
     end
   end
 

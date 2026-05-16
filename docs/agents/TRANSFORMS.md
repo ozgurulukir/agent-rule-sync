@@ -9,7 +9,7 @@ TRANSLATE  — content format conversion (format family change)
     ↓
 TRANSFORM  — structural/format changes
     ↓
-Built Artifact (ssot/build/<platform>/)
+Built Artifact (build/<platform>/)
 ```
 
 **Translate** converts between format families (e.g., flat rule → skill, markdown → import).
@@ -50,10 +50,10 @@ transformer: strip-frontmatter
 
 ### API
 
-Custom transformers are Ruby scripts located in `ssot/transformers/`. They must define a `Transform` class with a `#transform` instance method.
+Custom transformers are Ruby scripts located in `data/transformers/`. They must define a `Transform` class with a `#transform` instance method.
 
 ```ruby
-# ssot/transformers/example.rb
+# data/transformers/example.rb
 class Transform
   def initialize(content:, pkgname:)
     @content = content    # Source file content (string)
@@ -84,7 +84,7 @@ targets:
 ```
 
 **Path resolution**:
-- Relative to repository root (`SSOT_ROOT`)
+- Relative to repository root (`RULEPACK_ROOT`)
 - Supports `~` expansion: `custom:~/my-transformers/foo.rb`
 - Must resolve within repo (symlink attack prevention via `realpath`)
 
@@ -159,7 +159,7 @@ end
 
 ## Transformer Resolution
 
-During build (`build.rb`), for each target:
+During build (`lib/rulepack/build.rb`), for each target:
 
 1. **Check target-level override**: If target specifies `transformer`, use it.
 2. **Check source default**: Otherwise use `source.default_transformer` from registry (not currently in PKGBUILD model; future).
@@ -175,21 +175,21 @@ During build (`build.rb`), for each target:
 
 **Verbose build**:
 ```bash
-ruby ssot/build.rb --verbose   # future flag
+bin/rulepack build --verbose   # future flag
 ```
 
 **Manual test**:
 ```ruby
-# From ssot/ directory
-require_relative 'lib/common'
-content = File.read('ssot/packages/my-pkg/src/file.md')
-transformer = Ssot::Lib::Common.load_transformer('custom:transformers/example.rb')
+# From repo root
+require_relative 'lib/rulepack/common'
+content = File.read('data/packages/my-pkg/src/file.md')
+transformer = Rulepack::Common.load_transformer('custom:transformers/example.rb')
 result = transformer.transform(content, pkgname: :my-pkg)
 puts result
 ```
 
 **Log inspection**:
-Check `ssot/build/build.log` for transformer application errors.
+Check `build/build.log` for transformer application errors.
 
 ---
 

@@ -25,15 +25,102 @@ module Rulepack
       raise "Invalid target_dir '#{target_dir}' in package '#{pkgname}': path traversal not allowed"
     end
 
-    # Atomic write: write content to temp file then rename
-    def atomic_write(path, content)
-      path = Pathname.new(path)
-      path.dirname.mkpath
+    def validate_pkgbuild(pkg, _pkgdir)
+      errors = []
+      validate_pkgname(pkg, errors)
+      validate_version_fields(pkg, errors)
+      validate_descriptive_fields(pkg, errors)
+      validate_source_entries(pkg, errors)
+      validate_target_entries(pkg, errors)
+      errors.empty? || errors.join('; ')
+    end
 
-      Tempfile.create(['rulepack', path.extname], path.dirname) do |tmp|
-        tmp.write(content)
-        tmp.flush
-        FileUtils.mv(tmp.path, path.to_s)
+    def validate_pkgname(pkg, errors)
+      return if pkg[:pkgname] =~ /\A[a-z0-9][a-z0-9_-]*\z/
+
+      errors << "Invalid pkgname '#{pkg[:pkgname]}': must be lowercase alphanumeric with - or _"
+    end
+
+    def validate_version_fields(pkg, errors)
+      errors << 'Invalid pkgver: must be non-empty string' unless pkg[:pkgver].is_a?(String) && !pkg[:pkgver].empty?
+      if pkg.key?(:pkgver_func) && !(pkg[:pkgver_func].is_a?(String) && !pkg[:pkgver_func].empty?)
+        errors << 'pkgver_func must be a non-empty string'
+      end
+      errors << 'Invalid epoch: must be integer >= 0' unless pkg[:epoch].is_a?(Integer) && pkg[:epoch] >= 0
+      errors << 'Invalid pkgrel: must be integer >= 1' unless pkg[:pkgrel].is_a?(Integer) && pkg[:pkgrel] >= 1
+    end
+
+    def validate_descriptive_fields(pkg, errors)
+      errors << 'Invalid pkgdesc: must be non-empty string' unless pkg[:pkgdesc].is_a?(String) && !pkg[:pkgdesc].empty?
+      errors << "Invalid arch: only 'any' supported" unless pkg[:arch] == 'any'
+      order_val = pkg[:order] || 0
+      errors << 'Invalid order: must be integer >= 0' unless order_val.is_a?(Integer) && order_val >= 0
+    end
+
+    def validate_source_entries(pkg, errors)
+      errors << 'source must be a non-empty array' unless pkg[:source].is_a?(Array) && !pkg[:source].empty?
+      pkg[:source]&.each_with_index do |src, i|
+        errors << "source[#{i}] missing type or path/url" unless src[:type] && (src[:path] || src[:url])
+        case src[:type]
+        when 'local'
+          unless src[:path].is_a?(String) && !src[:path].empty?
+            errors << "source[#{i}] local type requires non-empty path"
+          end
+        when 'url'
+          errors << "source[#{i}] url type requires url" unless src[:url].is_a?(String) && !src[:url].empty?
+          errors << "source[#{i}] url type requires valid sha256" unless src[:sha256] =~ /\A[0-9a-f]{64}\z/i
+        when 'git'
+          errors << "source[#{i}] git type requires url" unless src[:url].is_a?(String) && !src[:url].empty?
+          errors << "source[#{i}] git ref must be string" if src.key?(:ref) && !src[:ref].is_a?(String)
+          errors << "source[#{i}] git path must be string" if src.key?(:path) && !src[:path].is_a?(String)
+          errors << "source[#{i}] git depth must be integer" if src.key?(:depth) && !src[:depth].is_a?(Integer)
+        else
+          errors << "source[#{i}] unknown type: #{src[:type]}"
+        end
+      end
+    end
+
+    def validate_target_entries(pkg, errors)
+      errors << 'targets must be a non-empty array' unless pkg[:targets].is_a?(Array) && !pkg[:targets].empty?
+      return unless pkg[:targets].is_a?(Array)
+
+      valid_formats = %w[directory import skill skill-bundle]
+      pkg[:targets].each_with_index do |t, i|
+        errors << "targets[#{i}]: missing platform" unless t[:platform].is_a?(String)
+        unless valid_formats.include?(t[:format])
+          errors << "targets[#{i}]: invalid format '#{t[:format]}' (must be #{valid_formats.join('/')})"
+        end
+        begin
+          validate_target_entry_output(t, i, pkg, errors)
+        rescue StandardError => e
+          errors << "targets[#{i}]: #{e.message}"
+        end
+        tf = t[:transformer]
+        if tf && tf != 'copy' && tf != 'strip-frontmatter' && tf !~ /\Acustom:.+\z/
+          errors << "targets[#{i}]: invalid transformer '#{tf}'"
+        end
+        if t[:install]
+          inst = t[:install]
+          unless %w[symlink copy inject append].include?(inst[:type])
+            errors << "targets[#{i}]: invalid install.type '#{inst[:type]}'"
+          end
+          validate_target_dir(inst[:target_dir], pkg[:pkgname]) if inst[:target_dir]
+        end
+        next unless t[:format] == 'skill-bundle'
+
+        inst = t[:install] || {}
+        unless inst[:target_dir].is_a?(String) && !inst[:target_dir].empty?
+          errors << "targets[#{i}]: skill-bundle requires install.target_dir"
+        end
+        errors << "targets[#{i}]: skill-bundle install.type must be 'copy'" unless (inst[:type] || 'copy') == 'copy'
+      end
+    end
+
+    def validate_target_entry_output(t, i, pkg, errors)
+      if t[:output].nil? || t[:output].empty?
+        errors << "targets[#{i}]: output cannot be empty"
+      else
+        validate_output_filename(t[:output], pkg[:pkgname])
       end
     end
 

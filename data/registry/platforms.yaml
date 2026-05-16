@@ -159,7 +159,7 @@ codex:
   scope: project
   display_name: Codex CLI
   base_path: "."
-  skill_file: AGENTS.md
+  skill_file: CODEX.md
   rule_install:
   skill_install:
     type: copy

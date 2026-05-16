@@ -18,17 +18,16 @@
 goose update  # if available (npm)
 ```
 
-## SSoT Integration
+## Rulepack Integration
 
 ```bash
-ruby ssot/install.rb goose
+bin/rulepack install goose
 # Copies build/goose/skills/vendor/goose.md → ~/.local/share/goose/goose.md
-# Also updates ~/.config/goose/guardrails.md via symlink/copy?
 ```
 
 ## Notes
 
-Goose's persistent instructions are per-turn, not per-session. This is more reliable for guardrails but costs more tokens. The 64 KB limit means rules must be concise. The SSoT vendor skill should be referenced from guardrails file.
+Goose's persistent instructions are per-turn, not per-session. This is more reliable for guardrails but costs more tokens. The 64 KB limit means rules must be concise. The Rulepack vendor skill should be referenced from guardrails file.
 
 ## See Also
 

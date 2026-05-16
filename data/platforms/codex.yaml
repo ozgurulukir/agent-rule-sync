@@ -16,11 +16,11 @@ skills:
   code_block: fenced
 
 aggregation: |
-  Codex reads AGENTS.md from the project root. SSoT vendor aggregation
-  (ssot/aggregate-skills.rb) writes all skill/rule fragments into this file.
+  Codex reads AGENTS.md from the project root. Rulepack vendor aggregation
+  (lib/rulepack/aggregate.rb) writes all skill/rule fragments into this file.
   Each package's content is concatenated with "---\n\n" separator.
   No per-package headers added by default.
 
 notes: |
   Codex CLI reads AGENTS.md at the project root.
-  The vendor aggregation is handled by ssot/aggregate-skills.rb.
+  The vendor aggregation is handled by lib/rulepack/aggregate.rb.

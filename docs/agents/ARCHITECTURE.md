@@ -1,8 +1,8 @@
-# SSoT Architecture — PKGBUILD v4
+# Rulepack Architecture — PKGBUILD v4
 
 ## Overview
 
-The Single Source of Truth (SSoT) system uses a **package-based architecture** inspired by Arch Linux's PKGBUILD. Each rule or skill is a package with a declarative build descriptor. The system builds platform-specific artifacts and installs them to configured agent platforms.
+The Rulepack system uses a **package-based architecture** inspired by Arch Linux's PKGBUILD. Each rule or skill is a package with a declarative build descriptor. The system builds platform-specific artifacts and installs them to configured agent platforms.
 
 **Design goals**:
 - Single authoritative source → multiple agent platforms
@@ -17,7 +17,7 @@ The Single Source of Truth (SSoT) system uses a **package-based architecture** i
 
 ```
 your-project/
-├── ssot/
+├── data/
 │   ├── packages/                     # Package definitions (each = PKGBUILD + src/)
 │   │   ├── memory/PKGBUILD
 │   │   │   └── src/00-memory.md
@@ -30,11 +30,6 @@ your-project/
 │   │   └── ...
 │   ├── registry/
 │   │   └── platforms.yaml           # Platform definitions (type, paths, install methods)
-│   ├── lib/                         # Library modules
-│   │   ├── common.rb                # Constants, Config, basic IO
-│   │   ├── logging.rb, cache.rb, backup.rb, version.rb
-│   │   ├── source.rb, transform.rb, validation.rb
-│   │   ├── platform.rb, uninstall.rb, install.rb
 │   ├── translators/                 # Custom translator scripts
 │   │   └── rule_to_skill.rb
 │   ├── transformers/                # Custom transformer scripts
@@ -43,14 +38,9 @@ your-project/
 │   │   └── format-code.rb
 │   ├── platforms/                   # Platform format profiles (informational)
 │   │   ├── opencode.yaml, crush.yaml, goose.yaml ...
-│   ├── build.rb                     # Build orchestrator
-│   ├── aggregate-skills.rb          # Vendor skill aggregation
-│   ├── install.rb                   # Platform installer (CLI)
-│   ├── uninstall.rb                 # Platform uninstaller
-│   ├── query.rb                     # Package database queries
 │   ├── index.yaml                   # Master package DB (installed state + metadata)
 │   ├── index.json                   # Machine-readable index (auto-generated)
-│   └── build/
+│   └── build/                       # Build artifacts (generated)
 │       ├── index.yaml               # Build metadata (intermediate)
 │       ├── opencode/                # Built artifacts per platform
 │       │   ├── 00-memory.md
@@ -58,6 +48,18 @@ your-project/
 │       ├── crush/
 │       │   └── skills/vendor/crush.md
 │       └── ...
+├── lib/
+│   └── rulepack/                    # Library modules
+│       ├── common.rb                # Constants, Config, basic IO
+│       ├── logging.rb, cache.rb, backup.rb, version.rb
+│       ├── source.rb, transform.rb, validation.rb
+│       ├── platform.rb, uninstall.rb, install.rb
+│       ├── build.rb                 # Build orchestrator
+│       ├── aggregate.rb             # Vendor skill aggregation
+│       ├── query.rb                 # Package database queries
+│       └── ...
+├── bin/
+│   └── rulepack                     # CLI entry point
 ├── docs/
 │   └── agents/
 │       ├── README.md                # This doc index
@@ -72,7 +74,8 @@ your-project/
 │           ├── cursor.md
 │           └── ...
 ├── AGENTS.md                        # Repository AI assistant guidelines
-└── README.md                        # Project overview
+├── README.md                        # Project overview
+└── Rakefile                         # Test runner
 ```
 
 ---
@@ -117,22 +120,22 @@ Configuration stored in the project repository, version-controlled alongside cod
 
 ```
 ┌─────────────┐
-│  PKGBUILDs  │  ssot/packages/*/PKGBUILD (YAML descriptors)
+│  PKGBUILDs  │  data/packages/*/PKGBUILD (YAML descriptors)
 └──────┬──────┘
        │
        ▼
 ┌─────────────────────┐
-│   Build Phase       │  ruby ssot/build.rb
+│   Build Phase       │  bin/rulepack build
 │   - Load PKGBUILDs  │  • Validate schema
 │   - Fetch sources   │  • Read local/URL (SHA256 verify)
 │   - Transform       │  • Apply transformer (copy/strip/custom)
-│   - Write artifacts │  • Output → ssot/build/<platform>/
+│   - Write artifacts │  • Output → build/<platform>/
 │   - Update index    │  • Write build/index.yaml + index.json
 └─────────┬───────────┘
           │
           ▼
 ┌─────────────────────┐
-│   Aggregate Phase   │  ruby ssot/aggregate-skills.rb
+│   Aggregate Phase   │  bin/rulepack aggregate
 │   (skill agents)    │  • Collect rule fragments (format=skill)
 │   - Header          │  • Add agent-specific skills
 │   - Rules (ordered) │  • Add common skills
@@ -142,18 +145,18 @@ Configuration stored in the project repository, version-controlled alongside cod
           │
           ▼
 ┌─────────────────────┐
-│   Install Phase     │  ruby ssot/install.rb <platform> [--project PATH]
+│   Install Phase     │  bin/rulepack install <platform> [--project PATH]
 │   - Resolve paths   │  • Lookup platform config (registry)
 │   - Create dirs     │  • Compute install paths
 │   - Symlink/copy    │  • Perform install (symlink/copy/inject/append)
-│   - Update index    │  • Write installed records to index.yaml
+│   - Update index    │  • Write installed records to data/index.yaml
 │   - Vendor copy     │  • For skill agents: copy vendor file to agent location
 └─────────┬───────────┘
           │
           ▼
 ┌─────────────────────┐
-│   Query / Verify    │  ruby ssot/query.rb, ruby ssot/install.rb --check
-│   - List packages   │  • Inspect index.yaml / index.json
+│   Query / Verify    │  bin/rulepack query, bin/rulepack check <platform>
+│   - List packages   │  • Inspect data/index.yaml / data/index.json
 │   - Show details    │  • Verify installed checksums
 │   - Search          │  • Validate sync state
 │   - Check           │
@@ -164,24 +167,24 @@ Configuration stored in the project repository, version-controlled alongside cod
 
 ## Data Flow
 
-**Build** (`build.rb`):
-1. Load all `PKGBUILD` files from `packages/*/`
+**Build** (`lib/rulepack/build.rb`):
+1. Load all `PKGBUILD` files from `data/packages/*/`
 2. For each source entry: read local file or fetch URL (with SHA256 verification)
 3. Apply transformer per target (built-in or custom Ruby script)
 4. Write built artifact to `build/<platform>/<output>`
 5. Record checksums in `build/index.yaml`
 6. Generate `index.json` (machine-readable)
 
-**Aggregate** (`aggregate-skills.rb`):
-1. Load `index.yaml` to find packages with `format: skill` targets
+**Aggregate** (`lib/rulepack/aggregate.rb`):
+1. Load `data/index.yaml` to find packages with `format: skill` targets
 2. For each skill agent (crush, goose, droid, codex):
    - Read agent-specific header (if any)
    - Collect all rule fragments in `order` sequence
-   - Append common skills (`skills/common/*.md`)
-   - Append agent-specific extras (`skills/agent-specific/<agent>/*.md`)
+   - Append common skills (`data/skills/common/*.md`)
+   - Append agent-specific extras (`data/skills/agent-specific/<agent>/*.md`)
    - Write concatenated vendor skill to `build/<agent>/skills/vendor/<agent>.md`
 
-**Install** (`install.rb`):
+**Install** (`lib/rulepack/install.rb`):
 1. Load `build/index.yaml` and platform registry
 2. For project-level platforms, resolve `--project` dir (default: `Dir.pwd`)
 3. For each package with target matching platform:
@@ -191,25 +194,25 @@ Configuration stored in the project repository, version-controlled alongside cod
      - `copy`: copy if checksum differs
      - `inject`: prepend `@import` line to config (deduplicate)
      - `append`: append content (vendor skill aggregation)
-   - Record installation in `index.yaml` (platform, output, checksum, timestamp)
+   - Record installation in `data/index.yaml` (platform, output, checksum, timestamp)
 4. For skill platforms: run aggregation, then copy vendor file to agent's location
 
-**Uninstall** (`uninstall.rb`):
-1. Load `index.yaml`, find all installed records for platform
+**Uninstall** (`lib/rulepack/uninstaller.rb`):
+1. Load `data/index.yaml`, find all installed records for platform
 2. For each installed artifact: remove symlink/file
-3. Clean installed records from `index.yaml`
+3. Clean installed records from `data/index.yaml`
 4. For skill platforms: re-aggregate (excluding removed packages) and copy updated vendor file
 5. Write index atomically
 
-**Query** (`query.rb`):
+**Query** (`lib/rulepack/query.rb`):
 - Commands: `list-packages`, `list-platforms`, `installed --platform <p>`, `show <pkg>`, `search <tag>`, `check`
-- Prefers `index.yaml`, falls back to `index.json`
+- Prefers `data/index.yaml`, falls back to `data/index.json`
 
 ---
 
 ## Index Database
 
-`ssot/index.yaml` (master package database):
+`data/index.yaml` (master package database):
 
 ```yaml
 version: 3.0
@@ -256,7 +259,7 @@ Key fields:
 - `available_targets` — list of platforms this package can deploy to
 - `targets[]` — raw target definitions from PKGBUILD
 
-`ssot/index.json` is auto-generated from `index.yaml` for programmatic access.
+`data/index.json` is auto-generated from `index.yaml` for programmatic access.
 
 ---
 
@@ -298,42 +301,90 @@ Built-in transformers:
 - `copy` — identity (no transformation)
 - `strip-frontmatter` — remove YAML frontmatter block (`---` delimited)
 
-Custom transformers: Ruby scripts in `ssot/transformers/` defining a `Transform` class:
+Custom transformers: Ruby scripts in `data/transformers/` defining a `Transform` class:
 
 ```ruby
+# data/transformers/example.rb
 class Transform
   def initialize(content:, pkgname:)
-    @content = content
-    @pkgname = pkgname
+    @content = content    # Source file content (string)
+    @pkgname = pkgname    # Package name (symbol, optional)
   end
 
   def transform
-    # ... modify @content ...
+    # Modify @content as needed
     @content
   end
 end
 ```
 
-Referenced as `transformer: custom:transformers/example.rb`. Path resolved relative to repo root, validated with `realpath` to prevent symlink attacks.
+---
 
-See [Transforms](TRANSFORMS.md) for details.
+## Translator System
+
+The **translate step** runs *before* the transform step. It converts content from one format family to another — e.g., flat rule → skill, markdown → import.
+
+Custom translators: Ruby scripts in `data/translators/` defining a `Translator` class:
+
+```ruby
+# data/translators/example.rb
+class Translator
+  def self.translate(content, args: {})
+    pkgname = args[:pkgname]
+    # Transform content
+    content
+  end
+end
+```
+
+---
+
+## Platform Registry
+
+Platforms are defined in `data/registry/platforms.yaml`. This is the central configuration for all supported agents, their types, scopes, base paths, and install methods.
+
+---
+
+## Skill Aggregation
+
+For skill-based agents (crush, goose, droid, codex), the system aggregates rule fragments and skills into a single vendor skill file. This is handled by `lib/rulepack/aggregate.rb`.
+
+The aggregation:
+1. Reads agent-specific header from `data/skills/agent-specific/<agent>/*.md`
+2. Collects all rule fragments in `order` sequence
+3. Appends common skills from `data/skills/common/*.md`
+4. Concatenates with `---\n\n` separators
+5. Writes to `build/<agent>/skills/vendor/<agent>.md`
+
+---
+
+## Caching
+
+The system caches:
+- **HTTP fetches**: by SHA256 of fetched content
+- **Git clones**: by commit hash
+- **Extracted sources**: in `cache/<key>/extracted/`
+
+Cache directory: `cache/` (configurable via `RULEPACK_CACHE_DIR`).
+
+---
+
+## Version Management
+
+Packages use pacman-style versioning: `epoch:pkgver-pkgrel`.
+
+- **epoch** (default 0): Overrides versioning scheme changes
+- **pkgver** (string): Upstream version
+- **pkgrel** (default 1): Package release increment
+
+Upgrade: Automatic on re-install if newer version detected.
+Downgrade: Blocked by default; use `--force` to allow.
 
 ---
 
 ## Security
 
-- **Path traversal**: All `output` and `target_dir` values validated (no `..`, no absolute paths)
-- **Transformer injection**: Custom transformer paths resolved with `realpath` and must be within repo root
-- **URL sources**: SHA256 checksum enforced; redirects followed but content validated
-- **Index writes**: Atomic via tempfile + rename
-- **Dry-run**: Zero filesystem changes
-
----
-
-## See Also
-
-- [Platforms](PLATFORMS.md) — Complete platform reference
-- [Usage](USAGE.md) — Installation and workflow guide
-- [Reference](REFERENCE.md) — PKGBUILD schema, transformer API, index format
-- [Transforms](TRANSFORMS.md) — Transformer documentation
-- [Upstream](UPSTREAM.md) — Upstream source management
+- **Path traversal protection**: All file paths validated with `realpath` to ensure they stay within repo
+- **Safe YAML loading**: `YAML.safe_load` used everywhere
+- **Command injection prevention**: All `system()` calls use array form
+- **Checksum verification**: All sources verified against expected SHA256

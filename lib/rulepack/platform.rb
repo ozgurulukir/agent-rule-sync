@@ -4,13 +4,6 @@ module Rulepack
   module Common
     module_function
 
-    # Append to file atomically (create if doesn't exist)
-    def atomic_append(path, content)
-      path = Pathname.new(path)
-      path.dirname.mkpath
-
-      File.open(path.to_s, 'a') { |f| f.write(content) }
-    end
 
     # Generate skill-bundle manifest JSON for a built package directory.
     # build_pkg_dir: Pathname to the built package directory
@@ -102,29 +95,9 @@ module Rulepack
     end
 
     # Resolve install path for a platform/target
-    # base_override: for project-level platforms, the actual project root Pathname
+    # base_override: Pathname or String to override the platform's default base_path
     def resolve_install_path(platform_cfg, target_cfg, base_override = nil)
-      base = if base_override
-               base_override.to_s
-             else
-               expand_user_path(platform_cfg[:base_path])
-             end
-
-      case platform_cfg[:type]
-      when 'directory'
-        dir = if target_cfg[:format] == 'skill'
-                platform_cfg[:skills_dir] || platform_cfg[:rules_dir]
-              else
-                platform_cfg[:rules_dir]
-              end
-        Pathname.new(base).join(dir, target_cfg[:output])
-      when 'import'
-        Pathname.new(base).join(platform_cfg[:config_file])
-      when 'skill'
-        Pathname.new(base).join(platform_cfg[:skill_file])
-      else
-        raise "Unknown platform type: #{platform_cfg[:type]}"
-      end
+      Rulepack::Common.resolve_install_path(platform_cfg, target_cfg, base_override)
     end
 
     # Safe relative path (no escaping parent)

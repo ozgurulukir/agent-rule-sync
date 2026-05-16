@@ -1,25 +1,25 @@
 # Agent Platforms Reference
 
-Complete reference for all supported agent platforms, their configuration locations, formats, and SSoT integration details.
+Complete reference for all supported agent platforms, their configuration locations, formats, and Rulepack integration details.
 
 ## Platform Index
 
 | Platform | Scope | Type | Config Location | Install Command |
 |----------|-------|------|-----------------|-----------------|
-| [OpenCode](#opencode) | user | directory | `~/.config/opencode/rules/` | `ruby ssot/install.rb opencode` |
-| [Oh My Pi](#oh-my-pi) | user | directory | `~/.config/oh-my-pi/rules/` | `ruby ssot/install.rb oh-my-pi` |
-| [Crush](#crush) | user | skill | `/usr/local/share/crush/crush.md` | `ruby ssot/install.rb crush` |
-| [Goose](#goose) | user | skill | `~/.local/share/goose/goose.md` | `ruby ssot/install.rb goose` |
-| [Droid](#droid) | user | skill | `~/.config/droid/droid.md` | `ruby ssot/install.rb droid` |
-| [Gemini CLI](#gemini-cli) | user | import | `~/.config/gemini/GEMINI.md` | `ruby ssot/install.rb gemini-cli` |
-| [Qwen Code](#qwen-code) | user | import | `~/.config/qwen/QWEN.md` | `ruby ssot/install.rb qwen-code` |
-| [Cursor](#cursor) | project | directory | `.cursor/rules/` | `ruby ssot/install.rb cursor --project .` |
-| [Windsurf](#windsurf) | project | directory | `.windsurf/rules/` | `ruby ssot/install.rb windsurf --project .` |
-| [GitHub Copilot](#github-copilot) | project | import | `.github/copilot-instructions.md` | `ruby ssot/install.rb github-copilot --project .` |
-| [Claude Code](#claude-code) | project | directory | `.claude/rules/` + `CLAUDE.md` | `ruby ssot/install.rb claude-code --project .` |
-| [Codex CLI](#codex-cli) | project | skill | `AGENTS.md` | `ruby ssot/install.rb codex --project .` |
-| [Antigravity](#antigravity) | project | directory | `.agent/skills/` | `ruby ssot/install.rb antigravity --project .` |
-| [Agents](#agents) | user | directory | `~/.config/agents/rules/` | `ruby ssot/install.rb agents` |
+| [OpenCode](#opencode) | user | directory | `~/.config/opencode/rules/` | `bin/rulepack install opencode` |
+| [Oh My Pi](#oh-my-pi) | user | directory | `~/.config/oh-my-pi/rules/` | `bin/rulepack install oh-my-pi` |
+| [Crush](#crush) | user | skill | `/usr/local/share/crush/crush.md` | `bin/rulepack install crush` |
+| [Goose](#goose) | user | skill | `~/.local/share/goose/goose.md` | `bin/rulepack install goose` |
+| [Droid](#droid) | user | skill | `~/.config/droid/droid.md` | `bin/rulepack install droid` |
+| [Gemini CLI](#gemini-cli) | user | import | `~/.config/gemini/GEMINI.md` | `bin/rulepack install gemini-cli` |
+| [Qwen Code](#qwen-code) | user | import | `~/.config/qwen/QWEN.md` | `bin/rulepack install qwen-code` |
+| [Cursor](#cursor) | project | directory | `.cursor/rules/` | `bin/rulepack install cursor --project .` |
+| [Windsurf](#windsurf) | project | directory | `.windsurf/rules/` | `bin/rulepack install windsurf --project .` |
+| [GitHub Copilot](#github-copilot) | project | import | `.github/copilot-instructions.md` | `bin/rulepack install github-copilot --project .` |
+| [Claude Code](#claude-code) | project | directory | `.claude/rules/` + `CLAUDE.md` | `bin/rulepack install claude-code --project .` |
+| [Codex CLI](#codex-cli) | project | skill | `AGENTS.md` | `bin/rulepack install codex --project .` |
+| [Antigravity](#antigravity) | project | directory | `.agent/skills/` | `bin/rulepack install antigravity --project .` |
+| [Agents](#agents) | user | directory | `~/.config/agents/rules/` | `bin/rulepack install agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
@@ -39,7 +39,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Rules loading**: All `rules/*.md` files injected at session start via `AGENTS.md`
 - **Update**: `opencode upgrade` (self-updater, multiple backends)
 
-**SSoT integration**: `ssot/install.rb opencode` → symlinks to `~/.config/opencode/rules/`
+**Rulepack integration**: `bin/rulepack install opencode` → symlinks to `~/.config/opencode/rules/`
 
 ---
 
@@ -55,7 +55,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: Hash-anchored edits, TTSR rules (zero context until triggered), IPython kernel
 - **Update**: `omp update` (bun-installed self-updater)
 
-**SSoT integration**: `ssot/install.rb oh-my-pi` → symlinks to `~/.config/oh-my-pi/rules/`
+**Rulepack integration**: `bin/rulepack install oh-my-pi` → symlinks to `~/.config/oh-my-pi/rules/`
 
 ---
 
@@ -71,7 +71,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: Session-based, LSP-enhanced, mid-session model switching
 - **Update**: `sudo apt update && sudo apt install crush` (Debian repo)
 
-**SSoT integration**: `ssot/install.rb crush` → copies `build/crush/skills/vendor/crush.md` to `/usr/local/share/crush/crush.md`
+**Rulepack integration**: `bin/rulepack install crush` → copies `build/crush/skills/vendor/crush.md` to `/usr/local/share/crush/crush.md`
 
 ---
 
@@ -87,7 +87,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Persistent instructions**: `GOOSE_MOIM_MESSAGE_FILE` env var → `~/.config/goose/guardrails.md` (re-read every turn, 64KB limit)
 - **Update**: `goose update` (npm)
 
-**SSoT integration**: `ssot/install.rb goose` → copies `build/goose/skills/vendor/goose.md` to `~/.local/share/goose/goose.md`
+**Rulepack integration**: `bin/rulepack install goose` → copies `build/goose/skills/vendor/goose.md` to `~/.local/share/goose/goose.md`
 
 ---
 
@@ -102,7 +102,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Rules loading**: `AGENTS.md` hierarchy (project → parents → `~/.factory/AGENTS.md`)
 - **Update**: `droid update` (if available)
 
-**SSoT integration**: `ssot/install.rb droid` → copies `build/droid/skills/vendor/droid.md` to `~/.factory/AGENTS.md`
+**Rulepack integration**: `bin/rulepack install droid` → copies `build/droid/skills/vendor/droid.md` to `~/.factory/AGENTS.md`
 
 ---
 
@@ -117,7 +117,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Extensions**: `gemini extensions install` (stored in `~/.gemini/extensions/`)
 - **Update**: `gemini extensions update --all` (CLI via npm; extensions separate)
 
-**SSoT integration**: `ssot/install.rb gemini-cli` → injects `@import` lines into `~/.config/gemini/GEMINI.md`
+**Rulepack integration**: `bin/rulepack install gemini-cli` → injects `@import` lines into `~/.config/gemini/GEMINI.md`
 
 ---
 
@@ -134,7 +134,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Permissions**: fine-grained allow/ask/deny per tool pattern
 - **Features**: auto-update, git co-author, chat compression at 70% threshold
 
-**SSoT integration**: `ssot/install.rb qwen-code` → injects `@import` lines into `~/.config/qwen/QWEN.md`
+**Rulepack integration**: `bin/rulepack install qwen-code` → injects `@import` lines into `~/.config/qwen/QWEN.md`
 
 ---
 
@@ -151,7 +151,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: AI-first IDE (VS Code fork), team rules via dashboard, `.mdc` frontmatter support
 - **Update**: Built-in updater (menu → Help → Check for Updates)
 
-**SSoT integration**: `ruby ssot/install.rb cursor --project /path/to/project` → symlinks to `.cursor/rules/`
+**Rulepack integration**: `bin/rulepack install cursor --project /path/to/project` → symlinks to `.cursor/rules/`
 
 ---
 
@@ -166,7 +166,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: Codeium's agentic IDE (Cascade), GUI rule editor with always-active / context-specific rules, `.mdc` frontmatter support
 - **Update**: Built-in updater
 
-**SSoT integration**: `ruby ssot/install.rb windsurf --project .` → symlinks to `.windsurf/rules/`
+**Rulepack integration**: `bin/rulepack install windsurf --project .` → symlinks to `.windsurf/rules/`
 
 ---
 
@@ -180,7 +180,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: VS Code extension (also GitHub web, CLI), supports `.github/instructions/*.md` additional files
 - **Update**: VS Code extension update
 
-**SSoT integration**: `ruby ssot/install.rb github-copilot --project .` → copies instruction files to `.github/`
+**Rulepack integration**: `bin/rulepack install github-copilot --project .` → copies instruction files to `.github/`
 
 ---
 
@@ -195,7 +195,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Provider**: Anthropic Claude 4 (Sonnet 4, Opus 4)
 - **Update**: `claude update` (if installed via npm)
 
-**SSoT integration**: `ruby ssot/install.rb claude-code --project .` → symlinks to `.claude/rules/`
+**Rulepack integration**: `bin/rulepack install claude-code --project .` → symlinks to `.claude/rules/`
 
 ---
 
@@ -207,10 +207,11 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Skill file**: `AGENTS.md`
 - **Install method**: copy (vendor skill aggregation)
 - **Provider**: OpenAI (Codex models)
-- **Rules loading**: Searches up directory tree for `AGENTS.md`; supports `AGENTS.override.md` and `project_doc_fallback_filenames`
+- **Rules loading**: Searches up directory tree for `AGENTS.md`; supports `AGENTS.override.md` and `project_doc_fallback_filenames` config; truncates at 32 KiB by default
+- **Features**: Terminal agent, project-aware, supports subagents (general, Explore, code-reviewer)
 - **Update**: `codex update` (npm)
 
-**SSoT integration**: `ruby ssot/install.rb codex --project .` → generates vendor skill and writes to `AGENTS.md`
+**Rulepack integration**: `bin/rulepack install codex --project .` → generates vendor skill and writes to `AGENTS.md`
 
 ---
 
@@ -222,7 +223,8 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Skills dir**: `.agent/skills/`
 - **Install method**: copy (skill-bundle)
 - **Skills**: antigravity-skills (306 sub-skills from `github.com/rmyndharis/antigravity-skills`)
-- **SSoT integration**: `ruby ssot/install.rb antigravity --project .` → copies skill-bundle to `.agent/skills/antigravity-skills/`
+
+**Rulepack integration**: `bin/rulepack install antigravity --project .` → copies skill-bundle to `.agent/skills/antigravity-skills/`
 
 ---
 
@@ -234,13 +236,14 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Rules dir**: `rules/`
 - **Skills dir**: `skills/`
 - **Install method**: symlink for rules, copy for skills
-- **SSoT integration**: `ruby ssot/install.rb agents` → symlinks/copies to `~/.config/agents/rules/` and `~/.config/agents/skills/`
+
+**Rulepack integration**: `bin/rulepack install agents` → symlinks/copies to `~/.config/agents/rules/` and `~/.config/agents/skills/`
 
 ---
 
 ## Platform Registry Schema
 
-Platforms are defined in `ssot/registry/platforms.yaml`:
+Platforms are defined in `data/registry/platforms.yaml`:
 
 ```yaml
 <platform_id>:
@@ -291,79 +294,127 @@ Platforms are defined in `ssot/registry/platforms.yaml`:
 Install to fixed locations in home directory or system paths:
 
 ```bash
-ruby ssot/install.rb opencode    # → ~/.config/opencode/rules/
-ruby ssot/install.rb crush       # → /usr/local/share/crush/crush.md
-ruby ssot/install.rb goose       # → ~/.local/share/goose/goose.md
+bin/rulepack install opencode    # → ~/.config/opencode/rules/
+bin/rulepack install crush       # → /usr/local/share/crush/crush.md
+bin/rulepack install goose       # → ~/.local/share/goose/goose.md
 ```
 
 No `--project` flag needed. `base_path` is absolute (tilde-expanded).
 
 ### Project-Level Platforms
 
-Install to current project repository:
+Per-project installation. Run from project root or use `--project PATH`:
 
 ```bash
-cd /path/to/project
-ruby ssot/install.rb cursor --project .
-# or (default to current dir if --project omitted)
-ruby ssot/install.rb cursor
+cd /path/to/your/project
+
+# Install to current project (--project optional when run from project root)
+bin/rulepack install cursor
+bin/rulepack install windsurf
+bin/rulepack install github-copilot
+bin/rulepack install claude-code
+bin/rulepack install codex
+bin/rulepack install antigravity
+
+# Or specify explicit project path
+bin/rulepack install cursor --project /path/to/project
 ```
 
-`base_path` is `.` (current directory), resolved relative to `--project` path. All installed files are version-controlled alongside project code.
+**Important**: Uninstall for project-level platforms also requires `--project` to locate files.
 
-**Important**: For project-level platforms, always run from project root or specify `--project` explicitly. Uninstall requires the same `--project` flag to locate files.
+---
+
+## Install Types
+
+### Symlink (`symlink`)
+
+Creates a relative symbolic link from the platform's rules directory to the built artifact in `build/<platform>/`.
+
+- Used by: OpenCode, Oh My Pi, Cursor, Windsurf, Claude Code
+- Idempotent: replaces stale symlinks automatically
+
+### Copy (`copy`)
+
+Copies the built artifact to the target location. Only copies if checksum differs.
+
+- Used by: Crush, Goose, Droid, GitHub Copilot, Antigravity (skill-bundle)
+- Preserves existing files if unchanged
+
+### Inject (`inject`)
+
+Prepends an `@import` directive line to the platform's config file. Deduplicates on re-install.
+
+- Used by: Gemini CLI, Qwen Code
+- Appends to top of file (after frontmatter if present)
+
+### Append (`append`)
+
+Appends content to the target file. Used for vendor skill aggregation.
+
+- Used by: Codex CLI (vendor skill file)
+- Concatenates with `---\n\n` separator
 
 ---
 
 ## Format Types
 
-### directory
+### `directory`
 
-Files are placed in a directory (`rules/` or `skills/`) as individual markdown files. Most agents support this format.
+Multiple rule files in a directory structure. Files are symlinked or copied into the platform's `rules_dir`.
 
-- **Rules**: go to `rules_dir` (e.g., `rules/00-memory.md`)
-- **Skills**: go to `skills_dir` (e.g., `skills/vibe-security.md`)
-- **Install**: typically `symlink` for rules (space-efficient, auto-update), `copy` for skills
+- Examples: OpenCode, Cursor, Claude Code
+- Output: individual `.md` files per rule
 
-**Agents**: OpenCode, Oh My Pi, Cursor, Windsurf, Claude Code, Antigravity, Agents
+### `skill`
 
-### import
+Single skill file consumed by the agent. Content is typically aggregated from multiple rule fragments.
 
-Content is injected into a configuration file as `@import` directives, or copied as separate instruction files.
+- Examples: Crush, Goose, Droid, Codex CLI
+- Output: single `*.md` skill file
 
-- **Inject**: prepend `@import "filename.md"` to `config_file` (deduplicated on re-install)
-- **Copy**: write separate instruction file to `base_path` (used by GitHub Copilot)
+### `import`
 
-**Agents**: Gemini CLI, Qwen Code (inject); GitHub Copilot (copy)
+Config file with `@import` directives. The SSoT system injects import lines pointing to built artifacts.
 
-### skill
+- Examples: Gemini CLI, Qwen Code
+- Output: `@import` lines added to config
 
-All rules and skills are concatenated into a single skill file (vendor skill). Skill agents read this one file for all instructions.
+### `skill-bundle`
 
-- **Aggregation**: `aggregate-skills.rb` combines rule fragments + common/agent-specific skills
-- **Install**: copy the aggregated vendor file to agent's `skill_file` location
-- **Order**: Rules sorted by `order` field in PKGBUILD; header/footer from agent-specific skills
+Entire directory tree of skills copied as-is. Used for large skill collections with sub-skill selection.
 
-**Agents**: Crush, Goose, Droid, Codex CLI
+- Examples: Antigravity (306 sub-skills)
+- Output: entire directory copied to target
 
 ---
 
-## Uninstall Behavior
+## Troubleshooting
 
-| Platform Type | What Uninstall Does |
-|---------------|---------------------|
-| `directory` | Removes symlinks/files from `rules_dir`/`skills_dir` |
-| `import` | Removes `@import` lines from `config_file` (future: automatic removal) |
-| `skill` | Removes vendor skill file; re-aggregates to exclude uninstalled packages |
+### "Platform not found"
 
-For skill platforms, uninstall triggers re-aggregation to regenerate the vendor file without the removed package's contributions.
+```bash
+# List available platforms
+bin/rulepack platforms
+```
+
+Ensure the platform ID matches exactly (e.g., `opencode`, not `OpenCode`).
+
+### "Path traversal not allowed"
+
+Custom transformer or source paths must resolve within the repository root. Check that paths don't contain `..` or absolute paths outside the repo.
+
+### "Checksum mismatch"
+
+Source or built artifact has changed since last build. Run `bin/rulepack build` to rebuild.
+
+### "No target for platform, skipping"
+
+The package has no target defined for the requested platform. Check the PKGBUILD `targets:` section.
 
 ---
 
 ## See Also
 
-- [Architecture](ARCHITECTURE.md) — System design and data flow
-- [Usage](USAGE.md) — Installation workflows and commands
-- [Reference](REFERENCE.md) — PKGBUILD format, transformer API, index schema
-- [Transforms](TRANSFORMS.md) — Transformer system documentation
-- [Upstream](UPSTREAM.md) — Upstream source management
+- [Platforms Registry](REFERENCE.md#platform-registry-schema) — YAML schema
+- [Usage](USAGE.md) — Install workflows and commands
+- [Architecture](ARCHITECTURE.md) — System design

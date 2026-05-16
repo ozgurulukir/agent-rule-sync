@@ -1,6 +1,6 @@
 # Usage Guide
 
-How to use the SSoT system: installation, workflows, commands, and common tasks.
+How to use the Rulepack system: installation, workflows, commands, and common tasks.
 
 ## Table of Contents
 
@@ -21,14 +21,14 @@ How to use the SSoT system: installation, workflows, commands, and common tasks.
 
 ```bash
 # 1. Build all packages (fetch + transform)
-bin/ssot build
+bin/rulepack build
 
 # 2. Install to a platform
-bin/ssot install opencode              # user-level
-bin/ssot install cursor --project .    # project-level (from project root)
+bin/rulepack install opencode              # user-level
+bin/rulepack install cursor --project .    # project-level (from project root)
 
 # 3. Verify
-bin/ssot check opencode
+bin/rulepack check opencode
 ```
 
 ---
@@ -41,22 +41,22 @@ Global installation to home directory or system paths. No `--project` flag neede
 
 ```bash
 # OpenCode (rules as symlinks)
-bin/ssot install opencode
+bin/rulepack install opencode
 
 # Oh My Pi
-bin/ssot install oh-my-pi
+bin/rulepack install oh-my-pi
 
 # Skill agents (vendor skill file)
-bin/ssot install crush
-bin/ssot install goose
-bin/ssot install droid
+bin/rulepack install crush
+bin/rulepack install goose
+bin/rulepack install droid
 
 # Import agents (inject @import lines)
-bin/ssot install gemini-cli
-bin/ssot install qwen-code
+bin/rulepack install gemini-cli
+bin/rulepack install qwen-code
 
 # Community agents
-bin/ssot install agents
+bin/rulepack install agents
 ```
 
 ### Project-Level Platforms
@@ -67,15 +67,15 @@ Per-project installation. Run from project root or use `--project PATH`:
 cd /path/to/your/project
 
 # Install to current project (--project optional when run from project root)
-bin/ssot install cursor
-bin/ssot install windsurf
-bin/ssot install github-copilot
-bin/ssot install claude-code
-bin/ssot install codex
-bin/ssot install antigravity
+bin/rulepack install cursor
+bin/rulepack install windsurf
+bin/rulepack install github-copilot
+bin/rulepack install claude-code
+bin/rulepack install codex
+bin/rulepack install antigravity
 
 # Or specify explicit project path
-bin/ssot install cursor --project /path/to/project
+bin/rulepack install cursor --project /path/to/project
 ```
 
 **Important**: Uninstall for project-level platforms also requires `--project` to locate files.
@@ -88,27 +88,27 @@ bin/ssot install cursor --project /path/to/project
 
 ```bash
 # Clean build artifacts, rebuild everything, reinstall
-rm -rf ssot/build/
-bin/ssot build
-bin/ssot install opencode
+rm -rf build/
+bin/rulepack build
+bin/rulepack install opencode
 ```
 
 ### Development Cycle
 
 ```bash
 # 1. Edit package source
-vim ssot/packages/memory/src/00-memory.md
+vim data/packages/memory/src/00-memory.md
 
 # 2. Rebuild (only changed packages)
-bin/ssot build
+bin/rulepack build
 
 # 3. Reinstall affected platforms
-bin/ssot install opencode
-bin/ssot install cursor --project .
+bin/rulepack install opencode
+bin/rulepack install cursor --project .
 
 # 4. Verify
-bin/ssot show memory
-bin/ssot check opencode
+bin/rulepack show memory
+bin/rulepack check opencode
 ```
 
 ### Multi-Platform Install
@@ -116,12 +116,12 @@ bin/ssot check opencode
 ```bash
 # Install to all user-level platforms
 for p in opencode oh-my-pi crush goose droid gemini-cli qwen-code agents; do
-  bin/ssot install $p
+  bin/rulepack install $p
 done
 
 # Install to project from multiple terminals or script
-bin/ssot install cursor --project /my/project &
-bin/ssot install claude-code --project /my/project &
+bin/rulepack install cursor --project /my/project &
+bin/rulepack install claude-code --project /my/project &
 wait
 ```
 
@@ -130,8 +130,8 @@ wait
 Always preview changes before installing:
 
 ```bash
-bin/ssot install opencode --dry-run
-bin/ssot uninstall cursor --project . --dry-run
+bin/rulepack install opencode --dry-run
+bin/rulepack uninstall cursor --project . --dry-run
 ```
 
 ---
@@ -143,29 +143,29 @@ bin/ssot uninstall cursor --project . --dry-run
 Build all packages from source.
 
 ```bash
-bin/ssot build              # Build all
-bin/ssot build && bin/ssot install opencode  # Build and install
+bin/rulepack build              # Build all
+bin/rulepack build && bin/rulepack install opencode  # Build and install
 ```
 
-**Output**: `ssot/build/<platform>/` artifacts, `ssot/build/index.yaml`, `ssot/index.json`
+**Output**: `build/<platform>/` artifacts, `build/index.yaml`, `data/index.json`
 
 ### aggregate
 
 Generate vendor skill files for skill-based agents.
 
 ```bash
-bin/ssot aggregate          # All skill agents
-# or: ruby ssot/aggregate-skills.rb
+bin/rulepack aggregate          # All skill agents
+# or: ruby lib/rulepack/aggregate.rb
 ```
 
-**Output**: `ssot/build/<agent>/skills/vendor/<agent>.md`
+**Output**: `build/<agent>/skills/vendor/<agent>.md`
 
 ### install
 
 Install packages to a target platform.
 
 ```bash
-bin/ssot install <platform> [options]
+bin/rulepack install <platform> [options]
 
 Options:
   --dry-run        Show what would be installed (no changes)
@@ -178,30 +178,30 @@ Options:
 **Examples**:
 ```bash
 # Install all packages to user-level platform
-bin/ssot install opencode
+bin/rulepack install opencode
 
 # Install to project-level platform
-bin/ssot install cursor --project .
+bin/rulepack install cursor --project .
 
 # Preview changes
-bin/ssot install opencode --dry-run
+bin/rulepack install opencode --dry-run
 
 # Install only specific sub-skills from a skill-bundle
-bin/ssot install golang-security --select auth,sql
+bin/rulepack install golang-security --select auth,sql
 
 # Force downgrade
-bin/ssot install opencode --force
+bin/rulepack install opencode --force
 ```
 
 **Examples**:
 ```bash
-bin/ssot install opencode --dry-run
-bin/ssot install cursor --project /my/app
-bin/ssot check opencode
+bin/rulepack install opencode --dry-run
+bin/rulepack install cursor --project /my/app
+bin/rulepack check opencode
 ```
 
 **Platform Prerequisites**:
-Before install, SSoT checks platform prerequisites (system tools) and warns if missing. This is informational only — install continues regardless. See [Platforms](PLATFORMS.md) for required tools per platform.
+Before install, Rulepack checks platform prerequisites (system tools) and warns if missing. This is informational only — install continues regardless. See [Platforms](PLATFORMS.md) for required tools per platform.
 
 **Upgrades & Downgrades**:
 - Re-installing automatically upgrades if the candidate version is newer (higher epoch → pkgver → pkgrel).
@@ -209,7 +209,7 @@ Before install, SSoT checks platform prerequisites (system tools) and warns if m
 - Use `--force` to allow a downgrade (e.g., to roll back to an older package version).
 
 ```bash
-bin/ssot install opencode --force   # Force even if candidate is older
+bin/rulepack install opencode --force   # Force even if candidate is older
 ```
 
 ### uninstall
@@ -217,7 +217,7 @@ bin/ssot install opencode --force   # Force even if candidate is older
 Remove packages from a platform.
 
 ```bash
-bin/ssot uninstall <platform> [options]
+bin/rulepack uninstall <platform> [options]
 
 Options:
   --dry-run        Show what would be removed (no changes)
@@ -226,8 +226,8 @@ Options:
 
 **Examples**:
 ```bash
-bin/ssot uninstall opencode --dry-run
-bin/ssot uninstall cursor --project /my/app
+bin/rulepack uninstall opencode --dry-run
+bin/rulepack uninstall cursor --project /my/app
 ```
 
 ### query / list / show / search
@@ -236,21 +236,21 @@ Inspect the package database.
 
 ```bash
 # List all packages
-bin/ssot list
+bin/rulepack list
 
 # Show package details
-bin/ssot show memory
-bin/ssot show vibe-security
+bin/rulepack show memory
+bin/rulepack show vibe-security
 
 # Search by tag
-bin/ssot search constraints
-bin/ssot search security
+bin/rulepack search constraints
+bin/rulepack search security
 
 # List installed packages on a platform
-bin/ssot installed --platform opencode
+bin/rulepack installed --platform opencode
 
 # List available platforms
-bin/ssot platforms
+bin/rulepack platforms
 ```
 
 ---
@@ -261,12 +261,12 @@ Uninstall removes packages from a platform and cleans up:
 
 ```bash
 # User-level
-bin/ssot uninstall opencode
-bin/ssot uninstall goose
+bin/rulepack uninstall opencode
+bin/rulepack uninstall goose
 
 # Project-level (must specify project)
 cd /my/project
-bin/ssot uninstall cursor --project .
+bin/rulepack uninstall cursor --project .
 ```
 
 **What gets removed:**
@@ -287,8 +287,8 @@ bin/ssot uninstall cursor --project .
 Verify that installed state matches index:
 
 ```bash
-bin/ssot check opencode
-bin/ssot check cursor --project /my/app
+bin/rulepack check opencode
+bin/rulepack check cursor --project /my/app
 ```
 
 Exit code: `0` = all valid, non-zero = mismatches found.
@@ -298,59 +298,55 @@ Exit code: `0` = all valid, non-zero = mismatches found.
 - File checksums match index records
 - For skill agents: vendor skill file present
 
-### Query Installed
+### Verify Mode
 
-See what's installed on a platform:
-
-```bash
-bin/ssot installed --platform opencode
-```
-
-### Dry-Run
-
-Preview changes without touching filesystem:
+Comprehensive index-disk reconciliation:
 
 ```bash
-bin/ssot install opencode --dry-run
-bin/ssot uninstall cursor --project . --dry-run
+bin/rulepack verify opencode
 ```
+
+Detects drift between index and actual disk state, reports orphans and mismatches.
+
+### Fix Mode
+
+Automated repair of drift:
+
+```bash
+bin/rulepack fix opencode
+```
+
+Clears broken records, reinstalls missing packages, removes orphans.
 
 ---
 
 ## Adding a New Package
 
-### 1. Create Package Structure
+### 1. Create Package Directory
 
 ```bash
-mkdir -p ssot/packages/my-rule/src
+mkdir -p data/packages/my-rule/src
 ```
 
 ### 2. Write Source File
 
-`ssot/packages/my-rule/src/00-my-rule.md`:
+`data/packages/my-rule/src/00-my-rule.md`:
 ```markdown
 # My Rule
 
-This is my custom rule for the agent.
-
-## Constraints
-
-- Always do X
-- Never do Y
+Some content here.
 ```
 
 ### 3. Write PKGBUILD
 
-`ssot/packages/my-rule/PKGBUILD`:
+`data/packages/my-rule/PKGBUILD`:
 ```yaml
 ---
 pkgname: my-rule
 pkgver: '1.0.0'
-pkgrel: 1
-epoch: 0
 pkgdesc: My custom rule
 arch: any
-order: 10
+order: 0
 
 source:
   - type: local
@@ -364,101 +360,85 @@ targets:
     install:
       type: symlink
 
-  - platform: cursor
-    format: directory
-    output: my-rule.md
-    transformer: copy
-    install:
-      type: symlink
-
 checksums:
   source: null
   built: {}
-
-dependencies: []
-conflicts: []
-provides: []
-tags: []
-maintainer: null
-license: MIT
 ```
 
-### 4. Build & Install
+### 4. Build
 
 ```bash
-bin/ssot build
-bin/ssot install opencode
-bin/ssot install cursor --project /my/project
+bin/rulepack build
 ```
 
-### 5. Verify
+### 5. Install
 
 ```bash
-bin/ssot show my-rule
-bin/ssot check opencode
+bin/rulepack install opencode
 ```
 
----
+### 6. Verify
 
-## Adding a New Platform
+```bash
+bin/rulepack show my-rule
+bin/rulepack check opencode
+```
 
-1. Add to `ssot/registry/platforms.yaml` (see [Platforms](PLATFORMS.md) for schema)
+### Adding a New Platform
+
+1. Add to `data/registry/platforms.yaml` (see [Platforms](PLATFORMS.md) for schema)
 2. Create platform-specific PKGBUILD packages if needed (wrapper/meta-packages)
-3. Update any platform-specific logic in `install.rb`/`uninstall.rb` if non-standard paths
+3. Update any platform-specific logic in `lib/rulepack/install.rb`/`lib/rulepack/uninstaller.rb` if non-standard paths
 4. Test install/uninstall/check cycle
 
 ---
 
 ## Troubleshooting
 
-### "No target for <platform>" warnings
+### "No build index found"
 
-Package has no `targets` entry for that platform. Add target to PKGBUILD or ignore if intentional.
+```bash
+# Build packages first
+bin/rulepack build
+```
 
-### "Built artifact missing" errors
+### "Platform not found"
 
-Run `bin/ssot build` first. Build artifacts are required before install.
+```bash
+# List available platforms
+bin/rulepack platforms
+```
 
-### "Unknown platform" error
+Ensure the platform ID matches exactly (e.g., `opencode`, not `OpenCode`).
 
-Platform not in `ssot/registry/platforms.yaml`. Add it or check spelling.
+### "PKGBUILD not found"
+
+Check that `data/packages/<name>/PKGBUILD` exists. Run `bin/rulepack build` from repo root.
 
 ### "Path traversal not allowed"
 
-`output` field contains `..` or absolute path. Output must be filename-only (no directories). Use `rules_dir`/`skills_dir` from platform config for subdirectories.
+Custom transformer or source paths must resolve within the repository root. Ensure paths don't contain `..` or absolute paths outside the repo.
 
-### Skill agent vendor file empty
+### "Checksum mismatch"
 
-Check that rule packages have `format: skill` targets for that agent. Run `aggregate-skills.rb` manually to see errors.
+Source or built artifact has changed since last build. Run `bin/rulepack build` to rebuild.
 
-### Project-level install can't find platform
+### "No target for platform, skipping"
 
-Ensure you're running from project root or use `--project /path/to/project`. Platform `base_path` must be `.` in registry.
+The package has no target defined for the requested platform. Check the PKGBUILD `targets:` section.
 
-### Checksum mismatch after install
+### Custom transformer errors
 
-File was modified after install (manual edit) or build changed. Re-run `build.rb` then `install.rb`.
-
-### Transformer not found
-
-Custom transformer path is relative to repo root. Ensure `ssot/transformers/<name>.rb` exists and defines `Transform` class.
+Ensure `data/transformers/<name>.rb` exists and defines a `Transform` class with a `#transform` method.
 
 ---
 
 ## Logs
 
 All operations log to:
-- **Build log**: `ssot/build/build.log`
-- **Install log**: `ssot/build/install.log`
-- **Uninstall log**: `ssot/build/uninstall.log`
+
+- **Build log**: `build/build.log`
+- **Install log**: `build/install.log`
+- **Uninstall log**: `build/uninstall.log`
 
 Check logs for detailed error messages.
-
----
-
-## See Also
-
-- [Architecture](ARCHITECTURE.md) — System design
-- [Platforms](PLATFORMS.md) — Platform reference
-- [Reference](REFERENCE.md) — PKGBUILD format, transformer API, index schema
-- [Transforms](TRANSFORMS.md) — Transformer documentation

@@ -17,10 +17,10 @@
 sudo apt update && sudo apt install crush  # Debian repo from repo.charm.sh
 ```
 
-## SSoT Integration
+## Rulepack Integration
 
 ```bash
-ruby ssot/install.rb crush
+bin/rulepack install crush
 # Copies build/crush/skills/vendor/crush.md → /usr/local/share/crush/crush.md
 ```
 

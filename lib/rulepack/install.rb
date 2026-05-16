@@ -29,6 +29,7 @@ project_arg = nil
 all_mode = false
 targets_mode = false
 target_platform = nil
+collision_strategy = 'stop'
 
 i = 0
 while i < ARGV.length
@@ -70,6 +71,14 @@ while i < ARGV.length
   when '--targets'
     targets_mode = true
     i += 1
+  when '--on-collision'
+    raise 'Missing value for --on-collision' if i + 1 >= ARGV.length
+
+    collision_strategy = ARGV[i + 1].downcase
+    unless %w[stop ignore overwrite append].include?(collision_strategy)
+      raise "Invalid collision strategy: #{collision_strategy}. Valid: stop, ignore, overwrite, append"
+    end
+    i += 2
   else
     platform_arg = arg
     i += 1
@@ -133,7 +142,8 @@ if all_mode
     needed_mode: needed_mode,
     verbose_mode: verbose_mode,
     select_list: select_list,
-    project_arg: project_arg
+    project_arg: project_arg,
+    collision_strategy: collision_strategy
   )
   exit 0
 end
@@ -212,12 +222,14 @@ elsif target_package
                         dry_run: dry_run, force_mode: force_mode,
                         needed_mode: needed_mode,
                         verbose_mode: verbose_mode, select_list: select_list,
-                        project_arg: project_arg, specific_package: target_package)
+                        project_arg: project_arg, specific_package: target_package,
+                        collision_strategy: collision_strategy)
 
 else
   Rulepack::Install.run(actual_platform,
                         dry_run: dry_run, force_mode: force_mode,
                         needed_mode: needed_mode,
                         verbose_mode: verbose_mode, select_list: select_list,
-                        project_arg: project_arg)
+                        project_arg: project_arg,
+                        collision_strategy: collision_strategy)
 end

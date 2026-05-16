@@ -5,6 +5,7 @@
 - **Base path**: `~/.config/oh-my-pi/`
 - **Rules dir**: `rules/`
 - **Install method**: symlink
+- **Provider**: can1357 (fork of badlogic/pi-mono)
 - **Config**: `~/.omp/agent/config.yml`, models in `~/.omp/agent/models.yml`
 - **Providers**: stepfun-plan, zhipu, zhipu-coding
 - **Skills**: coderlm, line-repetition-control
@@ -24,15 +25,15 @@
 omp update  # bun-installed self-updater
 ```
 
-## SSoT Integration
+## Rulepack Integration
 
 ```bash
-ruby ssot/install.rb oh-my-pi   # → ~/.config/oh-my-pi/rules/*.md (symlinks)
+bin/rulepack install oh-my-pi   # → ~/.config/oh-my-pi/rules/*.md (symlinks)
 ```
 
 ## Notes
 
-Oh My Pi is a TypeScript/Rust monorepo coding agent by can1357 (fork of badlogic/pi-mono). Supports multiple model roles and has built-in IPython integration.
+Oh My Pi is a TypeScript/Rust monorepo coding agent. Supports multiple model roles and has built-in IPython integration.
 
 ## See Also
 

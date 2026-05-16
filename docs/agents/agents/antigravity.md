@@ -9,11 +9,11 @@
 - **Provider**: Google
 - **Features**: Project-scoped skills directory, supports skill-bundle packages with sub-skill selection
 
-## SSoT Integration
+## Rulepack Integration
 
 ```bash
 cd /path/to/project
-ruby ssot/install.rb antigravity --project .
+bin/rulepack install antigravity --project .
 # Copies skill-bundle packages to .agent/skills/<pkgname>/
 ```
 
@@ -23,15 +23,15 @@ Antigravity primarily receives skills via the `antigravity-skills` package (306 
 
 ```bash
 # Install specific sub-skills
-ruby ssot/install.rb antigravity --project . --select agent-orchestration-improve-agent,workflow-patterns
+bin/rulepack install antigravity --project . --select agent-orchestration-improve-agent,workflow-patterns
 
 # Interactive menu (TTY only)
-ruby ssot/install.rb antigravity --project .
+bin/rulepack install antigravity --project .
 ```
 
 ## Notes
 
-Antigravity is a project-scoped agent that reads skills from `.agent/skills/*/`. It does not have a separate rules directory — all behavior definitions come through skill files. The SSoT system deploys skill-bundles directly to this directory.
+Antigravity is a project-scoped agent that reads skills from `.agent/skills/*/`. It does not have a separate rules directory — all behavior definitions come through skill files. The Rulepack system deploys skill-bundles directly to this directory.
 
 ## See Also
 

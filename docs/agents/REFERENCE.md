@@ -73,9 +73,9 @@ targets:
     format: directory|import|skill|skill-bundle  # Required: output format
     output: <filename|.>            # Required: output filename (or "." for skill-bundle)
     translate: copy|custom:<path>   # Optional: platform-specific content conversion (runs BEFORE transformer)
-    transformer: copy\|strip-frontmatter\|custom:<path>  # Optional (default: copy)
+    transformer: copy|strip-frontmatter|custom:<path>  # Optional (default: copy)
     install:                        # Optional: overrides platform defaults
-      type: symlink\|copy\|inject\|append
+      type: symlink|copy|inject|append
       target_dir: <path>            # Optional: override install directory (required for skill-bundle)
       directive: '@import'          # Optional: for inject type
 ```
@@ -124,10 +124,10 @@ transformer: strip-frontmatter
 
 ### Custom Transformers
 
-Create a Ruby script in `ssot/transformers/`:
+Create a Ruby script in `data/transformers/`:
 
 ```ruby
-# ssot/transformers/example.rb
+# data/transformers/example.rb
 class Transform
   def initialize(content:, pkgname:)
     @content = content
@@ -156,7 +156,7 @@ targets:
 ```
 
 **Path resolution**:
-- Path is relative to repo root (`SSOT_ROOT`)
+- Path is relative to repo root (`RULEPACK_ROOT`)
 - Can use `~` expansion (e.g., `custom:~/my-transformers/foo.rb`)
 - Validated with `realpath` to ensure within repo (prevents symlink attacks)
 
@@ -193,6 +193,7 @@ Use `translate` when the target platform needs a fundamentally different content
 ### Built-in Translators
 
 #### `copy` / `identity`
+
 No conversion — content passes through unchanged. This is the default.
 
 ```yaml
@@ -201,10 +202,10 @@ translate: copy    # or omit entirely
 
 ### Custom Translators
 
-Create a Ruby script in `ssot/translators/`:
+Create a Ruby script in `data/translators/`:
 
 ```ruby
-# ssot/translators/example.rb
+# data/translators/example.rb
 # Converts markdown heading style from ## to # for platforms that prefer atx
 
 class Translator
@@ -234,7 +235,7 @@ targets:
 **Pipeline for this target**: fetch → `rule_to_skill.rb` → `strip-frontmatter` → `SKILL.md`
 
 **Path resolution**:
-- Path is relative to repo root (`SSOT_ROOT`)
+- Path is relative to repo root (`RULEPACK_ROOT`)
 - Can use `~` expansion (e.g., `custom:~/my-translators/foo.rb`)
 - Validated with `realpath` to ensure within repo (prevents symlink attacks)
 
@@ -244,17 +245,17 @@ Run a translator from the command line:
 
 ```bash
 # Read from stdin, write to stdout
-echo "# Title\n\nContent" | ruby ssot/translate.rb copy
+echo "# Title\n\nContent" | ruby data/translate.rb copy
 
 # Read from file, write to file
-ruby ssot/translate.rb custom:translators/normalize.rb input.md output.md
+ruby data/translate.rb custom:translators/normalize.rb input.md output.md
 ```
 
 ### Platform Format Profiles
 
-Each platform has a format profile in `ssot/platforms/<agent>.yaml`. These describe what the platform expects for rules, skills, content type, heading style, bullet style, etc. **These are informational — for LLM reference when writing translators, not enforced by the build system.**
+Each platform has a format profile in `data/platforms/<agent>.yaml`. These describe what the platform expects for rules, skills, content type, heading style, bullet style, etc. **These are informational — for LLM reference when writing translators, not enforced by the build system.**
 
-Example: `ssot/platforms/crush.yaml`
+Example: `data/platforms/crush.yaml`
 ```yaml
 skills:
   format: single_file
@@ -266,20 +267,20 @@ skills:
 ```
 
 Available profiles:
-- `ssot/platforms/opencode.yaml`
-- `ssot/platforms/crush.yaml`
-- `ssot/platforms/goose.yaml`
-- `ssot/platforms/gemini-cli.yaml`
-- `ssot/platforms/codex.yaml`
-- `ssot/platforms/cursor.yaml`
-- `ssot/platforms/windsurf.yaml`
-- `ssot/platforms/claude-code.yaml`
-- `ssot/platforms/oh-my-pi.yaml`
-- `ssot/platforms/qwen-code.yaml`
-- `ssot/platforms/github-copilot.yaml`
-- `ssot/platforms/droid.yaml`
-- `ssot/platforms/antigravity.yaml`
-- `ssot/platforms/agents.yaml`
+- `data/platforms/opencode.yaml`
+- `data/platforms/crush.yaml`
+- `data/platforms/goose.yaml`
+- `data/platforms/gemini-cli.yaml`
+- `data/platforms/codex.yaml`
+- `data/platforms/cursor.yaml`
+- `data/platforms/windsurf.yaml`
+- `data/platforms/claude-code.yaml`
+- `data/platforms/oh-my-pi.yaml`
+- `data/platforms/qwen-code.yaml`
+- `data/platforms/github-copilot.yaml`
+- `data/platforms/droid.yaml`
+- `data/platforms/antigravity.yaml`
+- `data/platforms/agents.yaml`
 
 ---
 
@@ -299,280 +300,225 @@ packages:
     installed:
       - platform: <platform-id>
         output: <filename>
-        checksum: <sha256-hex>
+        checksum: <sha256>
         installed_at: '2026-05-14T...'
-      # ... multiple records per package (one per installed platform)
-    available_targets: [<platform-id>, ...]
+    available_targets: [<platform>, ...]
     dependencies: []
     conflicts: []
     provides: []
     tags: []
     checksums:
-      source: <sha256-hex>         # source content checksum
-      built:
-        <platform-id>: <sha256>    # built artifact per platform
-    targets:                       # raw target list from PKGBUILD
-      - platform: <platform-id>
-        format: directory|import|skill
-        output: <filename>
-        transformer: <string>
-        install:
-          type: symlink|copy|inject|append
-```
-
-**Notes**:
-- Keys are YAML symbols (`:pkgname`) when loaded with `symbolize_names: true`
-- `installed[]` contains one entry per platform+output combination
-- `checksums.built` has entry for every platform the package was built for (even if not installed)
-
-### index.json (machine-readable)
-
-Auto-generated from `index.yaml`. Same structure with JSON keys (strings, not symbols). Use for scripts/tooling.
-
-### build/index.yaml (build metadata)
-
-Intermediate file written by `build.rb`:
-
-```yaml
-version: 3.0
-generated: '2026-05-14T...'
-packages:
-  <pkgname>:
-    pkgver: '1.0.0'
-    pkgdesc: <string>
-    available_targets: [<platform-id>, ...]
-    checksums:
       source: <sha256>
       built:
-        <platform-id>: <sha256>
+        <platform>: <sha256>
     targets:
       - platform: <platform-id>
-        format: ...
-        output: ...
-        transformer: ...
+        format: directory|import|skill|skill-bundle
+        output: <filename>
+        transformer: copy|custom:<path>
 ```
 
-**Consumers**: `install.rb` reads this to know which artifacts exist; `query.rb` falls back to this if `index.yaml` missing.
+Key fields:
+- `installed[]` — one record per platform+output combination
+- `checksums.built[<platform>]` — artifact checksum after transformation
+- `available_targets` — list of platforms this package can deploy to
+- `targets[]` — raw target definitions from PKGBUILD
+
+### index.json
+
+Auto-generated from `index.yaml` for programmatic access. Schema matches `index.yaml` but in JSON format.
 
 ---
 
-## Validation
+## Platform Registry Schema
 
-### PKGBUILD Validation
-
-`build.rb` validates each PKGBUILD:
-
-- Required fields: `pkgname`, `pkgver`, `pkgdesc`, `arch`, `order`, `source`, `targets`
-- `source` must be non-empty array with at least one entry having `type: local` or `type: url`
-- For `type: url`, `sha256` is required
-- `targets` entries must have `platform`, `format`, `output`
-- `format` must be one of: `directory`, `import`, `skill`, `skill-bundle`
-- `transformer` (if specified) must be `copy`, `strip-frontmatter`, or `custom:<path>`
-- `install.type` (if specified) must be valid for format/context
-
-### Output Path Validation
-
-`validate_output_filename(output, pkgname)` in `lib/common.rb`:
-
-- No `..` components
-- Not an absolute path
-- After `Pathname#cleanpath`, result must not contain `File::SEPARATOR` (no subdirectories)
-- Raises `ArgumentError` on violation
-
-**Rationale**: Output filenames are joined with platform's `rules_dir`/`skills_dir`/`config_file` directory. Allowing subdirectories in `output` would break path resolution and potentially escape intended directories.
-
-### Platform Registry Validation
-
-`validate_platform_config(id, cfg)`:
-
-- Required top-level: `type`, `base_path`, `display_name`
-- Type-specific required fields:
-  - `directory`: `rules_dir`
-  - `import`: `config_file`
-  - `skill`: `skill_file`
-- `rule_install.type` / `skill_install.type` must be valid (symlink, copy, inject, append, null)
-- `scope` must be `user` or `project` (default: `user`)
-
-### Transformer Path Validation
-
-Custom transformer paths are resolved with `realpath` and must be within `SSOT_ROOT` (repo root). Symlink attacks prevented by checking resolved path starts with repo root.
-
-### skill-bundle Format Validation
-
-`build.rb` and `install.rb` validate `skill-bundle` packages:
-
-- `output` must be exactly `.` (directory marker)
-- `install.target_dir` must be present (non-empty string)
-- `install.type` must be `copy`
-- `source` must be `type: local` or `type: git` with a directory path
-- Source directory must exist and be readable
-
-**Manifest format** (`manifest.json`):
-```json
-{
-  "pkgname": "golang-security-bundle",
-  "platform": "cursor",
-  "generated_at": "2026-05-14T16:01:56Z",
-  "sub_skills": [
-    {
-      "path": "golang-security",
-      "name": "golang-security",
-      "sha256": "a38396e7...",
-      "files": {
-        "golang-security/SKILL.md": "df1f23e9..."
-      }
-    }
-  ]
-}
-```
-
-**Index record**: `output` stored as `'.'`; no single-file checksum recorded (`built[platform] = nil` for local source, commit hash for git).
-
-**Sub-skill selection** (`--select`):
-```bash
-# Install only specific sub-skills
-bin/ssot install golang-security --select auth,sql
-
-# Install all sub-skills (default)
-bin/ssot install golang-security
-```
-
-**Meta-packages** (pacman-style):
-Use `depends` to create virtual meta-packages that pull in multiple sub-skills:
+Platforms are defined in `data/registry/platforms.yaml`:
 
 ```yaml
-pkgname: golang-security-all
-pkgdesc: All Go security skills (meta-package)
-depends:
-  - golang-security/auth
-  - golang-security/sql-injection
-  - golang-security/xss
+<platform_id>:
+  type: directory|import|skill      # Required
+  scope: user|project               # Required: installation scope
+  display_name: <string>            # Required: human-readable name
+  base_path: <path>                 # Required: base directory (user: ~/.config/..., project: .)
+
+  # For directory platforms:
+  rules_dir: <relative-path>        # Required (type=directory)
+  skills_dir: <relative-path>       # Optional (type=directory)
+  docs_dir: <relative-path>         # Optional (type=directory)
+  rule_install:
+    type: symlink|copy              # Required (type=directory)
+  skill_install:
+    type: copy|append               # Optional (type=directory)
+
+  # For import platforms:
+  config_file: <filename>           # Required (type=import)
+  rule_install:
+    type: inject|copy               # Required (type=import)
+    directive: '@import'            # Optional (for inject)
+  skill_install:
+    type: inject|copy               # Optional (type=import)
+
+  # For skill platforms:
+  skill_file: <filename>            # Required (type=skill)
+  rule_install: null                # Not used for skill platforms
+  skill_install:
+    type: copy|append               # Required (type=skill)
+```
+
+**Validation**:
+- `type` must be one of: `directory`, `import`, `skill`
+- `scope` must be one of: `user`, `project`
+- Required fields per type:
+  - `directory`: `rules_dir`, `rule_install.type`
+  - `import`: `config_file`, `rule_install.type`
+  - `skill`: `skill_file`, `skill_install.type`
+- `base_path` must be tilde-expandable absolute path (user-level) or `.` (project-level)
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RULEPACK_MAX_REDIRECTS` | `3` | Maximum HTTP redirects for URL source fetches |
+| `RULEPACK_READ_TIMEOUT` | `30` | HTTP read timeout in seconds |
+| `RULEPACK_CACHE_DIR` | `cache` | Cache directory name under `build/` |
+| `RULEPACK_GIT_DEPTH` | `1` | Git shallow clone depth |
+| `RULEPACK_LOG_LEVEL` | `info` | Log level filtering (`error`, `warn`, `info`, `debug`) |
+
+---
+
+## CLI Reference
+
+```
+bin/rulepack <command> [options]
+
+Commands:
+  build                  Build all packages
+  install <platform>     Install to platform
+  uninstall <platform>   Remove from platform
+  query <cmd>            Query package database
+  list                   List all packages
+  show <pkgname>         Show package details
+  search <tag>           Search by tag
+  status                 Show system status
+  check <platform>       Verify installed state
+  verify [platform]      Index-disk reconciliation
+  fix [platform]         Repair drift
+  catalog                Show package catalog (JSON)
+  platforms              List available platforms
+  help                   Show this help
+
+Global Flags:
+  --timing               Show operation timing
+  --verbose, -v          Show debug output
 ```
 
 ---
 
 ## Version Comparison
 
-The system uses a pacman-inspired version comparison algorithm (`compare_versions` in `lib/version.rb`):
+Rulepack uses pacman-style version comparison: `epoch:pkgver-pkgrel`.
 
-- **Components**: `epoch`, `pkgver`, `pkgrel`
-- **Comparison order**: epoch → pkgver (alphanumeric segments) → pkgrel (integer)
-- `pkgver` segments: numeric segments compared as integers, alphabetic segments as locale strings; `1.2.3a` < `1.2.3b` < `1.2.4`; numeric < alphabetic (`1` < `1a`)
-- Same `pkgver` with higher `pkgrel` is considered an upgrade (rebuild)
-- `epoch` overrides everything: higher epoch always wins (used when upstream versioning scheme changes)
+Components are compared left-to-right:
+1. `epoch` (integer)
+2. `pkgver` (string, with dot/numeric segment comparison)
+3. `pkgrel` (integer)
 
-**Usage**: During install, if a package is already installed, `compare_versions` determines whether to skip (same), upgrade (newer), or reject downgrade (older, requires `--force`).
+Examples:
+- `1:2.0-1` > `1:1.9-1` (epoch equal, pkgver 2.0 > 1.9)
+- `0:1.10.0` > `0:1.9.0` (pkgver 1.10 > 1.9, numeric segments)
+- `0:1.0-2` > `0:1.0-1` (pkgrel 2 > 1)
 
----
-
-## Common Patterns
-
-### Multi-Target Package
-
-One package → multiple platforms:
-
-```yaml
-targets:
-  - platform: opencode
-    format: directory
-    output: 00-rule.md
-    transformer: copy
-  - platform: cursor
-    format: directory
-    output: rule.md
-    transformer: copy
-  - platform: codex
-    format: skill
-    output: 00-rule.md
-    transformer: copy
-```
-
-All three outputs are built from same source; installed to respective platforms.
-
-### Custom Transformer per Target
-
-```yaml
-targets:
-  - platform: opencode
-    format: directory
-    output: rule.md
-    transformer: copy
-  - platform: cursor
-    format: directory
-    output: rule.md
-    transformer: custom:transformers/add-header.rb
-```
-
-Same package, different transformation per platform.
-
-### Override Install Directory
-
-```yaml
-targets:
-  - platform: opencode
-    format: directory
-    output: my-rule.md
-    transformer: copy
-    install:
-      type: symlink
-      target_dir: ~/.config/opencode/rules/   # override platform rules_dir
-```
-
-Useful for non-standard layouts.
-
-### Dependency Tracking (Future)
-
-```yaml
-dependencies:
-  - base-constraints
-  - security-basics
-```
-
-Currently informational; future versions may support automatic install order.
+Downgrades are blocked by default; use `--force` to allow.
 
 ---
 
-## Error Codes
+## Validation Rules
 
-| Error | Meaning | Fix |
-|-------|---------|-----|
-| `Unknown platform` | Platform ID not in registry | Add to `platforms.yaml` or correct spelling |
-| `Built artifact missing` | Build artifact not found at `build/<platform>/<output>` | Run `ruby ssot/build.rb` first |
-| `Invalid output path` | `output` contains `..`, absolute path, or subdirectory | Use filename only; no path separators |
-| `Transformer not found` | Custom transformer script doesn't exist | Create script at specified path |
-| `Path traversal` | `target_dir` or resolved path escapes base | Use relative paths within allowed directories |
-| `Platform config invalid` | Registry entry missing required fields | Fix `platforms.yaml` schema |
+### PKGBUILD Validation
+
+`lib/rulepack/validation.rb` validates:
+- Required fields present
+- Field types correct (string, integer, array)
+- `pkgname` format (lowercase, alphanumeric + hyphens)
+- `source` entries have required fields per type
+- `targets` entries have required fields per format
+- `checksums` structure correct
+
+### Platform Registry Validation
+
+`lib/rulepack/common.rb` validates:
+- `type` is one of: `directory`, `import`, `skill`
+- `scope` is one of: `user`, `project`
+- Required fields present per type
+- `base_path` is tilde-expandable absolute or `.`
+
+### Output Filename Validation
+
+`lib/rulepack/common.rb` validates:
+- Filename only (no directory separators)
+- No `..` traversal
+- No absolute paths
+- Not empty
 
 ---
 
-## FAQ
+## Build Cache
 
-**Q: Can I have multiple `source` entries?**  
-A: Yes. Each is processed sequentially; later ones can override earlier (for upstream overlays). All sources must exist.
+### Cache Structure
 
-**Q: Do I need to commit `ssot/build/`?**  
-A: No. `build/` is generated. Commit only `packages/`, `registry/`, `transformers/`, and scripts.
+```
+build/
+├── cache/
+│   ├── <key>/
+│   │   ├── extracted/       # Extracted/fetched source
+│   │   └── metadata.json    # Cache metadata
+│   └── ...
+├── build.log
+├── index.yaml
+└── <platform>/
+    └── ...
+```
 
-**Q: Where are logs?**  
-A: `ssot/build/install.log`, `ssot/build/uninstall.log`, `ssot/build/build.log`
+### Cache Keys
 
-**Q: How do I force rebuild?**  
-A: Delete `ssot/build/` or specific file; `build.rb` always rewrites artifacts.
+- **URL fetch**: SHA256 of URL + params
+- **Git clone**: commit SHA
+- **Local source**: not cached
 
-**Q: Can I install to multiple projects at once?**  
-A: Yes, run multiple commands with different `--project` paths in parallel or script loop.
+### Cache Operations
 
-**Q: Are dependencies resolved automatically?**  
-A: Not yet. `dependencies` field is informational. Manual install order required.
+- `bin/rulepack build` checks cache before fetching
+- Cache hits show: `"Fetching git repo (cached)"`
+- Manual cache clear: `rm -rf build/cache/`
 
-**Q: How do I remove a package entirely?**  
-A: `ruby ssot/uninstall.rb <platform>` removes from that platform. To delete package: remove PKGBUILD and src/, then rebuild.
+---
+
+## Security
+
+### Path Traversal Protection
+
+All file paths are validated with `realpath` to ensure they resolve within the repository root. Prevents malicious paths like `../../etc/passwd`.
+
+### Safe YAML Loading
+
+All YAML parsing uses `YAML.safe_load` with permitted classes. No arbitrary object deserialization.
+
+### Command Injection Prevention
+
+All `system()` calls use array form (`system('cmd', arg1, arg2)`) to prevent shell injection.
+
+### Checksum Verification
+
+All sources are verified against expected SHA256 checksums. Mismatches abort the build.
 
 ---
 
 ## See Also
 
-- [Architecture](ARCHITECTURE.md) — System design
-- [Platforms](PLATFORMS.md) — Platform reference
-- [Usage](USAGE.md) — Installation workflows
-- [Transforms](TRANSFORMS.md) — Transformer system
+- [Architecture](ARCHITECTURE.md) — System design and data flow
+- [Platforms](PLATFORMS.md) — Platform reference and registry schema
+- [Usage](USAGE.md) — User guide and workflows
+- [Transforms](TRANSFORMS.md) — Transformer system documentation
+- [Upstream](UPSTREAM.md) — Upstream source tracking
