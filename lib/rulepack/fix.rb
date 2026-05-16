@@ -50,14 +50,28 @@ def main
   exit 0
 end
 
+def run_verify(platform_id)
+  verify_path = RULEPACK_ROOT.join('lib/rulepack/verify.rb')
+  old_argv = ARGV.dup
+  ARGV.replace([platform_id])
+  out = StringIO.new
+  $stdout = out
+  load verify_path.to_s
+  out.string
+rescue SystemExit
+  out.string
+ensure
+  $stdout = STDOUT
+  ARGV.replace(old_argv)
+end
+
 def fix_platform(platform_id, dry_run, auto_mode)
   puts "\n── #{platform_id} ──"
 
-  cmd_out = `ruby lib/rulepack/verify.rb #{platform_id} 2>&1`
-  verify_ok = $CHILD_STATUS.success?
-  puts cmd_out.lines.grep(/[✓⚠?]/).last(10).join
-
-  has_drift = !verify_ok
+  cmd_out = run_verify(platform_id)
+  # Re-print relevant lines
+  cmd_out.each_line { |l| puts l if l =~ /[✓⚠?]/ }
+  has_drift = cmd_out.include?('⚠') || cmd_out.include?('?')
   orphans = cmd_out.scan(/^\s*\?\s+ORPHAN:\s+(.+)$/).flatten
 
   unless has_drift || orphans.any?
@@ -85,8 +99,16 @@ def fix_drift(platform_id, dry_run)
   end
   write_index(index)
   puts "  Reinstalling #{broken.size} package(s) on #{platform_id}..."
-  fix_result = system('ruby', 'lib/rulepack/install.rb', platform_id)
-  if fix_result
+  install_path = RULEPACK_ROOT.join('lib/rulepack/install.rb')
+  old_argv = ARGV.dup
+  ARGV.replace([platform_id])
+  load install_path.to_s
+  ARGV.replace(old_argv)
+  puts '  ✓ Reinstall complete'
+  true
+rescue SystemExit => e
+  ARGV.replace(old_argv)
+  if e.status == 0
     puts '  ✓ Reinstall complete'
     true
   else

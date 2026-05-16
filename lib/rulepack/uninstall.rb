@@ -110,8 +110,17 @@ uninstalled = Rulepack::Common.uninstall_packages(index, platform_id, dry_run: d
 if platform_cfg[:type] == 'skill' && !dry_run
   Rulepack::Common.log "  🧱 Re-aggregating vendor skills for #{platform_id}..."
   puts "\n  🧱 Re-aggregating vendor skills for #{platform_id}..."
-  system('ruby', 'lib/rulepack/aggregate.rb', platform_id.to_s)
-  if $CHILD_STATUS.success?
+  agg_ok = begin
+    old_argv = ARGV.dup
+    ARGV.replace([platform_id.to_s])
+    load RULEPACK_ROOT.join('lib/rulepack/aggregate.rb').to_s
+    ARGV.replace(old_argv)
+    true
+           rescue SystemExit
+             ARGV.replace(old_argv)
+             false
+           end
+  if agg_ok
     Rulepack::Common.log '    ✓ Vendor skill regenerated'
     puts '    ✓ Vendor skill regenerated'
   else

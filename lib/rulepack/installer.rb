@@ -739,8 +739,16 @@ module Rulepack
       Rulepack::Common.log "  🧱 Aggregating vendor skills for #{platform_id}..."
       puts "\n  🧱 Aggregating vendor skills for #{platform_id}..."
       aggregate_script = Rulepack::Common::RULEPACK_ROOT.join('lib/rulepack/aggregate.rb')
-      system('ruby', aggregate_script.to_s, platform_id.to_s)
-      if $CHILD_STATUS.success?
+      old_argv = ARGV.dup
+      ARGV.replace([platform_id.to_s])
+      agg_ok = begin
+        load aggregate_script.to_s
+        true
+               rescue SystemExit
+                 false
+               end
+      ARGV.replace(old_argv)
+      if agg_ok
         Rulepack::Common.log '    ✓ Vendor skill aggregated'
         puts '    ✓ Vendor skill aggregated'
         vendor_file = Rulepack::Common::BUILD_DIR.join(platform_id, 'skills', 'vendor',
