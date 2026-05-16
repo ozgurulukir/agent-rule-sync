@@ -203,7 +203,7 @@ module Rulepack
       build_index[:packages].each do |pkgname, pkgdata|
         targets = filter_targets_for_platform(pkgdata, platform_id)
         if targets.empty?
-          Rulepack::Common.log "  ⊘ #{pkgname}: no target for #{platform_id}, skipping" unless quiet
+          Rulepack::Common.log "  ⊘ package '#{pkgname}': no target for #{platform_id}, skipping" unless quiet
           next
         end
 
