@@ -208,7 +208,7 @@ module Rulepack
         end
 
         next unless should_install_or_upgrade?(pkgname, pkgdata, platform_id, index,
-                                               force_mode, dry_run, quiet)
+                                               force_mode, dry_run, quiet, select_list)
 
         ensure_package_in_index(index, pkgname, pkgdata)
 
@@ -277,7 +277,8 @@ module Rulepack
       pkgdata[:targets]&.select { |t| t[:platform] == platform_id } || []
     end
 
-    def should_install_or_upgrade?(pkgname, pkgdata, platform_id, index, force_mode, dry_run, quiet)
+    def should_install_or_upgrade?(pkgname, pkgdata, platform_id, index, force_mode, dry_run, quiet,
+                                   select_list = nil)
       pkg_index = index[:packages][pkgname] || { installed: [] }
       existing_records = (pkg_index[:installed] || []).select { |r| r[:platform] == platform_id }
       return true if existing_records.empty?
@@ -291,11 +292,26 @@ module Rulepack
 
       case cmp
       when 0
-        unless quiet
+        targets = Array(pkgdata[:targets])
+        has_skill_bundle = targets.any? { |t| t[:platform] == platform_id && t[:format] == 'skill-bundle' }
+        if select_list && has_skill_bundle
           ver = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
-          Rulepack::Common.log "  ↺ #{pkgname} already installed (#{ver})"
+          Rulepack::Common.log "  🔄 Re-installing #{pkgname} #{ver} (--select specified)"
+          uninstall_single_package_from_index!(index, pkgname, platform_id) unless dry_run
+          true
+        elsif !select_list && has_skill_bundle
+          # Reinstall skill-bundle to restore any sub-skills previously removed via --select
+          ver = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
+          Rulepack::Common.log "  🔄 Restoring #{pkgname} #{ver} all sub-skills"
+          uninstall_single_package_from_index!(index, pkgname, platform_id) unless dry_run
+          true
+        else
+          unless quiet
+            ver = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
+            Rulepack::Common.log "  ↺ #{pkgname} already installed (#{ver})"
+          end
+          false
         end
-        false
       when 1
         unless quiet
           old_v = Rulepack::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])
