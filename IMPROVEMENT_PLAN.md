@@ -1314,8 +1314,85 @@ Check with: `rubocop --only Naming/RescuedExceptionsVariableName`
 
 ---
 
-**Last Updated**: 2026-05-16 (P10 ✅)
-**Status**: P0-P9 ✅ | P10 ✅ (124→23 offenses, −101, 3 refactors, final thresholds)
+## 📋 Priority 11 — Pipeline & Logic (Subprocess Spawning, Exit Codes, Version Bug)
+
+**Context**: 2026-05-16 audit found 19 subprocess invocations (12 avoidable), a version comparison bug, and exit code propagation gaps. Priority-ordered by impact.
+
+### 🔴 P11.1 Fix `compare_versions` Hash Argument Bug
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-16
+**Slop**: `installer.rb` passes Ruby hashes `{pkgver:, pkgrel:, epoch:}` to `compare_versions()`, but the API expects `(v1_string, v2_string, epoch1:, epoch2:, pkgrel1:, pkgrel2:)`. Works accidentally via `Hash#to_s` string coercion but fails on multi-segment versions (e.g. `1.10.0` vs `1.9.0` — compares `'1' < '9'` → wrong).
+
+**Fix**: Replace hash argument with proper positional + keyword args at all 5 call sites in `installer.rb`.
+
+**Files**: `lib/rulepack/installer.rb` (5 call sites)
+**Impact**: Correct version comparison for upgrade/downgrade decisions.
+
+---
+
+### 🔴 P11.2 Propagate Exit Codes in `bin/rulepack`
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-16
+**Slop**: All `system()` calls return hardcoded `0` — failures are invisible to CI/CD and chained commands (`rulepack build && rulepack install` never detects build failure).
+
+**Files**: `bin/rulepack` (7 system() calls: build×2, install, uninstall, check, verify, fix)
+**Impact**: Failures masked in CI/CD pipelines.
+
+---
+
+### 🟡 P11.3 Fix `install --all` Transaction Rollback
+**Status**: ⬜ PENDING
+**Slop**: `install_all` wraps all platforms in a single transaction. If platform 5/14 fails, the backup/restore undoes previously **successful** platforms 1-4, leaving orphan files on disk.
+
+**Fix**: Per-platform backup or no rollback on individual platform failure.
+
+**Files**: `lib/rulepack/installer.rb` (install_all → install_single_platform error handling)
+
+---
+
+### 🟡 P11.4 Replace Ruby Subprocess Calls with Direct Module Loading
+**Status**: ⬜ PENDING
+**Slop**: 7 `system()` calls in `bin/rulepack` spawn separate Ruby processes for every command. `fix.rb` further spawns `verify.rb` and `install.rb` as subprocesses. `aggregate.rb` called from 3 places as subprocess.
+
+**12 avoidable subprocesses**:
+
+| # | File | Current | Fix |
+|---|------|---------|-----|
+| 1-2 | `bin/rulepack:29-30` | `system(build.rb)` + `system(aggregate.rb)` | Load modules directly |
+| 3 | `bin/rulepack:33` | `system(install.rb)` | Load module |
+| 4 | `bin/rulepack:36` | `system(uninstall.rb)` | Load module |
+| 5 | `bin/rulepack:50` | `system(install.rb --check)` | Load module |
+| 6 | `bin/rulepack:53` | `system(verify.rb)` | Load module |
+| 7 | `bin/rulepack:56` | `system(fix.rb)` | Load module |
+| 8 | `build.rb:407` | `system(generate-catalog.rb)` | Inline call |
+| 9 | `installer.rb:741` | `system(aggregate.rb)` | Direct call |
+| 10 | `uninstall.rb:113` | `system(aggregate.rb)` | Direct call |
+| 11-12 | `fix.rb:56,88` | `` `verify.rb` `` + `system(install.rb)` | Merge modules |
+
+**Fix pattern**: Refactor each script into a module (e.g. `Rulepack::Build.run`), `require_relative` and call directly. `fix.rb` shares internal state with `verify.rb` instead of regex-parsing output.
+
+**Impact**: ~200-800ms faster per command (no Ruby startup overhead), proper exit code propagation, shared in-memory state.
+
+---
+
+### 🟢 P11.5 Remove Redundant Duplicate Definitions
+**Status**: ⬜ PENDING
+**File**: `lib/rulepack/platform.rb` (duplicate `load_yaml` / `write_yaml_atomic`)
+
+**Fix**: Remove overrides, rely on `Rulepack::Common` definitions.
+
+---
+
+### 🟢 P11.6 Replace `which` Subprocess with Native Ruby
+**Status**: ⬜ PENDING
+**File**: `lib/rulepack/source.rb` (`system("which #{tool}")`)
+
+**Fix**: Use `ENV['PATH'].split(File::PATH_SEPARATOR).any? { |d| File.executable?("#{d}/#{tool}") }`
+
+---
+
+**Last Updated**: 2026-05-16 (P11 added)
+**Status**: P0-P9 ✅ | P10 ✅ (23 offenses) | P11.1-P11.2 ✅ | P11.3+ ⏳
 
 ---
 

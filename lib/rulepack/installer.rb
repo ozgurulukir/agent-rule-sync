@@ -284,8 +284,9 @@ module Rulepack
 
       existing = existing_records.first
       cmp = Rulepack::Common.compare_versions(
-        { pkgver: pkgdata[:pkgver], pkgrel: pkgdata[:pkgrel], epoch: pkgdata[:epoch] },
-        { pkgver: existing[:version], pkgrel: existing[:pkgrel], epoch: existing[:epoch] }
+        pkgdata[:pkgver], existing[:version],
+        epoch1: pkgdata[:epoch] || 0, epoch2: existing[:epoch] || 0,
+        pkgrel1: pkgdata[:pkgrel] || 1, pkgrel2: existing[:pkgrel] || 1
       )
 
       case cmp

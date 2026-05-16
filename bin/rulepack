@@ -26,14 +26,14 @@ module Rulepack
       command = argv.shift || "help"
       case command
       when "build"
-        system(RbConfig.ruby, ROOT.join("lib/rulepack/build.rb").to_s)
-        system(RbConfig.ruby, ROOT.join("lib/rulepack/aggregate.rb").to_s)
+        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/build.rb").to_s)
+        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/aggregate.rb").to_s)
         0
       when "install"
-        system(RbConfig.ruby, ROOT.join("lib/rulepack/install.rb").to_s, *argv)
+        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/install.rb").to_s, *argv)
         0
       when "uninstall"
-        system(RbConfig.ruby, ROOT.join("lib/rulepack/uninstall.rb").to_s, *argv)
+        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/uninstall.rb").to_s, *argv)
         0
       when "query"
         Rulepack::Query.run(argv)
@@ -47,13 +47,13 @@ module Rulepack
         print_status
         0
       when "check"
-        system(RbConfig.ruby, ROOT.join("lib/rulepack/install.rb").to_s, "--check", *argv)
+        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/install.rb").to_s, "--check", *argv)
         0
       when "verify"
-        system(RbConfig.ruby, ROOT.join("lib/rulepack/verify.rb").to_s, *argv)
+        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/verify.rb").to_s, *argv)
         0
       when "fix"
-        system(RbConfig.ruby, ROOT.join("lib/rulepack/fix.rb").to_s, *argv)
+        exit 1 unless system(RbConfig.ruby, ROOT.join("lib/rulepack/fix.rb").to_s, *argv)
         0
       when "catalog"
         catalog_path = ROOT.join("build", "catalog.json")
