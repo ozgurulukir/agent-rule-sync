@@ -16,7 +16,7 @@ module Rulepack
 
       # Check tools
       Array(prereqs[:tools]).each do |tool|
-        found = system("which #{tool} > /dev/null 2>&1")
+        found = ENV['PATH'].split(File::PATH_SEPARATOR).any? { |d| File.executable?("#{d}/#{tool}") }
         missing << tool unless found
       end
 

@@ -4,21 +4,6 @@ module Rulepack
   module Common
     module_function
 
-    # Load YAML from path (symbol keys)
-    def load_yaml(path)
-      pathname = Pathname.new(path)
-      return {} unless pathname.exist?
-
-      content = pathname.read
-      YAML.safe_load(content, permitted_classes: [Symbol, Pathname], symbolize_names: true)
-    end
-
-    # Write YAML atomically
-    def write_yaml_atomic(path, data)
-      yaml_content = data.to_yaml
-      atomic_write(path, yaml_content)
-    end
-
     # Append to file atomically (create if doesn't exist)
     def atomic_append(path, content)
       path = Pathname.new(path)
