@@ -83,15 +83,41 @@ module Rulepack
     def load_index
       root = Pathname.new(__dir__).parent.parent.expand_path
       yaml_path = root.join('data', 'index.yaml')
-      json_path = root.join('data', 'index.json')
+      build_path = root.join('build', 'index.yaml')
 
-      if yaml_path.exist?
-        Rulepack::Common.load_yaml(yaml_path)
-      elsif json_path.exist?
-        JSON.parse(json_path.read, symbolize_names: true)
-      else
-        abort "❌ Index not found: #{yaml_path} or #{json_path}. Run `ruby lib/rulepack/build.rb` first."
+      # Load installed records from data/index.yaml (written by install)
+      installed = if yaml_path.exist?
+                    data = Rulepack::Common.load_yaml(yaml_path)
+                    data[:packages] || {}
+                  else
+                    {}
+                  end
+
+      # Load package metadata from build/index.yaml (written by build)
+      build = if build_path.exist?
+                Rulepack::Common.load_yaml(build_path)
+              else
+                {}
+              end
+
+      # Merge: build metadata + installed records
+      build[:packages] ||= {}
+      build[:packages].each_key do |name|
+        if installed[name]
+          build[:packages][name][:installed] = installed[name][:installed]
+          build[:packages][name][:installed] ||= []
+        end
+        build[:packages][name][:installed] ||= []
       end
+
+      # Add installed-only packages (e.g. from restored backups)
+      installed.each do |name, pkg|
+        next if build[:packages][name]
+
+        build[:packages][name] = pkg
+      end
+
+      build
     end
 
     def list_packages

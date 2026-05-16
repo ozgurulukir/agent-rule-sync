@@ -55,7 +55,7 @@ puts "🧹 Uninstalling packages from platform: #{platform_id} #{'(dry-run)' if 
 
 # Load index
 unless Rulepack::Common::INDEX_YAML_PATH.exist?
-  Rulepack::Common.log_error "Index not found: #{Rulepack::Common::INDEX_YAML_PATH}. Run `ruby lib/rulepack/build.rb` first."
+  Rulepack::Common.log_error "Index not found: #{Rulepack::Common::INDEX_YAML_PATH}. Run `ruby lib/rulepack/install.rb <platform>` first."
   exit 1
 end
 

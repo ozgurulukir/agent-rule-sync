@@ -7,7 +7,6 @@ require 'fileutils'
 require 'digest'
 require 'net/http'
 require 'uri'
-require 'json'
 require_relative 'common'
 
 LOG_PATH = Rulepack::Common::BUILD_DIR.join('build.log')
@@ -68,18 +67,11 @@ end
 Rulepack::Common.log '🔧 Loading platform registry...'
 _platforms = Rulepack::Common.load_platform_registry
 
-index_data = if Rulepack::Common::RULEPACK_ROOT.join('data', 'index.yaml').exist?
-                Rulepack::Common.load_yaml(Rulepack::Common::RULEPACK_ROOT.join('data', 'index.yaml'))
-              else
-                { version: 3.0, generated: nil, packages: {} }
-              end
-
-index_data[:version] = 3.0
-index_data[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-# Preserve installed records, rebuild package metadata from scratch
-old_installed = {}
-(index_data[:packages] || {}).each { |name, pkg| old_installed[name] = pkg[:installed] if pkg[:installed]&.any? }
-index_data[:packages] = {}
+index_data = {
+  version: 3.0,
+  generated: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+  packages: {}
+}
 
 # ─── Discover PKGBUILDs ────────────────────────────────────────────────────────
 
@@ -365,13 +357,6 @@ pkgbuilds.each do |pkgbuild_path|
   end
 end
 
-# Restore installed records for packages that still exist
-old_installed.each do |name, installed|
-  next unless index_data[:packages][name]
-
-  index_data[:packages][name][:installed] = installed
-end
-
 # ─── Write build index ─────────────────────────────────────────────────────────
 
 build_index_data = {
@@ -386,25 +371,6 @@ begin
 rescue StandardError => e
   Rulepack::Common.log_error "Failed to write build index: #{e.message}"
   exit 1
-end
-
-# ─── Write master index (data/index.yaml) ─────────────────────────────────────
-
-begin
-  Rulepack::Common.write_yaml_atomic(Rulepack::Common::RULEPACK_ROOT.join('data', 'index.yaml'), index_data)
-  Rulepack::Common.log "📝 Master index written: #{Rulepack::Common::RULEPACK_ROOT.join('data', 'index.yaml')}"
-rescue StandardError => e
-  Rulepack::Common.log_error "Failed to write master index: #{e.message}"
-  exit 1
-end
-
-# ─── Write derived JSON index ──────────────────────────────────────────────────
-
-begin
-  Rulepack::Common::INDEX_JSON_PATH.write(JSON.pretty_generate(index_data))
-  Rulepack::Common.log "📝 JSON index written: #{Rulepack::Common::INDEX_JSON_PATH}"
-rescue StandardError => e
-  Rulepack::Common.log_error "Failed to write JSON index: #{e.message}"
 end
 
 # ─── Generate catalog.json ─────────────────────────────────────────────────────

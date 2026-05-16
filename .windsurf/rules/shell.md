@@ -1,1 +1,0 @@
-../../ssot/build/windsurf/shell.md

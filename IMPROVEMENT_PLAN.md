@@ -1156,7 +1156,7 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 ---
 
 **Last Updated**: 2026-05-16
-**Status**: P0-P9 ✅ | P10 ✅ (124→23) | P11.1-P11.6 ✅ | P11.3 ⏳ (low risk) | P12 🔴 (open)
+**Status**: P0-P9 ✅ | P10 ✅ (124→23) | P11.1-P11.6 ✅ | P11.3 ⏳ (low risk) | P12 ✅ (fixed)
 
 ---
 
@@ -1241,27 +1241,21 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 
 ## 📋 Priority 12 — Bug: `rulepack build` Sıfırlıyor `data/index.yaml`
 
-**Status**: 🔴 OPEN
+**Status**: ✅ FIXED
 **Date**: 2026-05-16
 
 **Bug**: `rulepack build` writes `data/index.yaml` (master index) with only build metadata, discarding all installed package records. After build, `rulepack status` shows "Platforms: 0" because installed records are lost.
 
-**Root cause**: `build.rb` → `aggregate.rb` → `generate-catalog.rb` pipeline writes to `data/index.yaml` as the final step, but this file is the **master index** (tracking installed packages). The build writes a fresh index with only PKGBUILD metadata, replacing the existing index that contained installed records.
+**Root cause**: `build.rb` was writing to `data/index.yaml` as the final step, but this file is the **install database** (tracking installed packages). The build was overwriting it with fresh build metadata.
 
-**Timeline of bug**:
-1. `rulepack build` builds 9 packages → writes `build/index.yaml` (build artifacts)
-2. `rulepack install --all` installs packages → writes installed records to `data/index.yaml`
-3. `rulepack status` shows 13 platforms ✅
-4. `rulepack build` again → overwrites `data/index.yaml` with build-only data
-5. `rulepack status` shows "Platforms: 0" ❌
+**Fix**:
+- **build.rb**: Removed all writes to `data/index.yaml` and `data/index.json`. Build now only writes `build/index.yaml`.
+- **aggregate.rb**: Now reads from `build/index.yaml` (`BUILD_INDEX_PATH`) instead of `data/index.yaml`.
+- **query.rb**: `load_index` now merges package metadata from `build/index.yaml` with installed records from `data/index.yaml`. If both exist, every package gets its metadata from build and its `installed` field from install.
+- **Error messages**: `uninstall.rb` and `verify.rb` updated to say "run install" instead of "run build" for missing index.
 
-**Fix options**:
-- **A (minimal)**: Stop build from writing `data/index.yaml`; only write `build/index.yaml`. The master index is the **install** script's responsibility.
-- **B (merge)**: After build completes, merge build metadata into existing master index without overwriting installed records.
-- **C (single source)**: Use `build/index.yaml` as canonical source; don't maintain a separate `data/index.yaml` for installed records.
+**Files**: `lib/rulepack/build.rb`, `lib/rulepack/aggregate.rb`, `lib/rulepack/query.rb`, `lib/rulepack/uninstall.rb`, `lib/rulepack/verify.rb`
 
-**Files**: `lib/rulepack/build.rb` (writes `data/index.yaml`), `lib/rulepack/aggregate.rb` (also writes index), `lib/rulepack/generate-catalog.rb` (catalog generator, reads `BUILD_INDEX_PATH`)
-
-**Test**: `build → install → build → status` should show same platforms before and after second build.
+**Verification**: `build → build → status` shows identical platforms (13 platforms, 9 packages). Neither build affects installed records.
 
 ---

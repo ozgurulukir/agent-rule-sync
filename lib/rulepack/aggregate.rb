@@ -14,11 +14,10 @@ require_relative 'common'
 
 # ─── Load data ─────────────────────────────────────────────────────────────────
 
-abort "❌ Index not found: #{Rulepack::Common::INDEX_YAML_PATH}. Run `ruby lib/rulepack/build.rb` first." unless Rulepack::Common::INDEX_YAML_PATH.exist?
+abort "❌ Build index not found: #{Rulepack::Common::BUILD_INDEX_PATH}. Run `ruby lib/rulepack/build.rb` first." unless Rulepack::Common::BUILD_INDEX_PATH.exist?
 
-# Load index with symbolize_names: true to match index.yaml (symbol keys)
-# Load index and registry with symbol keys
-index = YAML.safe_load(Rulepack::Common::INDEX_YAML_PATH.read, permitted_classes: [Symbol], symbolize_names: true)
+# Load build index (package metadata) with symbol keys
+index = YAML.safe_load(Rulepack::Common::BUILD_INDEX_PATH.read, permitted_classes: [Symbol], symbolize_names: true)
 platforms = YAML.safe_load(Rulepack::Common::RULEPACK_ROOT.join('data', 'registry', 'platforms.yaml').read, permitted_classes: [Symbol], symbolize_names: true)
 
 # Identify skill-based agents

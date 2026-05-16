@@ -18,7 +18,7 @@ require_relative 'installer'
 def main
   platform_arg = ARGV.first
 
-  abort 'index.yaml not found. Run `ruby lib/rulepack/build.rb` first.' unless Rulepack::Common::INDEX_YAML_PATH.exist?
+  abort 'index.yaml not found. Run `rulepack install <platform>` first to create it.' unless Rulepack::Common::INDEX_YAML_PATH.exist?
 
   index = Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
   packages = index[:packages] || {}
