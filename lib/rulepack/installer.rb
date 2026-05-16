@@ -545,7 +545,7 @@ module Rulepack
           return nil
         end
         selected
-      elsif $stdin.isatty && sub_skills.size > 1
+      elsif $stdin.isatty && sub_skills.size.between?(2, 50)
         prompt_sub_skill_selection(sub_skills, pkgname)
       else
         sub_skills
