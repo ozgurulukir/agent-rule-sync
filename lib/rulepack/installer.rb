@@ -22,6 +22,7 @@ module Rulepack
       dry_run = options.fetch(:dry_run, false)
       check_mode = options.fetch(:check_mode, false)
       force_mode = options.fetch(:force_mode, false)
+      needed_mode = options.fetch(:needed_mode, false)
       verbose_mode = options.fetch(:verbose_mode, false)
       select_list = options.fetch(:select_list, nil)
       project_arg = options.fetch(:project_arg, nil)
@@ -57,6 +58,7 @@ module Rulepack
       begin
         install_platform(index, build_index, platform_id,
                          dry_run: dry_run, force_mode: force_mode,
+                         needed_mode: needed_mode,
                          select_list: select_list, project_arg: project_arg,
                          specific_package: specific_package)
 
@@ -168,6 +170,7 @@ module Rulepack
       install_platform(index, build_index, platform_id,
                        dry_run: options.fetch(:dry_run, false),
                        force_mode: options.fetch(:force_mode, false),
+                       needed_mode: options.fetch(:needed_mode, false),
                        select_list: options.fetch(:select_list, nil),
                        project_arg: options.fetch(:project_arg, nil),
                        quiet: true)
@@ -190,7 +193,7 @@ module Rulepack
     # ─── Install a single platform ───────────────────────────────────────────────
     # Returns Set of installed package names for this run.
 
-    def install_platform(index, build_index, platform_id, dry_run: false, force_mode: false, select_list: nil,
+    def install_platform(index, build_index, platform_id, dry_run: false, force_mode: false, needed_mode: false, select_list: nil,
                          project_arg: nil, quiet: false, specific_package: nil)
       installed_this_run = Set.new
       platform_id = platform_id.to_s
@@ -212,7 +215,7 @@ module Rulepack
         end
 
         next unless should_install_or_upgrade?(pkgname, pkgdata, platform_id, index,
-                                               force_mode, dry_run, quiet, select_list)
+                                               force_mode, needed_mode, dry_run, quiet, select_list)
 
         ensure_package_in_index(index, pkgname, pkgdata)
 
@@ -281,7 +284,7 @@ module Rulepack
       pkgdata[:targets]&.select { |t| t[:platform] == platform_id } || []
     end
 
-    def should_install_or_upgrade?(pkgname, pkgdata, platform_id, index, force_mode, dry_run, quiet,
+    def should_install_or_upgrade?(pkgname, pkgdata, platform_id, index, force_mode, needed_mode, dry_run, quiet,
                                    select_list = nil)
       pkg_index = index[:packages][pkgname] || { installed: [] }
       existing_records = (pkg_index[:installed] || []).select { |r| r[:platform] == platform_id }
@@ -296,6 +299,14 @@ module Rulepack
 
       case cmp
       when 0
+        if needed_mode
+          unless quiet
+            ver = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
+            Rulepack::Common.log "  ↺ #{pkgname} #{ver} already installed (--needed)"
+          end
+          return false
+        end
+
         targets = Array(pkgdata[:targets])
         has_skill_bundle = targets.any? { |t| t[:platform] == platform_id && t[:format] == 'skill-bundle' }
         if select_list && has_skill_bundle

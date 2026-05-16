@@ -23,6 +23,12 @@ module Rulepack
       end
 
       command = argv.shift || "help"
+
+      if ['-h', '--help', 'help'].include?(command)
+        print_help
+        return 0
+      end
+
       full_argv = argv
 
       case command
@@ -91,29 +97,40 @@ module Rulepack
 
         Usage: rulepack <command> [options]
 
-        Commands:
-          build                  Build all packages (fetch → transform → artifacts)
-          install <platform>     Install packages to a platform
-          uninstall <platform>   Remove packages from a platform
-          query <cmd>            Query package database
-          list                   List all packages
-          show <pkgname>         Show package details
-          search <tag>           Search packages by tag
-          status                 Show overall system status
-          check <platform>       Verify installed state matches index
-          verify [platform]      Comprehensive index vs disk reconciliation
-          fix [platform]         Repair drift (missing/modified files)
-          catalog                Show package catalog (JSON)
-          platforms              List all platforms
-          help                   Show this help
+        Pacman-style commands:
+          install <platform|package>   Install packages to a platform
+          uninstall <platform>         Remove packages from a platform
+          query <cmd>                  Query package database
+          fix [platform]               Repair drift (index-disk reconciliation)
+
+        Makepkg-style commands:
+          build                        Build all packages (fetch → transform → artifacts)
+
+        Other commands:
+          list                         List all packages
+          show <pkgname>               Show package details
+          search <tag>                 Search packages by tag
+          status                       Show overall system status
+          check <platform>             Verify installed state matches index
+          verify [platform]            Comprehensive index vs disk reconciliation
+          catalog                      Show package catalog (JSON)
+          platforms                    List all platforms
 
         Global Flags:
-          --timing               Show operation timing
-          --verbose              Show debug output
+          --timing                     Show operation timing
+          --verbose, -v                Show debug output
+
+        Install Flags (pacman-style):
+          --target PLATFORM            Install single package to specific platform
+          --needed                     Skip already-installed packages
+          --dry-run, -p                Preview without changes (pacman -p/--print)
+          --force, -f                  Allow downgrades (pacman -f/--force)
 
         Examples:
           rulepack build && rulepack install opencode
-          rulepack install opencode --dry-run
+          rulepack install rulepkg --target opencode --needed
+          rulepack install opencode -p              # dry-run preview
+          rulepack install --all --needed
           rulepack uninstall opencode
           rulepack status
           rulepack search security

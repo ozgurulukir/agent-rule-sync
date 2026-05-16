@@ -12,9 +12,7 @@ require 'set'
 require_relative 'common'
 require_relative 'installer'
 
-RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path
-REGISTRY = Rulepack::Common.load_platform_registry
-DIGEST = Digest::SHA256
+
 
 def main
   platform_arg = ARGV.first
@@ -51,7 +49,7 @@ def main
 end
 
 def run_verify(platform_id)
-  verify_path = RULEPACK_ROOT.join('lib/rulepack/verify.rb')
+  verify_path = Rulepack::Common::RULEPACK_ROOT.join('lib/rulepack/verify.rb')
   old_argv = ARGV.dup
   ARGV.replace([platform_id])
   out = StringIO.new
@@ -99,7 +97,7 @@ def fix_drift(platform_id, dry_run)
   end
   write_index(index)
   puts "  Reinstalling #{broken.size} package(s) on #{platform_id}..."
-  install_path = RULEPACK_ROOT.join('lib/rulepack/install.rb')
+  install_path = Rulepack::Common::RULEPACK_ROOT.join('lib/rulepack/install.rb')
   old_argv = ARGV.dup
   ARGV.replace([platform_id])
   load install_path.to_s
@@ -153,7 +151,7 @@ def clear_installed_record(index, pkgname, platform_id)
 end
 
 def find_broken_packages(platform_id, index)
-  platform_cfg = Rulepack::Common.platform_config(platform_id, REGISTRY)
+  platform_cfg = Rulepack::Common.platform_config(platform_id, Rulepack::Common.load_platform_registry)
   return [] unless platform_cfg
 
   base_path = resolve_base_path(platform_cfg)
@@ -173,7 +171,7 @@ def find_broken_packages(platform_id, index)
                   !Rulepack::Common::BUILD_DIR.join(platform_id, inst[:output]).exist?
                 else
                   installed_path = resolve_install_path(platform_cfg, target, base_path)
-                  !installed_path.exist? || DIGEST.hexdigest(installed_path.read) != inst[:checksum]
+                  !installed_path.exist? || Digest::SHA256.hexdigest(installed_path.read) != inst[:checksum]
                 end
 
     broken << pkgname if is_broken

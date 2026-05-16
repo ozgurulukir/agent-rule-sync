@@ -11,10 +11,7 @@ require 'fileutils'
 require 'digest'
 require_relative 'common'
 
-RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path
-BUILD_DIR = RULEPACK_ROOT.join('build')
-INDEX_YAML_PATH = RULEPACK_ROOT.join('data', 'index.yaml')
-LOG_PATH = BUILD_DIR.join('uninstall.log')
+LOG_PATH = Rulepack::Common::BUILD_DIR.join('uninstall.log')
 Rulepack::Common.log_file = LOG_PATH
 
 def project_root_for(_platform_id, platform_cfg, project_arg)
@@ -30,7 +27,7 @@ i = 0
 while i < ARGV.length
   arg = ARGV[i]
   case arg
-  when '--dry-run'
+  when '--dry-run', '-p'
     dry_run = true
     i += 1
   when '--project'
@@ -45,9 +42,9 @@ while i < ARGV.length
 end
 
 unless platform_arg
-  puts 'Usage: ruby lib/rulepack/uninstall.rb <platform> [--dry-run] [--project PATH]'
+  puts 'Usage: ruby lib/rulepack/uninstall.rb <platform> [--dry-run|-p] [--project PATH]'
   puts '  <platform>  Target platform (opencode, cursor, etc.)'
-  puts "  --dry-run   Show what would be removed, don't modify filesystem"
+  puts '  --dry-run,-p Show what would be removed, don\'t modify filesystem'
   puts '  --project   Project root (required for project-level platforms)'
   exit 1
 end
@@ -57,12 +54,12 @@ Rulepack::Common.log "🧹 Uninstalling packages from platform: #{platform_id} #
 puts "🧹 Uninstalling packages from platform: #{platform_id} #{'(dry-run)' if dry_run}"
 
 # Load index
-unless INDEX_YAML_PATH.exist?
-  Rulepack::Common.log_error "Index not found: #{INDEX_YAML_PATH}. Run `ruby lib/rulepack/build.rb` first."
+unless Rulepack::Common::INDEX_YAML_PATH.exist?
+  Rulepack::Common.log_error "Index not found: #{Rulepack::Common::INDEX_YAML_PATH}. Run `ruby lib/rulepack/build.rb` first."
   exit 1
 end
 
-index = Rulepack::Common.load_yaml(INDEX_YAML_PATH)
+index = Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
 # Migrate old index records to include pkgrel/epoch if missing
 (index[:packages] || {}).each_value { |pkg_idx| Rulepack::Common.migrate_installed_records(pkg_idx) }
 platform_cfg = Rulepack::Common.platform_config(platform_id, Rulepack::Common.load_platform_registry)
@@ -113,7 +110,7 @@ if platform_cfg[:type] == 'skill' && !dry_run
   agg_ok = begin
     old_argv = ARGV.dup
     ARGV.replace([platform_id.to_s])
-    load RULEPACK_ROOT.join('lib/rulepack/aggregate.rb').to_s
+    load Rulepack::Common::RULEPACK_ROOT.join('lib/rulepack/aggregate.rb').to_s
     ARGV.replace(old_argv)
     true
            rescue SystemExit
@@ -135,9 +132,9 @@ if dry_run
 else
   begin
     index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-    Rulepack::Common.write_yaml_atomic(INDEX_YAML_PATH, index)
-    Rulepack::Common.log "📝 Index updated: #{INDEX_YAML_PATH}"
-    puts "\n📝 Index updated: #{INDEX_YAML_PATH}"
+    Rulepack::Common.write_yaml_atomic(Rulepack::Common::INDEX_YAML_PATH, index)
+    Rulepack::Common.log "📝 Index updated: #{Rulepack::Common::INDEX_YAML_PATH}"
+    puts "\n📝 Index updated: #{Rulepack::Common::INDEX_YAML_PATH}"
   rescue StandardError => e
     Rulepack::Common.log_error "Failed to write index: #{e.message}"
     exit 1

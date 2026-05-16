@@ -5,8 +5,8 @@
 # Delegates to Rulepack::Install for all logic.
 #
 # Usage:
-#   ruby lib/rulepack/install.rb <platform> [--dry-run] [--force] [--select SKILLS] [--project PATH] [--verbose]
-#   ruby lib/rulepack/install.rb --all [--dry-run] [--force] [--select SKILLS]
+#   ruby lib/rulepack/install.rb <platform|package> [--target <platform>] [--needed] [--dry-run|-p] [--force|-f] [--select SKILLS] [--project PATH] [--verbose]
+#   ruby lib/rulepack/install.rb --all [--needed] [--dry-run|-p] [--force|-f] [--select SKILLS]
 #   ruby lib/rulepack/install.rb --targets <package>
 #   ruby lib/rulepack/install.rb --check <platform> [--project PATH]
 
@@ -14,7 +14,7 @@ require 'pathname'
 require_relative 'installer'
 require_relative 'common'
 
-RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path
+
 
 # ─── Parse arguments ────────────────────────────────────────────────────────────
 
@@ -22,25 +22,35 @@ dry_run = false
 check_mode = false
 force_mode = false
 verbose_mode = false
+needed_mode = false
 select_list = nil
 platform_arg = nil
 project_arg = nil
 all_mode = false
 targets_mode = false
+target_platform = nil
 
 i = 0
 while i < ARGV.length
   arg = ARGV[i]
   case arg
-  when '--dry-run'
+  when '--dry-run', '-p'
     dry_run = true
     i += 1
   when '--check'
     check_mode = true
     i += 1
-  when '--force'
+  when '--force', '-f'
     force_mode = true
     i += 1
+  when '--needed'
+    needed_mode = true
+    i += 1
+  when '--target'
+    raise 'Missing value for --target' if i + 1 >= ARGV.length
+
+    target_platform = ARGV[i + 1].downcase
+    i += 2
   when '--project'
     raise 'Missing path for --project' if i + 1 >= ARGV.length
 
@@ -76,8 +86,8 @@ if targets_mode
   end
 
   pkgname = platform_arg
-  index = if RULEPACK_ROOT.join('data', 'index.yaml').exist?
-            Rulepack::Common.load_yaml(RULEPACK_ROOT.join('data', 'index.yaml'))
+  index = if Rulepack::Common::INDEX_YAML_PATH.exist?
+            Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
           else
             { version: 3.0, packages: {} }
           end
@@ -120,6 +130,7 @@ if all_mode
   Rulepack::Install.install_all(
     dry_run: dry_run,
     force_mode: force_mode,
+    needed_mode: needed_mode,
     verbose_mode: verbose_mode,
     select_list: select_list,
     project_arg: project_arg
@@ -130,8 +141,8 @@ end
 # ─── Single platform mode ───────────────────────────────────────────────────────
 
 unless platform_arg || check_mode
-  puts 'Usage: ruby lib/rulepack/install.rb <platform> [--dry-run] [--force] [--select SKILLS] [--project PATH]'
-  puts '       ruby lib/rulepack/install.rb --all [--dry-run] [--force] [--select SKILLS]'
+  puts 'Usage: ruby lib/rulepack/install.rb <platform|package> [--target <platform>] [--needed] [--dry-run|-p] [--force|-f] [--select SKILLS] [--project PATH]'
+  puts '       ruby lib/rulepack/install.rb --all [--needed] [--dry-run|-p] [--force|-f] [--select SKILLS]'
   puts '       ruby lib/rulepack/install.rb --targets <package>'
   puts '       ruby lib/rulepack/install.rb --check <platform> [--project PATH]'
   puts ''
@@ -141,8 +152,10 @@ unless platform_arg || check_mode
   puts 'Options:'
   puts '  --all             Install to all platforms'
   puts '  --targets PKG     Show target platforms for a package'
-  puts '  --dry-run         Preview without changes'
-  puts '  --force           Allow downgrades'
+  puts '  --target PLATFORM Install package to specific platform (with package name)'
+  puts '  --needed          Skip packages that are already installed and current'
+  puts '  --dry-run, -p     Preview without changes'
+  puts '  --force, -f       Allow downgrades'
   puts '  --select SKILLS   Comma-separated sub-skill names (skill-bundle only)'
   puts '  --project PATH    Project root (for project-level platforms)'
   puts '  --verbose         Debug logging'
@@ -155,8 +168,8 @@ actual_platform = platform_arg
 target_package = nil
 
 if platform_arg && !check_mode && !targets_mode
-  build_idx = if RULEPACK_ROOT.join('build', 'index.yaml').exist?
-                Rulepack::Common.load_yaml(RULEPACK_ROOT.join('build', 'index.yaml'))
+  build_idx = if Rulepack::Common::BUILD_INDEX_PATH.exist?
+                Rulepack::Common.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
               end
   if build_idx && build_idx[:packages]
     arg = platform_arg.downcase
@@ -175,11 +188,21 @@ if check_mode
   Rulepack::Install.check_platform(actual_platform || platform_arg, project_arg: project_arg)
 
 elsif target_package
-  # Single package install: find its platforms, install to first or --platform
+  # Single package install: install to --target platform or first target
   pkg_platform = nil
   pkgdata = build_idx[:packages][target_package.to_sym]
   targets = (pkgdata[:targets] || []).map { |t| t[:platform] }
-  pkg_platform = targets.first unless targets.empty?
+
+  if target_platform
+    unless targets.include?(target_platform)
+      puts "❌ #{target_package} does not target '#{target_platform}'. Available: #{targets.join(', ')}"
+      exit 1
+    end
+    pkg_platform = target_platform
+  else
+    pkg_platform = targets.first unless targets.empty?
+  end
+
   unless pkg_platform
     puts "❌ #{target_package} has no target platforms"
     exit 1
@@ -187,12 +210,14 @@ elsif target_package
   Rulepack::Common.log "📦 Installing #{target_package} → #{pkg_platform}"
   Rulepack::Install.run(pkg_platform,
                         dry_run: dry_run, force_mode: force_mode,
+                        needed_mode: needed_mode,
                         verbose_mode: verbose_mode, select_list: select_list,
                         project_arg: project_arg, specific_package: target_package)
 
 else
   Rulepack::Install.run(actual_platform,
                         dry_run: dry_run, force_mode: force_mode,
+                        needed_mode: needed_mode,
                         verbose_mode: verbose_mode, select_list: select_list,
                         project_arg: project_arg)
 end

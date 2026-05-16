@@ -9,7 +9,7 @@ require 'json'
 require 'yaml'
 require_relative 'common'
 
-RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path
+
 
 def main
   unless Rulepack::Common::BUILD_INDEX_PATH.exist?
@@ -72,7 +72,7 @@ def format_ver(data)
 end
 
 def read_source_info(name)
-  pkgbuild_path = RULEPACK_ROOT.join('data', 'packages', name.to_s, 'PKGBUILD')
+  pkgbuild_path = Rulepack::Common::RULEPACK_ROOT.join('data', 'packages', name.to_s, 'PKGBUILD')
   return { type: 'unknown' } unless pkgbuild_path.exist?
 
   pkg = YAML.safe_load(pkgbuild_path.read, permitted_classes: [Symbol]) || {}

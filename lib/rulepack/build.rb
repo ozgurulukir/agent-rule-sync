@@ -10,11 +10,7 @@ require 'uri'
 require 'json'
 require_relative 'common'
 
-RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path
-BUILD_DIR = RULEPACK_ROOT.join('build')
-BUILD_INDEX_PATH = BUILD_DIR.join('index.yaml')
-INDEX_JSON_PATH = RULEPACK_ROOT.join('data', 'index.json')
-LOG_PATH = BUILD_DIR.join('build.log')
+LOG_PATH = Rulepack::Common::BUILD_DIR.join('build.log')
 Rulepack::Common.log_file = LOG_PATH
 
 # ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -72,8 +68,8 @@ end
 Rulepack::Common.log '🔧 Loading platform registry...'
 _platforms = Rulepack::Common.load_platform_registry
 
-index_data = if RULEPACK_ROOT.join('data', 'index.yaml').exist?
-                Rulepack::Common.load_yaml(RULEPACK_ROOT.join('data', 'index.yaml'))
+index_data = if Rulepack::Common::RULEPACK_ROOT.join('data', 'index.yaml').exist?
+                Rulepack::Common.load_yaml(Rulepack::Common::RULEPACK_ROOT.join('data', 'index.yaml'))
               else
                 { version: 3.0, generated: nil, packages: {} }
               end
@@ -87,7 +83,7 @@ index_data[:packages] = {}
 
 # ─── Discover PKGBUILDs ────────────────────────────────────────────────────────
 
-pkgbuilds = RULEPACK_ROOT.join('data', 'packages').glob('*/PKGBUILD')
+pkgbuilds = Rulepack::Common::RULEPACK_ROOT.join('data', 'packages').glob('*/PKGBUILD')
 Rulepack::Common.log "📦 Found #{pkgbuilds.size} package(s)"
 puts "📦 Found #{pkgbuilds.size} package(s)\n\n"
 
@@ -185,7 +181,7 @@ pkgbuilds.each do |pkgbuild_path|
         Rulepack::Common.log "  Fetching git repo (cached): #{git_url} (ref: #{git_ref})"
         cached_dir, commit_hash = Rulepack::Common.cached_fetch_git_dir(git_url, git_ref, git_path,
                                                                         depth: git_depth)
-        persistent_dir = BUILD_DIR.join('git-sources', pkgname.to_s)
+        persistent_dir = Rulepack::Common::BUILD_DIR.join('git-sources', pkgname.to_s)
         FileUtils.rm_rf(persistent_dir)
         FileUtils.mkpath(persistent_dir.parent)
         FileUtils.cp_r(cached_dir, persistent_dir)
@@ -273,7 +269,7 @@ pkgbuilds.each do |pkgbuild_path|
 
         sd = pkg_index[:source_dir] || raise('internal error: source_dir not set for skill-bundle')
         source_dir = Pathname.new(sd)
-        build_platform_dir = BUILD_DIR.join(platform_id)
+        build_platform_dir = Rulepack::Common::BUILD_DIR.join(platform_id)
         begin
           build_pkg_dir = build_platform_dir.join(pkgname.to_s)
           FileUtils.mkpath(build_pkg_dir)
@@ -346,7 +342,7 @@ pkgbuilds.each do |pkgbuild_path|
 
         # Write to build directory
         begin
-          build_platform_dir = BUILD_DIR.join(platform_id)
+          build_platform_dir = Rulepack::Common::BUILD_DIR.join(platform_id)
           build_platform_dir.mkpath
           build_file = build_platform_dir.join(output)
           build_file.write(transformed)
@@ -384,9 +380,9 @@ build_index_data = {
   packages: index_data[:packages]
 }
 begin
-  Rulepack::Common.write_yaml_atomic(BUILD_INDEX_PATH, build_index_data)
-  Rulepack::Common.log "📝 Build index written: #{BUILD_INDEX_PATH}"
-  puts "\n📝 Build index written: #{BUILD_INDEX_PATH}"
+  Rulepack::Common.write_yaml_atomic(Rulepack::Common::BUILD_INDEX_PATH, build_index_data)
+  Rulepack::Common.log "📝 Build index written: #{Rulepack::Common::BUILD_INDEX_PATH}"
+  puts "\n📝 Build index written: #{Rulepack::Common::BUILD_INDEX_PATH}"
 rescue StandardError => e
   Rulepack::Common.log_error "Failed to write build index: #{e.message}"
   exit 1
@@ -395,8 +391,8 @@ end
 # ─── Write master index (data/index.yaml) ─────────────────────────────────────
 
 begin
-  Rulepack::Common.write_yaml_atomic(RULEPACK_ROOT.join('data', 'index.yaml'), index_data)
-  Rulepack::Common.log "📝 Master index written: #{RULEPACK_ROOT.join('data', 'index.yaml')}"
+  Rulepack::Common.write_yaml_atomic(Rulepack::Common::RULEPACK_ROOT.join('data', 'index.yaml'), index_data)
+  Rulepack::Common.log "📝 Master index written: #{Rulepack::Common::RULEPACK_ROOT.join('data', 'index.yaml')}"
 rescue StandardError => e
   Rulepack::Common.log_error "Failed to write master index: #{e.message}"
   exit 1
@@ -405,8 +401,8 @@ end
 # ─── Write derived JSON index ──────────────────────────────────────────────────
 
 begin
-  INDEX_JSON_PATH.write(JSON.pretty_generate(index_data))
-  Rulepack::Common.log "📝 JSON index written: #{INDEX_JSON_PATH}"
+  Rulepack::Common::INDEX_JSON_PATH.write(JSON.pretty_generate(index_data))
+  Rulepack::Common.log "📝 JSON index written: #{Rulepack::Common::INDEX_JSON_PATH}"
 rescue StandardError => e
   Rulepack::Common.log_error "Failed to write JSON index: #{e.message}"
 end
@@ -414,7 +410,7 @@ end
 # ─── Generate catalog.json ─────────────────────────────────────────────────────
 
 begin
-  load RULEPACK_ROOT.join('lib', 'rulepack', 'generate-catalog.rb').to_s
+  load Rulepack::Common::RULEPACK_ROOT.join('lib', 'rulepack', 'generate-catalog.rb').to_s
 rescue StandardError => e
   Rulepack::Common.log_error "Failed to generate catalog: #{e.message}"
 end

@@ -149,7 +149,7 @@ module Rulepack
 
       platform_records.each do |rec|
         uninstall_record(rec, target_by_output, platform_cfg, base_path, pkgname, dry_run)
-        records.delete(rec)
+        records.delete(rec) unless dry_run
       end
       pkgname
     end

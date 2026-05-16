@@ -13,8 +13,7 @@ require 'digest'
 require_relative 'common'
 require_relative 'installer'
 
-RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path
-PLATFORM_REGISTRY = Rulepack::Common.load_platform_registry
+
 
 def main
   platform_arg = ARGV.first
@@ -43,7 +42,7 @@ def main
   total_platforms = 0
 
   platforms_to_verify.each do |platform_id|
-    platform_cfg = Rulepack::Common.platform_config(platform_id, PLATFORM_REGISTRY)
+    platform_cfg = Rulepack::Common.platform_config(platform_id, Rulepack::Common.load_platform_registry)
     unless platform_cfg
       puts "Unknown platform: #{platform_id}"
       next
