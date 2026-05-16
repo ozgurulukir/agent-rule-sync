@@ -15,57 +15,61 @@ class Translator
   def self.translate(content, args: {})
     pkgname = args[:pkgname] || 'unknown'
 
-    # Strip any YAML frontmatter
     clean = content.sub(/\A---\s*\n.*?\n---\s*\n/m, '').strip
-
-    # Extract H1 title (first # heading)
     h1_match = clean.match(/^#\s+(.+)$/)
     title = h1_match ? h1_match[1].strip : pkgname.tr('-', ' ').capitalize
-
-    # Remove the H1 from content (we'll re-add it)
     body = h1_match ? clean.sub(/^#\s+.+\n/, '').strip : clean
 
-    # Identify ## sections and their content
     sections = parse_sections(body)
+    build_skill(title, sections, body)
+  end
 
-    # Build skill structure
+  def self.build_skill(title, sections, body)
     lines = []
     lines << "# #{title}"
     lines << ''
 
-    # Overview: use Rationale section if present, otherwise first paragraph
-    if sections['Rationale'] || sections['Overview']
-      overview = sections['Rationale'] || sections['Overview']
-      lines << '## Overview'
-      lines << ''
-      lines << overview.strip
-      lines << ''
-    elsif (first_para = extract_first_paragraph(body))
-      lines << '## Overview'
-      lines << ''
-      lines << first_para
-      lines << ''
-    end
+    add_overview(lines, sections, body)
+    add_capabilities(lines, sections)
+    add_usage(lines, sections)
+    add_remaining_sections(lines, sections)
 
-    # Capabilities: use Constraints or Content sections
-    cap_section = sections['Constraints'] || sections['Capabilities'] || sections['Content']
-    if cap_section
-      lines << '## Capabilities'
-      lines << ''
-      lines << cap_section.strip
-      lines << ''
-    end
+    lines.join("\n")
+  end
 
-    # Usage: use Strategy, Examples, or Usage section
-    usage_section = sections['Strategy'] || sections['Examples'] || sections['Usage'] || sections['Implementation']
-    if usage_section
-      lines << '## Usage'
-      lines << ''
-      lines << usage_section.strip
-      lines << ''
-    end
+  def self.add_overview(lines, sections, body)
+    overview = sections['Rationale'] || sections['Overview'] ||
+               extract_first_paragraph(body)
+    return unless overview
 
-    # Append any remaining sections not already included
+    lines << '## Overview'
+    lines << ''
+    lines << overview.strip
+    lines << ''
+  end
+
+  def self.add_capabilities(lines, sections)
+    cap = sections['Constraints'] || sections['Capabilities'] || sections['Content']
+    return unless cap
+
+    lines << '## Capabilities'
+    lines << ''
+    lines << cap.strip
+    lines << ''
+  end
+
+  def self.add_usage(lines, sections)
+    usage = sections['Strategy'] || sections['Examples'] ||
+            sections['Usage'] || sections['Implementation']
+    return unless usage
+
+    lines << '## Usage'
+    lines << ''
+    lines << usage.strip
+    lines << ''
+  end
+
+  def self.add_remaining_sections(lines, sections)
     included = %w[Overview Rationale Capabilities Constraints Content Usage Strategy Examples
                   Implementation]
     sections.each do |heading, text|
@@ -76,8 +80,6 @@ class Translator
       lines << text.strip
       lines << ''
     end
-
-    lines.join("\n")
   end
 
   def self.parse_sections(body)

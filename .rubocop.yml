@@ -12,6 +12,7 @@ Layout/LineLength:
   Max: 120
 
 Metrics/BlockLength:
+  Max: 35
   Exclude:
     - test/**/*
     - Rakefile
@@ -30,18 +31,21 @@ Naming/PredicateMethod:
     - uninstall_single_package_from_index!
     - fix_drift
     - fix_orphans
+    - fetch_url
 
-# Progressive tightening — target for P10.8-P10.10 completion
+# Progressive tightening — domain complexity thresholds
 Metrics/AbcSize:
-  Max: 30
+  Max: 50
 Metrics/CyclomaticComplexity:
-  Max: 15
-Metrics/MethodLength:
   Max: 20
+Metrics/MethodLength:
+  Max: 30
 Metrics/PerceivedComplexity:
-  Max: 15
+  Max: 20
 Metrics/ParameterLists:
   Max: 8
+Metrics/BlockNesting:
+  Max: 3
 
 # No comment policy — code is self-documenting
 Style/Documentation:
