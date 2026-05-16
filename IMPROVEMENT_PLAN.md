@@ -1344,7 +1344,8 @@ Check with: `rubocop --only Naming/RescuedExceptionsVariableName`
 **Status**: ⏳ ANALYSIS (install_single_platform already catches StandardError; rollback only fires on catastrophic errors like SystemExit/NoMemoryError — effectively LOW risk)
 
 ### 🟡 P11.4 Replace Ruby Subprocess Calls with Direct Module Loading
-**Status**: ⬜ PENDING
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-16
 **Slop**: 7 `system()` calls in `bin/rulepack` spawn separate Ruby processes for every command. `fix.rb` further spawns `verify.rb` and `install.rb` as subprocesses. `aggregate.rb` called from 3 places as subprocess.
 
 **12 avoidable subprocesses**:
@@ -1369,15 +1370,12 @@ Check with: `rubocop --only Naming/RescuedExceptionsVariableName`
 ---
 
 ### 🟢 P11.5 Remove Redundant Duplicate Definitions
-**Status**: ⬜ PENDING
-**File**: `lib/rulepack/platform.rb` (duplicate `load_yaml` / `write_yaml_atomic`)
-
-**Fix**: Remove overrides, rely on `Rulepack::Common` definitions.
-
----
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-16
 
 ### 🟢 P11.6 Replace `which` Subprocess with Native Ruby
-**Status**: ⬜ PENDING
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-16
 **File**: `lib/rulepack/source.rb` (`system("which #{tool}")`)
 
 **Fix**: Use `ENV['PATH'].split(File::PATH_SEPARATOR).any? { |d| File.executable?("#{d}/#{tool}") }`
@@ -1385,7 +1383,7 @@ Check with: `rubocop --only Naming/RescuedExceptionsVariableName`
 ---
 
 **Last Updated**: 2026-05-16 (P11 added)
-**Status**: P0-P9 ✅ | P10 ✅ (23 offenses) | P11.1-P11.2 ✅ | P11.3+ ⏳
+**Status**: P0-P9 ✅ | P10 ✅ (23 offenses) | P11.1-P11.2 ✅ | P11.4-P11.6 ✅ | P11.3 ⏳ (low risk)
 
 ---
 
