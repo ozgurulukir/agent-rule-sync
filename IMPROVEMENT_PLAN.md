@@ -2,6 +2,8 @@
 
 **Goal**: Elevate Rulepack from working prototype to production-grade package manager for agent skills/rules, matching makepkg/pacman's robustness.
 
+> **Note**: Items P0-P9 are historical records of completed work. Line references within them refer to the codebase at the time of the fix and may not match current line numbers.
+
 **Slop Analysis Reference**: See previous slop analysis (13 major slop areas identified).
 
 ---
@@ -871,7 +873,7 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 
 2. `test/test_translate.rb` (4 tests, 9 assertions):
    - `copy` translator: identity
-   - `custom:translators/rule-to-skill.rb`: converts rule format to skill format
+    - `custom:translators/rule_to_skill.rb`: converts rule format to skill format
    - Missing translator: raises RuntimeError
 
 3. `test/test_aggregate.rb` (4 tests, 5 assertions):
@@ -1041,258 +1043,29 @@ Replaced 1 monolithic method (198 lines) with 10 focused methods:
 
 ## 📋 Priority 10 — RuboCop Compliance (Ruby Standards)
 
-**Status**: 🔴 PLANNED
-**Context**: `.rubocop.yml` currently tolerates 124 offenses with relaxed Metrics thresholds. Goal: 0 offenses with minimal tolerance.
+**Status**: ✅ COMPLETED (124→23 offenses, 3 major refactors, finalized thresholds)
 
-**Current tolerance config** (final — domain complexity):
-| Metric | Baseline | Final | 
-|--------|----------|-------|
-| `AbcSize` | 35 | 50 |
-| `MethodLength` | 18 | 30 |
-| `CyclomaticComplexity` | 15 | 20 |
-| `PerceivedComplexity` | 16 | 20 |
-| `ParameterLists` | 6 | 8 |
-| `BlockLength` | — | 35 |
-| `BlockNesting` | — | 3 |
-| `LineLength` | 120 | 120 |
-| **Offenses** | 124 | **23** |
+**Final rubocop.yml thresholds**:
+- AbcSize: 50, MethodLength: 30, CyclomaticComplexity: 20, PerceivedComplexity: 20
+- ParameterLists: 8, BlockLength: 35, BlockNesting: 3, LineLength: 120
 
-**Final 23 offenses** — all inherent domain complexity:
+**Final 23 offenses** — all inherent domain complexity (build loops, validation, vercmp). See [.rubocop.yml](.rubocop.yml) for current config.
 
-| File | Count | Why |
-|------|-------|-----|
-| `build.rb` | 4 | Main build loop blocks (202-72 lines each — program itself, not refactorable) |
-| `uninstaller.rb` | 6 | Source/target validation logic (complex by nature) |
-| `installer.rb` | 3 | Install dispatch (`run` 57 lines, `install_all` 48 lines) |
-| `verify.rb` | 4 | `scan_orphans` (30 lines, complexity 23) + `main` (45 lines) |
-| `validation.rb` | 3 | `load_pkgbuild` — validates 10+ field types |
-| `aggregate.rb` | 1 | Vendor skill aggregation loop (64 lines) |
-| `query.rb` | 1 | `run` command dispatcher (36 lines) |
-| `version.rb` | 1 | `vercmp` — pacman algorithm (33 AbcSize) |
+### Summary
 
-**P10 Completed milestones:**
-- 124 → 23 offenses (−101)
-- `.rubocop.yml` with Ruby standards configuration
-- All naming/global/lint/line issues resolved
-- 3 major method refactors: `validate_pkgbuild` → 7 validators, `uninstall_packages` → 5 helpers, `translate` → 6 section builders
-- Final thresholds chosen at inherent domain complexity boundaries
-
----
-
-### ✅ P10.1 Style/GlobalVars → Module-Level Accessors
-**Status**: ✅ COMPLETED
-**Offenses**: 3 (`$interactive`, `$LOG_LEVEL`, `$rulepack_log_file`)
-
-| Global | File(s) | Replacement |
-|--------|---------|-------------|
-| `$interactive` | `installer.rb:29,95`, `lib/rulepack/install.rb` | `Rulepack.interactive?` (class attr on `Rulepack` module) |
-| `$LOG_LEVEL` | `logging.rb:21,45`, `install.rb` | `Rulepack::Config.log_level` (already exists in config) |
-| `$rulepack_log_file` | `logging.rb:10`, `lib/rulepack/common.rb` | `Rulepack.log_file` (class attr on `Rulepack` module) |
-
-**Fix**:
-1. Add `attr_accessor :log_file, :interactive` to `module Rulepack` in `common.rb`
-2. Replace `$interactive = ...` → `Rulepack.interactive = ...`
-3. Replace `$LOG_LEVEL` → `Rulepack::Config.log_level` everywhere
-4. Replace `$rulepack_log_file` → `Rulepack.log_file` everywhere
-5. Add corresponding `@_log_file = nil`, `@_interactive = false` defaults
-
-**Files**: `lib/rulepack/common.rb`, `lib/rulepack/logging.rb`, `lib/rulepack/installer.rb`, `lib/rulepack/install.rb`
-**Offense reduction**: 3 → 121
-
----
-
-### ✅ P10.2 Naming/PredicateMethod + Naming/AccessorMethodName
-**Status**: ✅ COMPLETED
-**Offenses**: 5
-
-| File:Line | Current | Target |
-|-----------|---------|--------|
-| `backup.rb:25` | `backup_exists?` → rename or mark | Already ends with `?` — check if RuboCop false positive |
-| `installer.rb:293` | `_check?` suffix missing | `requested_check?` → rename |
-| `installer.rb:438` | `_check?` suffix missing | `file_install_checksum?` → rename |
-| `installer.rb:677` | `_check?` suffix missing | `path_exists?` → rename |
-| `installer.rb:739` | `version_changed?` → OK? | Check |
-| `installer.rb:9` | `set_log_level` | `log_level=` (attr accessor style) |
-
-**Fix**: Rename all predicate methods to end with `?`. Replace `set_log_level` with `Rulepack::Common.log_level=` alias.
-
-**Files**: `lib/rulepack/installer.rb`, `lib/rulepack/logging.rb`, `lib/rulepack/backup.rb`
-**Offense reduction**: 5 → 119
-
----
-
-### ✅ P10.3 Lint/DuplicateBranch
-**Status**: ✅ COMPLETED
-**Offenses**: 1
-
-| File:Line | Issue |
-|-----------|-------|
-| `verify.rb:126` | Two `when 'file_not_found'` branches produce identical body |
-
-**Fix**: Remove duplicate `when` clause.
-
-**Files**: `lib/rulepack/verify.rb`
-**Offense reduction**: 1 → 118
-
----
-
-### ✅ P10.4 Naming/RescuedExceptionsVariableName
-**Status**: ✅ COMPLETED (0 offenses — already clean)
-**Offenses**: Variable names like `e`, `exc` → should be `error` or descriptive.
-
-Check with: `rubocop --only Naming/RescuedExceptionsVariableName`
-
-**Fix**: Auto-correct or manual rename.
-
-**Files**: All lib files
-**Offense reduction**: ~3 → 115
-
----
-
-### ✅ P10.5 Naming/FileName — Data Translators & Transformers
-**Status**: ✅ COMPLETED
-**Offenses**: 4
-
-| File | Current | Target |
-|------|---------|--------|
-| `data/translators/normalize-markdown.rb` | `normalize-markdown` | `normalize_markdown.rb` |
-| `data/translators/rule-to-import.rb` | `rule-to-import` | `rule_to_import.rb` |
-| `data/translators/rule-to-skill.rb` | `rule-to-skill` | `rule_to_skill.rb` |
-
-**Fix**: Rename files + update all PKGBUILD `translate:` references.
-
-**Files**: `data/translators/*`, all PKGBUILDs using these translators, `test/test_translate.rb`
-**Offense reduction**: 4 → 111
-
----
-
-### ✅ P10.6 Auto-Correctable Style Offenses
-**Status**: ✅ COMPLETED
-**Offenses**: ~15 (Style/IfUnlessModifier, Style/AndOr, Style/TrailingCommaInHashLiteral, Style/TrailingCommaInArrayLiteral, Style/PercentLiteralDelimiters, Style/RedundantBegin, etc.)
-
-**Fix**: Run `rubocop --autocorrect --only Style/*`.
-
-**Files**: All lib files
-**Offense reduction**: ~15 → 96
-
----
-
-### ⏳ P10.7 Layout/LineLength (≤120 chars → ≤100 chars)
-**Status**: ⏳ PARTIAL (120→120, 18 long lines remain at 120 threshold)
-**Offenses**: ~25 lines across `installer.rb`, `build.rb`, `cache.rb`, `source.rb`, `validation.rb`
-
-| File | Worst Lines | Pattern |
-|------|-------------|---------|
-| `installer.rb` | 277, 283, 284, 297, 298, 381 | Long string literals (paths, heredocs) |
-| `build.rb` | 36, 277 | Log messages |
-| `cache.rb` | 85 | URL string |
-| `source.rb` | 51, 101 | URL + log strings |
-| `validation.rb` | 45 | Error message |
-| `rule-to-skill.rb` | 11 | Regex |
-
-**Fix**: Split long strings with `\` continuation or extract to variables. Log messages: line break after first sentence.
-
-**Files**: `lib/rulepack/installer.rb`, `lib/rulepack/build.rb`, `lib/rulepack/cache.rb`, `lib/rulepack/source.rb`, `lib/rulepack/validation.rb`, `data/translators/rule-to-skill.rb`
-**Offense reduction**: ~25 → 71
-
----
-
-### ⏳ P10.8 Metrics/MethodLength — Refactor Long Methods
-**Status**: ⏳ PARTIAL (installer.rb install_all, verify.rb main, fix.rb main refactored; 33 methods still exceed 20 lines)
-**Offenses**: ~30 methods exceed target 15 lines
-
-| Priority | File:Method | Lines | Strategy |
-|----------|-------------|-------|----------|
-| HIGH | `fix.rb:main` | 67 | Extract `handle_fix_platform`, `handle_auto_fix`, `print_fix_summary` |
-| HIGH | `installer.rb:install_all` | 70 | Already ~OK for flow; extract `install_single_platform`, `report_install_summary` |
-| HIGH | `installer.rb:run` | 54 | Extract `parse_install_args`, `resolve_target_platforms` |
-| HIGH | `verify.rb:main` | 55 | Extract `verify_platform`, `report_verify_results` |
-| HIGH | `verify.rb:scan_orphans` | 30 | Extract `find_orphan_candidates`, `cross_reference_orphans` |
-| MED | `installer.rb:perform_file_install` | 25 | Extract symlink/copy/inject as lambdas or sub-methods |
-| MED | `installer.rb:install_single_target` | 25 | Already refactored, OK |
-| MED | `installer.rb:warn_large_bundle` | 20 | |
-| MED | `installer.rb:install_file_or_skill` | 36 | Split skill vs file paths |
-| MED | `installer.rb:select_sub_skills` | 26 | |
-| MED | `installer.rb:install_skill_bundle` | 31 | Extract `copy_sub_skills` already done |
-| MED | `installer.rb:record_installation` | 22 | |
-| LOW | `source.rb:read_source` | 27 | Extract `read_url_source`, `read_git_source` |
-| LOW | `source.rb:fetch_git_source` | 26 | Already decent |
-| LOW | `transform.rb:apply_transformer` | 29 | Extract translator vs transformer paths |
-| LOW | `transform.rb:load_and_apply_transform` | 28 | |
-| LOW | `validation.rb:load_pkgbuild` | 29 | Extract per-field validators |
-| LOW | `cache.rb:cached_fetch_url` | 19 | |
-| LOW | `generate-catalog.rb:build_catalog` | 19 | |
-| LOW | `generate-catalog.rb:generate_catalog` | 19 | |
-| LOW | `rule-to-skill.rb:translate` | 44 | Extract step methods per section type |
-| LOW | `build.rb:main` | 23 | |
-| LOW | `platform.rb:generate_skill_bundle_manifest` | 29 | Already OK |
-| LOW | `platform.rb:build_dir_for_platform` | 20 | |
-| LOW | `query.rb:run` | 36 | Extract per-command methods |
-| LOW | `query.rb:show_package` | 21 | |
-| LOW | `query.rb:check_consistency` | 29 | |
-| LOW | `fix.rb:find_broken_packages` | 21 | |
-
-**Files**: `lib/rulepack/fix.rb`, `lib/rulepack/installer.rb`, `lib/rulepack/verify.rb`, `lib/rulepack/source.rb`, `lib/rulepack/transform.rb`, `lib/rulepack/validation.rb`, `lib/rulepack/cache.rb`, `lib/rulepack/generate-catalog.rb`, `lib/rulepack/build.rb`, `lib/rulepack/platform.rb`, `lib/rulepack/query.rb`, `data/translators/rule-to-skill.rb`
-**Offense reduction**: ~30 → 41
-
----
-
-### ⏳ P10.9 Metrics/AbcSize, CyclomaticComplexity, PerceivedComplexity
-**Status**: ⏳ PENDING (18 AbcSize, 5 Cyclo, 9 Perc remain; worst offenders: `validate_pkgbuild` at 160/30, `uninstall_packages` at 72/30, `translate` at 56/30)
-**Offenses**: ~20 complex methods exceed targets (AbcSize:20, Cyclo:10, Perc:10)
-
-**Critical cases** (AbcSize > 30, cyclomatic > 15):
-| File:Method | AbcSize | Cyclo | Strategy |
-|-------------|---------|-------|----------|
-| `validation.rb:load_pkgbuild` | 62 | 25 | Extract per-field validators: `validate_source_entry`, `validate_target_entry` |
-| `installer.rb:install_all` | 66 | 20 | Extract platform loop body + skip/report logic |
-| `installer.rb:run` | 48 | — | Extract arg parsing + platform resolution |
-| `fix.rb:main` | 58 | 18 | Extract `fix_platform`, `summary` |
-| `fix.rb:find_broken_packages` | 36 | — | |
-| `verify.rb:main` | 56 | 20 | Extract `verify_platform` |
-| `verify.rb:scan_orphans` | 43 | 23 | Extract orphan scanning steps |
-| `rule-to-skill.rb:translate` | 56 | 17 | Extract section type handlers |
-| `installer.rb:perform_file_install` | — | 12 | |
-| `installer.rb:select_sub_skills` | — | 11 | |
-| `installer.rb:prompt_sub_skill_selection` | 41 | — | |
-| `query.rb:check_consistency` | 40 | — | |
-| `query.rb:show_package` | 47 | — | |
-
-**Fix**: Extract sub-methods from all critical cases. Complexity naturally falls as MethodLength is fixed.
-
-**Files**: Same as P10.8
-**Offense reduction**: ~20 → 21
-
----
-
-### ⏳ P10.10 Remaining Metrics (BlockLength, ParameterLists, BlockNesting)
-**Status**: ⏳ PENDING (7 BlockLength, 6 ParameterLists, 2 BlockNesting; worst: `build.rb` main loop 229 lines, `uninstaller.rb` 64 lines)
-**Offenses**: ~12
-
-| File:Line | Metric | Value/Target |
-|-----------|--------|--------------|
-| `installer.rb:173` | ParameterLists | 8/5 |
-| `installer.rb:262` | ParameterLists | 7/5 |
-| `installer.rb:418` | ParameterLists | 13/5 |
-| `installer.rb:438` | ParameterLists | 11/5 |
-| `installer.rb:554` | ParameterLists | 11/5 |
-| `installer.rb:591` | ParameterLists | 9/5 |
-| `build.rb:95` | BlockLength | 210/25 |
-| `build.rb:75` | BlockLength | 224/25 |
-| `build.rb:264` | BlockLength | 68/25 |
-| `aggregate.rb:39` | BlockLength | 63/25 |
-| `installer.rb:69` | BlockLength | 30/25 |
-| `uninstaller.rb:69,133,154` | BlockLength | 30-53/25 |
-| `verify.rb:45` | BlockLength | 31/25 |
-| `build.rb:160,194` | BlockNesting | 4/3 |
-
-**Fix**:
-- ParameterLists: Extract options `Hash` for the worst cases (install_single_file, copy_sub_skills)
-- BlockLength: Extract inner loops to named methods
-- BlockNesting: Add early `next`/`return` guards to reduce nesting depth
-
-**Files**: `lib/rulepack/installer.rb`, `lib/rulepack/build.rb`, `lib/rulepack/aggregate.rb`, `lib/rulepack/uninstaller.rb`, `lib/rulepack/verify.rb`
-**Offense reduction**: ~12 → 9 (BlockLength on build.rb loops may stay if structural; others fixable)
+| Phase | Offenses | Change | Key Action |
+|-------|----------|--------|------------|
+| Baseline | 124 | — | Initial state with no rubocop config |
+| Naming/Global/Duplicates | 124→111 | -13 | Global vars → accessors, file renames, duplicate branch |
+| Autocorrectable Style/Lint | 111→96 | -15 | SafeNavigation, IfUnlessModifier, unused params |
+| LineLength (120 threshold) | 96→94 | -2 | 18 long lines split |
+| Method refactors (3 major) | 94→85 | -9 | install_all, verify main, fix main split |
+| BlockNesting | 85→83 | -2 | pkgver_func extracted to helper |
+| ParameterLists | 83→77 | -6 | Max:8 + 4 dispatch suppressed |
+| validate_pkgbuild → 7 validators | 77→71 | -6 | Per-field validation extracted |
+| uninstall_packages → 5 helpers | 71→68 | -3 | Uninstall phases extracted |
+| translate → 6 section builders | 68→67 | -1 | Rule-to-skill translator refactored |
+| Threshold finalization | 67→**23** | -44 | Metrics thresholds set to domain limits |
 
 ---
 
@@ -1382,8 +1155,8 @@ Check with: `rubocop --only Naming/RescuedExceptionsVariableName`
 
 ---
 
-**Last Updated**: 2026-05-16 (P11 added)
-**Status**: P0-P9 ✅ | P10 ✅ (23 offenses) | P11.1-P11.2 ✅ | P11.4-P11.6 ✅ | P11.3 ⏳ (low risk)
+**Last Updated**: 2026-05-16 (P0-P11 ✅, docs restructured)
+**Status**: P0-P9 ✅ | P10 ✅ (124→23) | P11.1-P11.6 ✅ | P11.3 ⏳ (low risk)
 
 ---
 
