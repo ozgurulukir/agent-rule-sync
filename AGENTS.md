@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This repository implements a **Single Source of Truth (SSoT)** management system for agent rules, skills, and documentation using a **package-based architecture** (PKGBUILD format). Each rule or skill is a package with a declarative build descriptor. The system fetches, transforms, builds, and distributes content to multiple agent platforms through a streamlined pipeline.
+This repository implements a **Single Source of Truth** management system for agent rules, skills, and documentation using a **package-based architecture** (PKGBUILD format). Each rule or skill is a package with a declarative build descriptor. The system fetches, transforms, builds, and distributes content to multiple agent platforms through a streamlined pipeline.
 
 **Core Purpose**: Maintain one authoritative source for agent behavior definitions (rules, skills, docs) as individual packages, automatically propagate updates to multiple target platforms with change detection, custom transformers, and per-platform format conversion.
 
@@ -77,7 +77,7 @@ See [Platforms](docs/agents/PLATFORMS.md) for full details.
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-**Note**: PKGBUILD/pacman is used as **architectural inspiration** (package descriptor format, versioning scheme, build pipeline). SSoT does not track Arch Linux packages or use pacman as a dependency. It is a standalone system for agent skill/rule distribution.
+**Note**: PKGBUILD/pacman is used as **architectural inspiration** (package descriptor format, versioning scheme, build pipeline). Rulepack does not track Arch Linux packages or use pacman as a dependency. It is a standalone system for agent skill/rule distribution.
 
 **Single Entry Point**: `bin/rulepack` wraps all pipeline commands: `build`, `install`, `uninstall`, `list`, `show`, `search`, `status`, `check`, `platforms`, `help`.
 
@@ -87,7 +87,7 @@ See [Platforms](docs/agents/PLATFORMS.md) for full details.
 
 2. **Aggregate** (`aggregate.rb`) — For skill-based agents (Crush, Goose, Droid), collect rule fragments and common/agent-specific skills, concatenate into a single vendored skill file per agent under `build/<agent>/skills/vendor/`.
 
-3. **Install** (`install.rb <platform> [--dry-run]`) — Read `data/index.yaml`, for each package built for target platform, install via symlink/copy/inject/append depending on format and platform registry. Update `data/index.yaml` with installed state. Supports `--all` (all platforms), `--targets <pkg>` (show targets), `--check` (verify), `--dry-run`, `--force`, `--select`. For skill-bundles >1 sub-skill, shows interactive numbered menu in a TTY.
+3. **Install** (`install.rb <platform> [--dry-run]`) — Read `data/index.yaml`, for each package built for target platform, install via symlink/copy/inject/append depending on format and platform registry. Update `data/index.yaml` with installed state. Supports `--all` (all platforms), `--targets <pkg>` (show targets), `--check` (verify), `--dry-run`, `--force`, `--select`. For skill-bundles 2-50 sub-skills, shows interactive numbered menu in a TTY (larger bundles install all silently).
 
 4. **Query** (`query.rb`) — Inspect package database: list packages, show details, search, check installed status.
 
@@ -95,12 +95,12 @@ See [Platforms](docs/agents/PLATFORMS.md) for full details.
 
 ## Package Dependencies
 
-Skills and rules are **text files** — they are inherently independent. A skill may reference external tools (e.g., `awk`, `python`) but these are **system-level dependencies**, not package dependencies. SSoT documents tool requirements but does not manage them; installation of system tools is the **user's responsibility**.
+Skills and rules are **text files** — they are inherently independent. A skill may reference external tools (e.g., `awk`, `python`) but these are **system-level dependencies**, not package dependencies. Rulepack documents tool requirements but does not manage them; installation of system tools is the **user's responsibility**.
 
 - **No inter-package dependencies**: Skills/rules do not depend on each other.
 - **No hierarchical resolution**: There is no package hierarchy; users control install order.
 - **No dependency resolution**: The system does not perform topological sorting or cycle detection.
-- **Tool prerequisites**: If a skill requires a system tool, it is documented in the package description. SSoT does not verify or install system packages.
+- **Tool prerequisites**: If a skill requires a system tool, it is documented in the package description. Rulepack does not verify or install system packages.
 
 ---
 
@@ -756,7 +756,7 @@ rake test_cache        # Cache tests (24 tests)
 rake test_pkgbuild     # PKGBUILD validation tests (31 tests)
 rake test_platform     # Platform registry tests (33 tests)
 rake test_uninstall    # Uninstall tests (7 tests)
-rake test_query        # Query tests (16 tests)
+rake test_query        # Query tests (8 tests)
 rake test_translate    # Translate tests (4 tests)
 rake test_aggregate    # Aggregate tests (4 tests)
 rake test_e2e          # End-to-end pipeline tests (14 tests)
@@ -772,7 +772,7 @@ rake test_e2e          # End-to-end pipeline tests (14 tests)
 | `test/test_pkgbuild_validation.rb` | 31 | `load_pkgbuild` (valid, missing file/fields, invalid formats), `validate_pkgbuild` (valid, all invalid fields, nil guards, skill-bundle constraints) |
 | `test/test_platform.rb` | 33 | Platform registry loading/validation, `platform_config` lookup, `resolve_install_path` (all types), `safe_relative`, `build_dir_for_platform`, `check_prerequisites` |
 | `test/test_uninstall.rb` | 7 | Index mutation (in-place removal, dry-run safety, dedup), disk write verification, skip-not-installed |
-| `test/test_query.rb` | 16 | list, show, search, installed, check, orphans, depends, provides |
+| `test/test_query.rb` | 8 | list, show, search, installed, check, orphans, depends, provides |
 | `test/test_translate.rb` | 4 | Translator loading, apply_translator |
 | `test/test_aggregate.rb` | 4 | Skill agent detection, vendor file creation |
 | `test/test_end_to_end.rb` | 14 | Build → install → check → uninstall across all platform types |
@@ -873,7 +873,7 @@ To migrate:
 
 | Item | Status | What's Needed |
 |------|--------|--------------|
-| **Manually-installed skills packaged** | 🟡 5 packages created, some still unmanaged | `ast-grep`, `line-repetition-control`, `workstation-rules`, `windsurf-rules`, `vibe-security` (agents target) — installed and tracked |
+| **Manually-installed skills packaged** | 🟡 9 packages created, some still unmanaged | `antigravity-skills`, `ast-grep`, `cc-skills-golang`, `line-repetition-control`, `memory`, `shell`, `vibe-security`, `windsurf-rules`, `workstation-rules` — installed and tracked |
 
 ### Deferred (Not Needed / Low Priority)
 

@@ -26,14 +26,14 @@ bin/rulepack build
 # Build with timing info
 bin/rulepack build --timing
 
-# Aggregate vendor skills (for skill-based agents)
-bin/rulepack aggregate
-
 # Install to a user-level platform
 bin/rulepack install opencode          # real install
 bin/rulepack install opencode --dry-run  # preview
 bin/rulepack install --all --dry-run    # preview install to all platforms
 bin/rulepack install --targets memory   # show target platforms for a package
+
+# Install a single package
+bin/rulepack install memory
 
 # Install to a project-level platform (run from project root)
 bin/rulepack install cursor --project .   # install to current project
@@ -75,7 +75,7 @@ rulepack/
 │             aggregate.rb, translate.rb, verify.rb, fix.rb,
 │             generate-catalog.rb, install.rb (CLI), uninstall.rb (CLI))
 ├── data/                     # Data files
-│   ├── packages/             # Package definitions (10 packages)
+│   ├── packages/             # Package definitions (9 packages)
 │   ├── registry/
 │   │   └── platforms.yaml    # 14 platform configurations
 │   ├── platforms/            # Format profiles (14 agents)
@@ -112,7 +112,7 @@ Skills and rules are **text files** — they are inherently independent. A skill
 1. Create package directory: `data/packages/<pkgname>/`
 2. Add source file: `data/packages/<pkgname>/src/<filename>.md`
 3. Write `PKGBUILD` descriptor
-4. Build and install: `ruby lib/rulepack/build.rb && ruby lib/rulepack/install.rb <platform>`
+4. Build and install: `bin/rulepack build && bin/rulepack install opencode`
 
 ## PKGBUILD Example
 
@@ -248,15 +248,15 @@ See [Platforms](docs/agents/PLATFORMS.md) for the complete reference.
 
 ## Interactive Sub-skill Selection
 
-When installing a skill-bundle with multiple sub-skills in a terminal, Rulepack shows an interactive numbered menu (pacman-style):
+When installing a skill-bundle with 2-50 sub-skills in a terminal, Rulepack shows an interactive numbered menu (pacman-style):
 
 ```
-📦 antigravity-skills contains 306 sub-skills.
+📦 cc-skills-golang contains 44 sub-skills.
 Select sub-skills to install:
-  1) accessibility-compliance-accessibility-audit
-  2) agent-orchestration-improve-agent
+  1) golang-benchmark
+  2) golang-cli
   ...
-  306) workflow-patterns
+  44) golang-stay-updated
 
 Enter numbers (e.g. 1,2,3, 5-10, or 'all'):
 ```
@@ -264,6 +264,7 @@ Enter numbers (e.g. 1,2,3, 5-10, or 'all'):
 - Enter `1,2,3` or `5-10` to select ranges
 - Enter `all` or press Enter to install everything
 - Runs only in a real TTY (no menu in pipes/CI)
+- Bundles with >50 sub-skills install all sub-skills silently (no menu)
 - Use `--select <names>` to skip the menu entirely
 
 ## Query Tool
@@ -325,7 +326,7 @@ rake test_cache        # Cache tests (24 tests)
 rake test_pkgbuild     # PKGBUILD validation tests (31 tests)
 rake test_platform     # Platform registry tests (33 tests)
 rake test_uninstall    # Uninstall tests (7 tests)
-rake test_query        # Query tests (16 tests)
+rake test_query        # Query tests (8 tests)
 rake test_translate    # Translate tests (4 tests)
 rake test_aggregate    # Aggregate tests (4 tests)
 rake test_e2e          # End-to-end pipeline tests (14 tests)
@@ -338,7 +339,7 @@ rake test_e2e          # End-to-end pipeline tests (14 tests)
 - **test_pkgbuild_validation.rb** (31): load_pkgbuild, validate_pkgbuild (valid + all invalid field types)
 - **test_platform.rb** (33): platform registry, path resolution, safe_relative, prerequisites
 - **test_uninstall.rb** (7): index mutation, dry-run, dedup, disk write verification
-- **test_query.rb** (16): list, show, search, installed, check, orphans, depends, provides
+- **test_query.rb** (8): list, show, search, installed, check, orphans, depends, provides
 - **test_translate.rb** (4): translator loading, apply_translator
 - **test_aggregate.rb** (4): skill agent detection, vendor file creation
 - **test_end_to_end.rb** (14): build → install → check → uninstall across all platform types
@@ -358,7 +359,7 @@ Packages use a three-component version scheme inspired by pacman:
 
 ```bash
 # Force downgrade (not recommended unless necessary)
-ruby lib/rulepack/install.rb opencode --force
+bin/rulepack install opencode --force
 ```
 
 ## Environment Variables
@@ -367,7 +368,7 @@ ruby lib/rulepack/install.rb opencode --force
 |----------|---------|-------------|
 | `RULEPACK_MAX_REDIRECTS` | `3` | Maximum HTTP redirects for URL source fetches |
 | `RULEPACK_READ_TIMEOUT` | `30` | HTTP read timeout in seconds |
-| `RULEPACK_CACHE_DIR` | `cache` | Cache directory name under `data/` |
+| `RULEPACK_CACHE_DIR` | `cache` | Cache directory name under `build/` |
 | `RULEPACK_GIT_DEPTH` | `1` | Git shallow clone depth |
 | `RULEPACK_LOG_LEVEL` | `info` | Log level filtering (`error`, `warn`, `info`, `debug`) |
 
