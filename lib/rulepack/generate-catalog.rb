@@ -13,12 +13,12 @@ RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path
 
 def main
   unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-    abort "Build index not found. Run `ruby lib/rulepack/build.rb` first."
+    abort 'Build index not found. Run `ruby lib/rulepack/build.rb` first.'
   end
 
   index = load_index
   packages = index[:packages] || {}
-  return puts "No packages in build index." if packages.empty?
+  return puts 'No packages in build index.' if packages.empty?
 
   catalog_pkgs = packages.map { |name, data| build_package_entry(name, data) }.compact
 
@@ -34,7 +34,7 @@ def main
   }
 
   output_path = Rulepack::Common::BUILD_DIR.join('catalog.json')
-  File.write(output_path, JSON.pretty_generate(catalog) + "\n")
+  File.write(output_path, "#{JSON.pretty_generate(catalog)}\n")
   puts "Catalog written: #{output_path} (#{catalog_pkgs.size} packages, #{platforms.size} platforms)"
 end
 
@@ -68,7 +68,7 @@ def format_ver(data)
   epoch = data[:epoch].to_i
   ver = data[:pkgver] || '0'
   rel = data[:pkgrel].to_i
-  epoch > 0 ? "#{epoch}:#{ver}-#{rel}" : "#{ver}-#{rel}"
+  epoch.positive? ? "#{epoch}:#{ver}-#{rel}" : "#{ver}-#{rel}"
 end
 
 def read_source_info(name)

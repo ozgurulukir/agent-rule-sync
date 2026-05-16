@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Rule-to-Skill Translator
 # Converts a flat rule file into a single-file skill format.
 #
@@ -6,7 +8,8 @@
 #
 # Example:
 #   Input:  "# Title\n## Constraints\n- item\n## Rationale\n..."
-#   Output: "# Title\n\n## Overview\n\nTitle describes...\n\n## Capabilities\n\n- item\n\n## Usage\n\nApply this rule when..."
+#   Output: "# Title\n\n## Overview\n\nTitle describes..." \
+#          "\n\n## Capabilities\n\n- item\n\n## Usage\n\nApply this rule when..."
 
 class Translator
   def self.translate(content, args: {})
@@ -28,54 +31,54 @@ class Translator
     # Build skill structure
     lines = []
     lines << "# #{title}"
-    lines << ""
+    lines << ''
 
     # Overview: use Rationale section if present, otherwise first paragraph
     if sections['Rationale'] || sections['Overview']
       overview = sections['Rationale'] || sections['Overview']
-      lines << "## Overview"
-      lines << ""
+      lines << '## Overview'
+      lines << ''
       lines << overview.strip
-      lines << ""
-    elsif first_para = extract_first_paragraph(body)
-      lines << "## Overview"
-      lines << ""
+      lines << ''
+    elsif (first_para = extract_first_paragraph(body))
+      lines << '## Overview'
+      lines << ''
       lines << first_para
-      lines << ""
+      lines << ''
     end
 
     # Capabilities: use Constraints or Content sections
     cap_section = sections['Constraints'] || sections['Capabilities'] || sections['Content']
     if cap_section
-      lines << "## Capabilities"
-      lines << ""
+      lines << '## Capabilities'
+      lines << ''
       lines << cap_section.strip
-      lines << ""
+      lines << ''
     end
 
     # Usage: use Strategy, Examples, or Usage section
     usage_section = sections['Strategy'] || sections['Examples'] || sections['Usage'] || sections['Implementation']
     if usage_section
-      lines << "## Usage"
-      lines << ""
+      lines << '## Usage'
+      lines << ''
       lines << usage_section.strip
-      lines << ""
+      lines << ''
     end
 
     # Append any remaining sections not already included
-    included = %w[Overview Rationale Capabilities Constraints Content Usage Strategy Examples Implementation]
+    included = %w[Overview Rationale Capabilities Constraints Content Usage Strategy Examples
+                  Implementation]
     sections.each do |heading, text|
       next if included.include?(heading)
+
       lines << "## #{heading}"
-      lines << ""
+      lines << ''
       lines << text.strip
-      lines << ""
+      lines << ''
     end
 
     lines.join("\n")
   end
-
-  private
 
   def self.parse_sections(body)
     sections = {}
@@ -102,6 +105,6 @@ class Translator
     # Get first non-empty paragraph before any ## heading
     first_section = body.split(/^## /).first.to_s.strip
     # Get first paragraph (up to double newline)
-    first_section.split(/\n\n/).first&.strip
+    first_section.split("\n\n").first&.strip
   end
 end

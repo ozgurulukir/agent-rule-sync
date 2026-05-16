@@ -1,0 +1,50 @@
+AllCops:
+  TargetRubyVersion: 2.7
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - Rakefile
+    - bin/*
+    - vendor/**/*
+    - test/**/*
+
+Layout/LineLength:
+  Max: 120
+
+Metrics/BlockLength:
+  Exclude:
+    - test/**/*
+    - Rakefile
+
+# vercmp is intentionally concise; short names match pacman convention
+Naming/MethodParameterName:
+  MinNameLength: 1
+
+# These are action methods (commands) that happen to return a boolean.
+# Renaming them with ? suffix would be semantically incorrect.
+Naming/PredicateMethod:
+  AllowedMethods:
+    - restore_index
+    - handle_downgrade
+    - install_skill_bundle
+    - uninstall_single_package_from_index!
+    - fix_drift
+    - fix_orphans
+
+# Progressive tightening — target for P10.8-P10.10 completion
+Metrics/AbcSize:
+  Max: 30
+Metrics/CyclomaticComplexity:
+  Max: 15
+Metrics/MethodLength:
+  Max: 20
+Metrics/PerceivedComplexity:
+  Max: 15
+Metrics/ParameterLists:
+  Max: 8
+
+# No comment policy — code is self-documenting
+Style/Documentation:
+  Enabled: false
+Metrics/ModuleLength:
+  Enabled: false

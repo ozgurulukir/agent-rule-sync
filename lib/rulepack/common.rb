@@ -40,54 +40,74 @@ module Rulepack
     INDEX_JSON_PATH = RULEPACK_ROOT.join('data', 'index.json')
     LOG_PATH = BUILD_DIR.join('install.log')
 
-  @_default_log_file = LOG_PATH
+    @_default_log_file = LOG_PATH
+    @_log_level = nil
+    @_show_timing = false
 
-  module_function
+    module_function
 
-  # ─── Basic IO Utilities ──────────────────────────────────────────────────────
+    # Overrideable log level (falls back to Rulepack::Config.log_level)
+    def log_level
+      @_log_level || Rulepack::Config.log_level
+    end
 
-  # Load YAML from path (symbol keys)
-  def load_yaml(path)
-    content = Pathname.new(path).read
-    YAML.safe_load(content, permitted_classes: [Symbol, Pathname], symbolize_names: true)
-  end
+    def log_level=(val)
+      @_log_level = val
+    end
 
-  # Write YAML atomically
-  def write_yaml_atomic(path, data)
-    yaml_content = data.to_yaml
-    atomic_write(path, yaml_content)
-  end
+    # Show timing flag for operation timing
+    def show_timing
+      @_show_timing
+    end
 
-  # Atomic write: write content to temp file then rename
-  def atomic_write(path, content)
-    path = Pathname.new(path)
-    path.dirname.mkpath
+    def show_timing=(val)
+      @_show_timing = val
+    end
 
-    Tempfile.create(['rulepack', path.extname], path.dirname) do |tmp|
-      tmp.write(content)
-      tmp.flush
-      FileUtils.mv(tmp.path, path.to_s)
+    # ─── Basic IO Utilities ──────────────────────────────────────────────────────
+
+    # Load YAML from path (symbol keys)
+    def load_yaml(path)
+      content = Pathname.new(path).read
+      YAML.safe_load(content, permitted_classes: [Symbol, Pathname], symbolize_names: true)
+    end
+
+    # Write YAML atomically
+    def write_yaml_atomic(path, data)
+      yaml_content = data.to_yaml
+      atomic_write(path, yaml_content)
+    end
+
+    # Atomic write: write content to temp file then rename
+    def atomic_write(path, content)
+      path = Pathname.new(path)
+      path.dirname.mkpath
+
+      Tempfile.create(['rulepack', path.extname], path.dirname) do |tmp|
+        tmp.write(content)
+        tmp.flush
+        FileUtils.mv(tmp.path, path.to_s)
+      end
+    end
+
+    # Append to file atomically (create if doesn't exist)
+    def atomic_append(path, content)
+      path = Pathname.new(path)
+      path.dirname.mkpath
+
+      File.open(path.to_s, 'a') { |f| f.write(content) }
+    end
+
+    # Expand user home directory in path (~/...)
+    def expand_user_path(path)
+      path.start_with?('~') ? File.expand_path(path) : path
+    end
+
+    # Remove YAML frontmatter (--- ... ---) from content
+    def strip_frontmatter(content)
+      content.sub(/\A---\s*\n.*?\n---\s*\n/m, '')
     end
   end
-
-  # Append to file atomically (create if doesn't exist)
-  def atomic_append(path, content)
-    path = Pathname.new(path)
-    path.dirname.mkpath
-
-    File.open(path.to_s, 'a') { |f| f.write(content) }
-  end
-
-  # Expand user home directory in path (~/...)
-  def expand_user_path(path)
-    path.start_with?('~') ? File.expand_path(path) : path
-  end
-
-  # Remove YAML frontmatter (--- ... ---) from content
-  def strip_frontmatter(content)
-    content.sub(/\A---\s*\n.*?\n---\s*\n/m, '')
-  end
-end
 end
 
 # ─── Load modular components ─────────────────────────────────────────────────────

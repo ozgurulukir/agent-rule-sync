@@ -21,10 +21,10 @@ if __FILE__ == $PROGRAM_NAME
   output_file = ARGV.shift
 
   unless translator_spec
-    warn "Usage: ruby lib/rulepack/translate.rb <translator_spec> [input_file] [output_file]"
+    warn 'Usage: ruby lib/rulepack/translate.rb <translator_spec> [input_file] [output_file]'
     warn "  translator_spec: 'copy' | 'identity' | 'custom:<relative/path>'"
-    warn "  input_file:  path (default: stdin)"
-    warn "  output_file: path (default: stdout)"
+    warn '  input_file:  path (default: stdin)'
+    warn '  output_file: path (default: stdout)'
     exit 1
   end
 
@@ -32,7 +32,7 @@ if __FILE__ == $PROGRAM_NAME
   content = if input_file
               Pathname.new(input_file).read
             else
-              STDIN.read
+              $stdin.read
             end
 
   # Apply translator

@@ -5,7 +5,7 @@
 # Usage: transformer: custom:transformers/strip-comments.rb
 
 class Transform
-  def self.transform(content, pkgname:)
+  def self.transform(content, _pkgname:)
     # Remove HTML comments (<!-- ... -->)
     result = content.gsub(/<!--.*?-->/m, '')
 
@@ -13,8 +13,6 @@ class Transform
     result = result.sub(/\A\n+/, '')
 
     # Normalize multiple blank lines to max 2
-    result = result.gsub(/\n{3,}/, "\n\n")
-
-    result
+    result.gsub(/\n{3,}/, "\n\n")
   end
 end

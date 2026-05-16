@@ -17,9 +17,7 @@ REGISTRY_PATH = RULEPACK_ROOT.join('data', 'registry', 'platforms.yaml')
 
 # ─── Load data ─────────────────────────────────────────────────────────────────
 
-unless INDEX_PATH.exist?
-  abort "❌ Index not found: #{INDEX_PATH}. Run `ruby lib/rulepack/build.rb` first."
-end
+abort "❌ Index not found: #{INDEX_PATH}. Run `ruby lib/rulepack/build.rb` first." unless INDEX_PATH.exist?
 
 # Load index with symbolize_names: true to match index.yaml (symbol keys)
 # Load index and registry with symbol keys
@@ -27,10 +25,10 @@ index = YAML.safe_load(INDEX_PATH.read, permitted_classes: [Symbol], symbolize_n
 platforms = YAML.safe_load(REGISTRY_PATH.read, permitted_classes: [Symbol], symbolize_names: true)
 
 # Identify skill-based agents
-skill_agents = platforms.select { |id, cfg| cfg[:type] == 'skill' }.keys
+skill_agents = platforms.select { |_id, cfg| cfg[:type] == 'skill' }.keys
 
 if skill_agents.empty?
-  puts "ℹ️ No skill-based agents configured in registry."
+  puts 'ℹ️ No skill-based agents configured in registry.'
   exit 0
 end
 
@@ -47,7 +45,7 @@ skill_agents.each do |agent_id|
   # Header: optional inline header from platform config or agent-specific header file
   if platform_cfg[:vendor_header]
     content_parts << platform_cfg[:vendor_header]
-    puts "  ✓ vendor header (from registry)"
+    puts '  ✓ vendor header (from registry)'
   else
     header_file = SKILLS_DIR.join('agent-specific', agent_id.to_s, 'header.md')
     if header_file.exist?
@@ -60,34 +58,35 @@ skill_agents.each do |agent_id|
   # These are the rule/skill packages that target this agent with format 'skill'
   rule_skills = []
 
-   index[:packages].each do |pkgname, pkgdata|
-     # Check if this package has a built artifact for this agent
-     built_checksum = pkgdata[:checksums] && pkgdata[:checksums][:built] && pkgdata[:checksums][:built][agent_id]
-     next unless built_checksum
+  index[:packages].each do |pkgname, pkgdata|
+    # Check if this package has a built artifact for this agent
+    built_checksum = pkgdata[:checksums] && pkgdata[:checksums][:built] && pkgdata[:checksums][:built][agent_id]
+    next unless built_checksum
 
-     # Find PKGBUILD to get target details
-      pkgbuild_path = RULEPACK_ROOT.join('data', 'packages', pkgname.to_s, 'PKGBUILD')
-     next unless pkgbuild_path.exist?
+    # Find PKGBUILD to get target details
+    pkgbuild_path = RULEPACK_ROOT.join('data', 'packages', pkgname.to_s, 'PKGBUILD')
+    next unless pkgbuild_path.exist?
 
-     pkgbuild = YAML.safe_load(pkgbuild_path.read, permitted_classes: [Symbol], symbolize_names: true)
-     targets = pkgbuild[:targets]
-     targets = [targets] unless targets.is_a?(Array)
+    pkgbuild = YAML.safe_load(pkgbuild_path.read, permitted_classes: [Symbol],
+                                                  symbolize_names: true)
+    targets = pkgbuild[:targets]
+    targets = [targets] unless targets.is_a?(Array)
 
-     targets.each do |tgt|
-       next unless tgt[:platform] == agent_id.to_s
-       next unless tgt[:format] == 'skill'
-       next unless tgt[:output]  # must have output
+    targets.each do |tgt|
+      next unless tgt[:platform] == agent_id.to_s
+      next unless tgt[:format] == 'skill'
+      next unless tgt[:output] # must have output
 
-       fragment_path = BUILD_DIR.join(agent_id.to_s, tgt[:output])
-       if fragment_path.exist?
-         # Determine order: from pkgdata order if available (from index) or from pkgbuild?
-         order = pkgdata[:order] || 0
-         rule_skills << { pkgname: pkgname, order: order, path: fragment_path }
-       else
-         warn "  ⚠ Built artifact missing: #{fragment_path}"
-       end
-     end
-   end
+      fragment_path = BUILD_DIR.join(agent_id.to_s, tgt[:output])
+      if fragment_path.exist?
+        # Determine order: from pkgdata order if available (from index) or from pkgbuild?
+        order = pkgdata[:order] || 0
+        rule_skills << { pkgname: pkgname, order: order, path: fragment_path }
+      else
+        warn "  ⚠ Built artifact missing: #{fragment_path}"
+      end
+    end
+  end
 
   # Sort by order (lower first)
   rule_skills.sort_by! { |r| r[:order] }

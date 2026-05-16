@@ -15,32 +15,32 @@ module Rulepack
     module_function
 
     def run(argv = ARGV)
-      command = argv.shift || "help"
+      command = argv.shift || 'help'
       case command
-      when "list-packages", "ls"
+      when 'list-packages', 'ls'
         list_packages
-      when "list-platforms", "lp"
+      when 'list-platforms', 'lp'
         list_platforms
-      when "installed", "i"
-        platform = argv.shift || "opencode"
+      when 'installed', 'i'
+        platform = argv.shift || 'opencode'
         list_installed(platform)
-      when "show", "info"
+      when 'show', 'info'
         pkgname = argv.shift
         show_package(pkgname)
-      when "search", "s"
+      when 'search', 's'
         keyword = argv.shift
         search(keyword)
-      when "check", "c"
+      when 'check', 'c'
         check_consistency
-      when "orphans", "o"
+      when 'orphans', 'o'
         list_orphans
-      when "depends", "d"
+      when 'depends', 'd'
         pkgname = argv.shift
         show_depends(pkgname)
-      when "provides", "p"
+      when 'provides', 'p'
         capability = argv.shift
         show_provides(capability)
-      when "help", "h"
+      when 'help', 'h'
         print_help
       else
         warn "Unknown command: #{command}"
@@ -48,7 +48,7 @@ module Rulepack
         exit 1
       end
       0
-    rescue => e
+    rescue StandardError => e
       warn "Error: #{e.message}"
       exit 1
     end
@@ -82,8 +82,8 @@ module Rulepack
 
     def load_index
       root = Pathname.new(__dir__).parent.parent.expand_path
-      yaml_path = root.join("data", "index.yaml")
-      json_path = root.join("data", "index.json")
+      yaml_path = root.join('data', 'index.yaml')
+      json_path = root.join('data', 'index.json')
 
       if yaml_path.exist?
         Rulepack::Common.load_yaml(yaml_path)
@@ -100,7 +100,8 @@ module Rulepack
       puts "📦 Packages (#{pkgs.size}):"
       pkgs.each do |name, pkg|
         installed = Array(pkg[:installed]).map { |r| r[:platform] }.uniq
-        puts "  #{name} (#{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver], pkg[:pkgrel] || 1)}) [#{pkg[:status] || 'stable'}]"
+        puts "  #{name} (#{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver],
+                                                           pkg[:pkgrel] || 1)}) [#{pkg[:status] || 'stable'}]"
         puts "    Targets: #{Array(pkg[:available_targets]).join(', ')}"
         puts "    Installed: #{installed.empty? ? 'none' : installed.join(', ')}"
         puts "    Tags: #{Array(pkg[:tags]).join(', ')}"
@@ -132,7 +133,8 @@ module Rulepack
       else
         puts "📥 Installed packages on #{platform}:"
         installed.each do |name, rec|
-          puts "  ✓ #{name} (#{Rulepack::Common.format_version(rec[:epoch] || 0, rec[:version], rec[:pkgrel] || 1)})"
+          puts "  ✓ #{name} (#{Rulepack::Common.format_version(rec[:epoch] || 0, rec[:version],
+                                                               rec[:pkgrel] || 1)})"
           puts "    Output: #{rec[:output]}"
           puts "    Checksum: #{rec[:checksum]&.slice(0, 16)}..."
           puts "    Installed: #{rec[:installed_at]}"
@@ -149,7 +151,8 @@ module Rulepack
         exit 1
       end
       puts "📦 #{pkgname}"
-      puts "  Version: #{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver], pkg[:pkgrel] || 1)}"
+      puts "  Version: #{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver],
+                                                         pkg[:pkgrel] || 1)}"
       puts "  Description: #{pkg[:pkgdesc]}"
       puts "  Status: #{pkg[:status] || 'stable'}"
       puts "  Targets: #{Array(pkg[:available_targets]).join(', ')}"
@@ -166,15 +169,16 @@ module Rulepack
       pkgs = index[:packages] || {}
       results = pkgs.select do |name, pkg|
         name.to_s.include?(keyword) ||
-        pkg[:pkgdesc].to_s.include?(keyword) ||
-        Array(pkg[:tags]).any? { |t| t.include?(keyword) }
+          pkg[:pkgdesc].to_s.include?(keyword) ||
+          Array(pkg[:tags]).any? { |t| t.include?(keyword) }
       end
       if results.empty?
         puts "No packages found matching: #{keyword}"
       else
         puts "🔍 Search results for '#{keyword}':"
         results.each do |name, pkg|
-          puts "  #{name} (#{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver], pkg[:pkgrel] || 1)}): #{pkg[:pkgdesc]}"
+          puts "  #{name} (#{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver],
+                                                             pkg[:pkgrel] || 1)}): #{pkg[:pkgdesc]}"
         end
       end
     end
@@ -194,7 +198,7 @@ module Rulepack
       end
 
       if orphans.empty?
-        puts "✅ No orphaned packages."
+        puts '✅ No orphaned packages.'
       else
         puts "⚠️  Orphaned packages (#{orphans.size}):"
         orphans.each do |o|
@@ -232,7 +236,8 @@ module Rulepack
       else
         puts "Packages providing '#{capability}':"
         providers.each do |name, pkg|
-          puts "  • #{name} (#{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver], pkg[:pkgrel] || 1)})"
+          puts "  • #{name} (#{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver],
+                                                               pkg[:pkgrel] || 1)})"
         end
       end
     end
@@ -240,10 +245,10 @@ module Rulepack
     def check_consistency
       index = load_index
       pkgs = index[:packages] || {}
-      build_root = Pathname.new(__dir__).parent.parent.expand_path.join("build")
+      build_root = Pathname.new(__dir__).parent.parent.expand_path.join('build')
       build_index = begin
-        Rulepack::Common.load_yaml(build_root.join("index.yaml"))
-      rescue
+        Rulepack::Common.load_yaml(build_root.join('index.yaml'))
+      rescue StandardError
         nil
       end
 
@@ -259,20 +264,19 @@ module Rulepack
           end
 
           # Check if build artifact exists
-          if build_index
-            built = build_index[:packages]&.[](name.to_sym)
-            checksum = built&.[](:checksums)&.[](:built)&.[](platform.to_s)
-            if checksum && rec[:checksum] != checksum
-              issues << "#{name} checksum mismatch on #{platform}"
-            end
-          end
+          next unless build_index
+
+          built = build_index[:packages]&.[](name.to_sym)
+          built_checksums = built&.dig(:checksums, :built)
+          checksum = built_checksums&.[](platform.to_s)
+          issues << "#{name} checksum mismatch on #{platform}" if checksum && rec[:checksum] != checksum
         end
       end
 
       if issues.empty?
-        puts "✅ Database consistency check passed."
+        puts '✅ Database consistency check passed.'
       else
-        puts "❌ Consistency issues found:"
+        puts '❌ Consistency issues found:'
         issues.each { |i| puts "  - #{i}" }
         exit 1
       end
@@ -281,6 +285,4 @@ module Rulepack
 end
 
 # Run as script
-if __FILE__ == $PROGRAM_NAME
-  exit Rulepack::Query.run(ARGV)
-end
+exit Rulepack::Query.run(ARGV) if __FILE__ == $PROGRAM_NAME

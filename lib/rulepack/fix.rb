@@ -5,6 +5,7 @@
 # Runs verify, then repairs missing/checksum errors via reinstall.
 # Usage: ruby lib/rulepack/fix.rb [platform] [--dry-run] [--auto]
 
+require 'English'
 require 'pathname'
 require 'fileutils'
 require 'set'
@@ -21,7 +22,7 @@ def main
   auto_mode = ARGV.include?('--auto')
 
   unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-    abort "Build index not found. Run `ruby lib/rulepack/build.rb` first."
+    abort 'Build index not found. Run `ruby lib/rulepack/build.rb` first.'
   end
 
   platforms = if platform_arg && !platform_arg.start_with?('--')
@@ -31,70 +32,85 @@ def main
               end
 
   if platforms.empty?
-    puts "No platforms to fix."
+    puts 'No platforms to fix.'
     exit 0
   end
 
   fixed_anything = false
 
   platforms.each do |platform_id|
-    puts "\n── #{platform_id} ──"
-
-    cmd_out = `ruby lib/rulepack/verify.rb #{platform_id} 2>&1`
-    verify_ok = $?.success?
-    puts cmd_out.lines.select { |l| l.match?(/[✓⚠?]/) }.last(10).join
-
-    has_drift = !verify_ok
-    orphans = cmd_out.scan(/^\s*\?\s+ORPHAN:\s+(.+)$/).flatten
-
-    unless has_drift || orphans.any?
-      puts "  ✓ No drift detected."
-      next
-    end
-
-    # Fix drift: clear broken package records, then reinstall
-    if has_drift
-      if dry_run
-        puts "  [DRY-RUN] Would reinstall packages on #{platform_id}"
-      else
-        index = load_index
-        broken = find_broken_packages(platform_id, index)
-        broken.each do |pkgname|
-          clear_installed_record(index, pkgname, platform_id)
-          puts "  Cleared index record for #{pkgname}"
-        end
-        write_index(index)
-        puts "  Reinstalling #{broken.size} package(s) on #{platform_id}..."
-        fix_result = system("ruby", "lib/rulepack/install.rb", platform_id)
-        if fix_result
-          puts "  ✓ Reinstall complete"
-          fixed_anything = true
-        else
-          puts "  ⚠ Reinstall failed"
-        end
-      end
-    end
-
-    if orphans.any?
-      puts "\n  #{orphans.size} orphan(s) found:"
-      orphans.each { |f| puts "    #{f}" }
-      if dry_run
-        puts "  [DRY-RUN] Would not remove orphans"
-      elsif auto_mode
-        puts "  Removing #{orphans.size} orphan(s)..."
-        orphans.each { |f| FileUtils.rm_rf(f) }
-        puts "  ✓ Orphans removed"
-        fixed_anything = true
-      else
-        puts "  Skipping orphan removal (use --auto to remove)"
-      end
-    end
+    fixed_anything |= fix_platform(platform_id, dry_run, auto_mode)
   end
 
   if fixed_anything
     puts "\n✅ Fix applied. Run `ruby lib/rulepack/verify.rb` to confirm."
   else
-    puts "\nℹ No fixes applied."
+    puts "\nℹ No fixes needed."
+  end
+  exit 0
+end
+
+def fix_platform(platform_id, dry_run, auto_mode)
+  puts "\n── #{platform_id} ──"
+
+  cmd_out = `ruby lib/rulepack/verify.rb #{platform_id} 2>&1`
+  verify_ok = $CHILD_STATUS.success?
+  puts cmd_out.lines.grep(/[✓⚠?]/).last(10).join
+
+  has_drift = !verify_ok
+  orphans = cmd_out.scan(/^\s*\?\s+ORPHAN:\s+(.+)$/).flatten
+
+  unless has_drift || orphans.any?
+    puts '  ✓ No drift detected.'
+    return false
+  end
+
+  fixed_drift = fix_drift(platform_id, dry_run) if has_drift
+  fixed_orphans = fix_orphans(orphans, dry_run, auto_mode)
+
+  fixed_drift || fixed_orphans
+end
+
+def fix_drift(platform_id, dry_run)
+  if dry_run
+    puts "  [DRY-RUN] Would reinstall packages on #{platform_id}"
+    return false
+  end
+
+  index = load_index
+  broken = find_broken_packages(platform_id, index)
+  broken.each do |pkgname|
+    clear_installed_record(index, pkgname, platform_id)
+    puts "  Cleared index record for #{pkgname}"
+  end
+  write_index(index)
+  puts "  Reinstalling #{broken.size} package(s) on #{platform_id}..."
+  fix_result = system('ruby', 'lib/rulepack/install.rb', platform_id)
+  if fix_result
+    puts '  ✓ Reinstall complete'
+    true
+  else
+    puts '  ⚠ Reinstall failed'
+    false
+  end
+end
+
+def fix_orphans(orphans, dry_run, auto_mode)
+  return false unless orphans.any?
+
+  puts "\n  #{orphans.size} orphan(s) found:"
+  orphans.each { |f| puts "    #{f}" }
+  if dry_run
+    puts '  [DRY-RUN] Would not remove orphans'
+    false
+  elsif auto_mode
+    puts "  Removing #{orphans.size} orphan(s)..."
+    orphans.each { |f| FileUtils.rm_rf(f) }
+    puts '  ✓ Orphans removed'
+    true
+  else
+    puts '  Skipping orphan removal (use --auto to remove)'
+    false
   end
 end
 
@@ -110,12 +126,14 @@ end
 def clear_installed_record(index, pkgname, platform_id)
   pkgdata = index[:packages][pkgname]
   return unless pkgdata
+
   pkgdata[:installed]&.reject! { |r| r[:platform] == platform_id }
 end
 
 def find_broken_packages(platform_id, index)
   platform_cfg = Rulepack::Common.platform_config(platform_id, REGISTRY)
   return [] unless platform_cfg
+
   base_path = resolve_base_path(platform_cfg)
   broken = []
 
@@ -145,6 +163,7 @@ end
 def resolve_base_path(platform_cfg)
   project_root = Rulepack::Common.project_root_for(platform_cfg, nil)
   return project_root if project_root
+
   Pathname.new(Rulepack::Common.expand_user_path(platform_cfg[:base_path]))
 end
 
@@ -159,6 +178,7 @@ end
 def all_platforms_from_index
   index_path = Rulepack::Common::INDEX_YAML_PATH
   return [] unless index_path.exist?
+
   index = Rulepack::Common.load_yaml(index_path)
   platforms = Set.new
   (index[:packages] || {}).each_value do |pkg|

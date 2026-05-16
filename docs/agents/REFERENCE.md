@@ -184,9 +184,9 @@ Use `translate` when the target platform needs a fundamentally different content
 
 | Scenario | Translate Needed? |
 |----------|-----------------|
-| OpenCode rule → Crush skill (flat file → aggregated skill) | ✅ `rule-to-skill` |
+| OpenCode rule → Crush skill (flat file → aggregated skill) | ✅ `rule_to_skill` |
 | Markdown → Gemini CLI import file | ✅ `markdown-to-import` |
-| Raw upstream format → local normalized format | ✅ `normalize-markdown` |
+| Raw upstream format → local normalized format | ✅ `normalize_markdown` |
 | Just strip frontmatter | ❌ Use `strip-frontmatter` transformer instead |
 | Just copy as-is | ❌ Omit `translate` (default: no-op) |
 
@@ -227,11 +227,11 @@ targets:
   - platform: crush
     format: skill
     output: SKILL.md
-    translate: custom:translators/rule-to-skill.rb  # runs first
+    translate: custom:translators/rule_to_skill.rb  # runs first
     transformer: strip-frontmatter                  # runs second
 ```
 
-**Pipeline for this target**: fetch → `rule-to-skill.rb` → `strip-frontmatter` → `SKILL.md`
+**Pipeline for this target**: fetch → `rule_to_skill.rb` → `strip-frontmatter` → `SKILL.md`
 
 **Path resolution**:
 - Path is relative to repo root (`SSOT_ROOT`)

@@ -141,7 +141,7 @@ targets:
   - platform: crush
     format: skill
     output: my-rule-skill.md
-    translate: custom:translators/rule-to-skill.rb
+    translate: custom:translators/rule_to_skill.rb
     transformer: strip-frontmatter
 
 checksums:

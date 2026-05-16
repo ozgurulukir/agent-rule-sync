@@ -36,7 +36,7 @@ your-project/
 │   │   ├── source.rb, transform.rb, validation.rb
 │   │   ├── platform.rb, uninstall.rb, install.rb
 │   ├── translators/                 # Custom translator scripts
-│   │   └── rule-to-skill.rb
+│   │   └── rule_to_skill.rb
 │   ├── transformers/                # Custom transformer scripts
 │   │   ├── add-header.rb
 │   │   ├── strip-comments.rb

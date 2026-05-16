@@ -42,15 +42,13 @@ while i < ARGV.length
     force_mode = true
     i += 1
   when '--project'
-    if i + 1 >= ARGV.length
-      raise "Missing path for --project"
-    end
+    raise 'Missing path for --project' if i + 1 >= ARGV.length
+
     project_arg = ARGV[i + 1]
     i += 2
   when '--select'
-    if i + 1 >= ARGV.length
-      raise "Missing value for --select"
-    end
+    raise 'Missing value for --select' if i + 1 >= ARGV.length
+
     select_list = ARGV[i + 1].split(',').map(&:strip).reject(&:empty?)
     i += 2
   when '-v', '--verbose'
@@ -72,8 +70,8 @@ end
 
 if targets_mode
   unless platform_arg
-    puts "Usage: ruby lib/rulepack/install.rb --targets <package>"
-    puts "Shows which platforms a package has targets for."
+    puts 'Usage: ruby lib/rulepack/install.rb --targets <package>'
+    puts 'Shows which platforms a package has targets for.'
     exit 1
   end
 
@@ -94,21 +92,23 @@ if targets_mode
   targets = pkg_data[:targets] || []
   available = pkg_data[:available_targets] || []
 
-  puts "📦 #{pkgname} (#{Rulepack::Common.format_version(pkg_data[:epoch] || 0, pkg_data[:pkgver], pkg_data[:pkgrel] || 1)})"
-  puts ""
+  puts "📦 #{pkgname} (#{Rulepack::Common.format_version(pkg_data[:epoch] || 0, pkg_data[:pkgver],
+                                                         pkg_data[:pkgrel] || 1)})"
+  puts ''
   puts "Targets (#{targets.size}):"
   targets.each do |t|
     status = available.include?(t[:platform]) ? '✓ built' : '✗ not built'
     puts "  • #{t[:platform]} (#{t[:format]}, #{t[:output]}) [#{status}]"
   end
-  puts ""
-  puts "Installed on:"
+  puts ''
+  puts 'Installed on:'
   installed = pkg_data[:installed] || []
   if installed.empty?
-    puts "  (none)"
+    puts '  (none)'
   else
     installed.each do |rec|
-      puts "  • #{rec[:platform]} (#{Rulepack::Common.format_version(rec[:epoch] || 0, rec[:version], rec[:pkgrel] || 1)}) — #{rec[:output]}"
+      puts "  • #{rec[:platform]} (#{Rulepack::Common.format_version(rec[:epoch] || 0, rec[:version],
+                                                                     rec[:pkgrel] || 1)}) — #{rec[:output]}"
     end
   end
   exit 0
@@ -130,22 +130,22 @@ end
 # ─── Single platform mode ───────────────────────────────────────────────────────
 
 unless platform_arg || check_mode
-  puts "Usage: ruby lib/rulepack/install.rb <platform> [--dry-run] [--force] [--select SKILLS] [--project PATH]"
-  puts "       ruby lib/rulepack/install.rb --all [--dry-run] [--force] [--select SKILLS]"
-  puts "       ruby lib/rulepack/install.rb --targets <package>"
-  puts "       ruby lib/rulepack/install.rb --check <platform> [--project PATH]"
-  puts ""
-  puts "Platforms: opencode, oh-my-pi, crush, goose, droid, gemini-cli, qwen-code,"
-  puts "            cursor, windsurf, github-copilot, claude-code, codex, agents"
-  puts ""
-  puts "Options:"
-  puts "  --all             Install to all platforms"
-  puts "  --targets PKG     Show target platforms for a package"
-  puts "  --dry-run         Preview without changes"
-  puts "  --force           Allow downgrades"
-  puts "  --select SKILLS   Comma-separated sub-skill names (skill-bundle only)"
-  puts "  --project PATH    Project root (for project-level platforms)"
-  puts "  --verbose         Debug logging"
+  puts 'Usage: ruby lib/rulepack/install.rb <platform> [--dry-run] [--force] [--select SKILLS] [--project PATH]'
+  puts '       ruby lib/rulepack/install.rb --all [--dry-run] [--force] [--select SKILLS]'
+  puts '       ruby lib/rulepack/install.rb --targets <package>'
+  puts '       ruby lib/rulepack/install.rb --check <platform> [--project PATH]'
+  puts ''
+  puts 'Platforms: opencode, oh-my-pi, crush, goose, droid, gemini-cli, qwen-code,'
+  puts '            cursor, windsurf, github-copilot, claude-code, codex, agents'
+  puts ''
+  puts 'Options:'
+  puts '  --all             Install to all platforms'
+  puts '  --targets PKG     Show target platforms for a package'
+  puts '  --dry-run         Preview without changes'
+  puts '  --force           Allow downgrades'
+  puts '  --select SKILLS   Comma-separated sub-skill names (skill-bundle only)'
+  puts '  --project PATH    Project root (for project-level platforms)'
+  puts '  --verbose         Debug logging'
   exit 1
 end
 
@@ -155,10 +155,9 @@ if check_mode
   Rulepack::Install.check_platform(platform_arg, project_arg: project_arg)
 else
   Rulepack::Install.run(platform_arg,
-    dry_run: dry_run,
-    force_mode: force_mode,
-    verbose_mode: verbose_mode,
-    select_list: select_list,
-    project_arg: project_arg
-  )
+                        dry_run: dry_run,
+                        force_mode: force_mode,
+                        verbose_mode: verbose_mode,
+                        select_list: select_list,
+                        project_arg: project_arg)
 end

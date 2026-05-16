@@ -1,5 +1,7 @@
+# frozen_string_literal: true
+
 class Translator
-  def self.translate(content, args: {})
+  def self.translate(content, _args: {})
     clean = content.sub(/\A---\s*\n.*?\n---\s*\n/m, '').strip
 
     lines = clean.each_line.map do |line|
@@ -10,6 +12,6 @@ class Translator
       end
     end
 
-    lines.join("\n") + "\n"
+    "#{lines.join("\n")}\n"
   end
 end

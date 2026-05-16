@@ -29,17 +29,17 @@ targets:
 - platform: crush
   format: skill
   output: 00-memory.md
-  translate: custom:data/translators/rule-to-skill.rb
+  translate: custom:data/translators/rule_to_skill.rb
   transformer: copy
 - platform: goose
   format: skill
   output: 00-memory.md
-  translate: custom:data/translators/rule-to-skill.rb
+  translate: custom:data/translators/rule_to_skill.rb
   transformer: copy
 - platform: droid
   format: skill
   output: 00-memory.md
-  translate: custom:data/translators/rule-to-skill.rb
+  translate: custom:data/translators/rule_to_skill.rb
   transformer: copy
 - platform: cursor
   format: directory
@@ -68,7 +68,7 @@ targets:
 - platform: codex
   format: skill
   output: 00-memory.md
-  translate: custom:data/translators/rule-to-skill.rb
+  translate: custom:data/translators/rule_to_skill.rb
   transformer: copy
 checksums:
   source:

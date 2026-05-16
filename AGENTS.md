@@ -666,7 +666,7 @@ targets:
   - platform: crush
     format: skill
     output: SKILL.md
-    translate: custom:translators/rule-to-skill.rb   # ← runs first
+    translate: custom:translators/rule_to_skill.rb   # ← runs first
     transformer: strip-frontmatter                    # ← runs second
 ```
 
@@ -845,7 +845,7 @@ To migrate:
 | **PKGBUILD descriptor** | ✅ | YAML, all required fields, validated on load |
 | **Source model** | ✅ | `local` (src/), `git` (clone + commit hash), `url` (SHA256) |
 | **Build pipeline** (`build.rb`) | ✅ | Fetch → translate → transform → write, 106 artifacts from 10 packages across 6 platforms |
-| **Translate layer** | ✅ | `apply_translator` in `transform.rb`, 3 translators (`rule-to-skill.rb`, `rule-to-import.rb`, `normalize-markdown.rb`), `translate.rb` CLI. Wired into memory/shell PKGBUILDs for crush/goose/droid/codex targets |
+| **Translate layer** | ✅ | `apply_translator` in `transform.rb`, 3 translators (`rule_to_skill.rb`, `rule_to_import.rb`, `normalize_markdown.rb`), `translate.rb` CLI. Wired into memory/shell PKGBUILDs for crush/goose/droid/codex targets |
 | **Transform layer** | ✅ | Built-in (`copy`, `strip-frontmatter`) + custom (`custom:<path>`) |
 | **Platform registry** | ✅ | 14 platforms in `platforms.yaml` |
 | **Platform format profiles** | ✅ | 14 YAML profiles (informational for LLM reference) |
@@ -906,7 +906,7 @@ Build artifact → Install → Target platform
 **Translate** changes the *format family* of the content (what kind of document it is).
 **Transform** changes the *structure or presentation* of the content (how it looks).
 
-Example: `memory` package's `crush` target uses `rule-to-skill.rb` translator (translate) then `copy` transformer. 8 targets across memory/shell packages now use the translate layer.
+Example: `memory` package's `crush` target uses `rule_to_skill.rb` translator (translate) then `copy` transformer. 8 targets across memory/shell packages now use the translate layer.
 
 ---
 

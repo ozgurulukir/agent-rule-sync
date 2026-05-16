@@ -8,7 +8,7 @@
 class Transform
   RUBY_KEYWORDS = %w[def class module if else elsif end require puts gets].freeze
 
-  def self.transform(content, pkgname:)
+  def self.transform(content, _pkgname:)
     lines = content.lines
     result = []
     in_code_block = false
@@ -38,9 +38,7 @@ class Transform
     end
 
     # Handle unclosed block (shouldn't happen in valid markdown)
-    if in_code_block && opening_fence
-      result.concat(process_code_block(opening_fence, block_content))
-    end
+    result.concat(process_code_block(opening_fence, block_content)) if in_code_block && opening_fence
 
     result.join
   end

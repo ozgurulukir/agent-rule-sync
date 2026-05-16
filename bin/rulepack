@@ -19,7 +19,7 @@ module Rulepack
     def self.run(argv)
       # Global timing flag
       if argv.include?('--timing')
-        $SHOW_TIMING = true
+        Rulepack::Common.show_timing = true
         argv.delete('--timing')
       end
 
