@@ -73,14 +73,17 @@ Rulepack::Common.log '🔧 Loading platform registry...'
 _platforms = Rulepack::Common.load_platform_registry
 
 index_data = if RULEPACK_ROOT.join('data', 'index.yaml').exist?
-               Rulepack::Common.load_yaml(RULEPACK_ROOT.join('data', 'index.yaml'))
-             else
-               { version: 3.0, generated: nil, packages: {} }
-             end
+                Rulepack::Common.load_yaml(RULEPACK_ROOT.join('data', 'index.yaml'))
+              else
+                { version: 3.0, generated: nil, packages: {} }
+              end
 
 index_data[:version] = 3.0
 index_data[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-index_data[:packages] ||= {}
+# Preserve installed records, rebuild package metadata from scratch
+old_installed = {}
+(index_data[:packages] || {}).each { |name, pkg| old_installed[name] = pkg[:installed] if pkg[:installed]&.any? }
+index_data[:packages] = {}
 
 # ─── Discover PKGBUILDs ────────────────────────────────────────────────────────
 
@@ -364,6 +367,13 @@ pkgbuilds.each do |pkgbuild_path|
     # Update index
     index_data[:packages][pkgname] = pkg_index
   end
+end
+
+# Restore installed records for packages that still exist
+old_installed.each do |name, installed|
+  next unless index_data[:packages][name]
+
+  index_data[:packages][name][:installed] = installed
 end
 
 # ─── Write build index ─────────────────────────────────────────────────────────

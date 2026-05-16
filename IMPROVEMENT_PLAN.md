@@ -374,7 +374,7 @@ Each call re-reads the file, re-parses YAML, re-validates all 13 platform config
 **Status**: ⏳ DEFERRED (not needed)
 **Reason**:
 - Makepkg/pacman esinlenme ama Rulepack hedefleri farklı: agent skill/rule'ları bağımsız veya bundle halinde gelir.
-- Mevcut 10 paketin hiçbirinde bağımlılık yok, kullanıcı kendi kurulum sırasını kontrol ediyor.
+- Mevcut 9 paketin hiçbirinde bağımlılık yok, kullanıcı kendi kurulum sırasını kontrol ediyor.
 - Harici tool bağımlılıkları (python, awk vb.) Rulepack sorumluluğunda değil, dokümantasyon ile yeterli.
 - Ekstra kod karmaşıklığı, test, edge case'ler → fayda/maliyet dengesi düşük.
 - Gelecekte eklenecekse sadece uyarı modu (kullanıcı onayı ile) yeterli olacaktır.

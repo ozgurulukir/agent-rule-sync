@@ -843,7 +843,7 @@ To migrate:
 |-------|--------|-------|
 | **PKGBUILD descriptor** | ✅ | YAML, all required fields, validated on load |
 | **Source model** | ✅ | `local` (src/), `git` (clone + commit hash), `url` (SHA256) |
-| **Build pipeline** (`build.rb`) | ✅ | Fetch → translate → transform → write, 106 artifacts from 10 packages across 6 platforms |
+| **Build pipeline** (`build.rb`) | ✅ | Fetch → translate → transform → write, 106 artifacts from 9 packages across 6 platforms |
 | **Translate layer** | ✅ | `apply_translator` in `transform.rb`, 3 translators (`rule_to_skill.rb`, `rule_to_import.rb`, `normalize_markdown.rb`), `translate.rb` CLI. Wired into memory/shell PKGBUILDs for crush/goose/droid/codex targets |
 | **Transform layer** | ✅ | Built-in (`copy`, `strip-frontmatter`) + custom (`custom:<path>`) |
 | **Platform registry** | ✅ | 14 platforms in `platforms.yaml` |
@@ -873,7 +873,7 @@ To migrate:
 
 | Item | Status | What's Needed |
 |------|--------|--------------|
-| **Manually-installed skills packaged** | 🟡 6 packages created, some still unmanaged | `ast-grep`, `line-repetition-control`, `workstation-rules`, `goose`, `windsurf-rules`, `vibe-security` (agents target) — installed and tracked |
+| **Manually-installed skills packaged** | 🟡 5 packages created, some still unmanaged | `ast-grep`, `line-repetition-control`, `workstation-rules`, `windsurf-rules`, `vibe-security` (agents target) — installed and tracked |
 
 ### Deferred (Not Needed / Low Priority)
 
