@@ -198,32 +198,39 @@ if check_mode
   Rulepack::Install.check_platform(actual_platform || platform_arg, project_arg: project_arg)
 
 elsif target_package
-  # Single package install: install to --target platform or first target
-  pkg_platform = nil
+  # Single package install
   pkgdata = build_idx[:packages][target_package.to_sym]
   targets = (pkgdata[:targets] || []).map { |t| t[:platform] }
+
+  registry = Rulepack::Common.load_platform_registry
+  platforms_to_install = []
 
   if target_platform
     unless targets.include?(target_platform)
       puts "❌ #{target_package} does not target '#{target_platform}'. Available: #{targets.join(', ')}"
       exit 1
     end
-    pkg_platform = target_platform
+    platforms_to_install = [target_platform]
   else
-    pkg_platform = targets.first unless targets.empty?
+    platforms_to_install = targets.select do |t|
+      cfg = registry[t.to_sym] || registry[t.to_s]
+      cfg && (cfg[:scope] == 'user' || !cfg.key?(:scope))
+    end
+    if platforms_to_install.empty?
+      puts "❌ #{target_package} has no user-scoped targets. Please specify a project-scoped platform using --target <platform> and --project <path>."
+      exit 1
+    end
   end
 
-  unless pkg_platform
-    puts "❌ #{target_package} has no target platforms"
-    exit 1
+  platforms_to_install.each do |pkg_platform|
+    Rulepack::Common.log "📦 Installing #{target_package} → #{pkg_platform}"
+    Rulepack::Install.run(pkg_platform,
+                          dry_run: dry_run, force_mode: force_mode,
+                          needed_mode: needed_mode,
+                          verbose_mode: verbose_mode, select_list: select_list,
+                          project_arg: project_arg, specific_package: target_package,
+                          collision_strategy: collision_strategy)
   end
-  Rulepack::Common.log "📦 Installing #{target_package} → #{pkg_platform}"
-  Rulepack::Install.run(pkg_platform,
-                        dry_run: dry_run, force_mode: force_mode,
-                        needed_mode: needed_mode,
-                        verbose_mode: verbose_mode, select_list: select_list,
-                        project_arg: project_arg, specific_package: target_package,
-                        collision_strategy: collision_strategy)
 
 else
   Rulepack::Install.run(actual_platform,

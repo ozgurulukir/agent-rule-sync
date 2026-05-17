@@ -1,0 +1,62 @@
+---
+pkgname: ruby-update-signatures
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: >
+  Agent that auto-detects Ruby type-signature system (RBS vs Sorbet) and
+  style (inline vs separate) and updates signatures for changed files.
+arch: any
+order: 5
+
+source:
+  - type: local
+    path: src/
+
+targets:
+  - platform: opencode
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: cursor
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: claude
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+
+checksums:
+  source: null
+  built: {}
+
+tags:
+  - ruby
+  - rbs
+  - sorbet
+  - type-signatures
+  - agent
+  - automation
+  - auto-detect
+
+provides:
+  - ruby-signature-updates
+
+dependencies:
+  - ruby-type-signature-rbs
+  - ruby-type-signature-rbs-inline
+  - ruby-type-signature-sorbet
+  - ruby-type-signature-sorbet-inline
+
+maintainer: DmitryPogrebnoy
+license: MIT

@@ -146,8 +146,9 @@ end
 def clear_installed_record(index, pkgname, platform_id)
   pkgdata = index[:packages][pkgname]
   return unless pkgdata
+  return unless pkgdata[:installed].is_a?(Array)
 
-  pkgdata[:installed]&.reject! { |r| r[:platform] == platform_id }
+  pkgdata[:installed].reject! { |r| r[:platform] == platform_id }
 end
 
 def find_broken_packages(platform_id, index)
@@ -158,7 +159,7 @@ def find_broken_packages(platform_id, index)
   broken = []
 
   (index[:packages] || {}).each do |pkgname, pkgdata|
-    inst = pkgdata[:installed]&.find { |i| i[:platform] == platform_id }
+    inst = pkgdata[:installed].is_a?(Array) && pkgdata[:installed].find { |i| i[:platform] == platform_id }
     next unless inst
 
     target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }

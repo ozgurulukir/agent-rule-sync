@@ -57,8 +57,8 @@ droid:
   type: skill
   scope: user
   display_name: Droid
-  base_path: "~/.config/droid/"
-  skill_file: droid.md
+  base_path: "~/.factory/"
+  skill_file: AGENTS.md
   rule_install:
   skill_install:
     type: copy
@@ -159,7 +159,7 @@ codex:
   scope: project
   display_name: Codex CLI
   base_path: "."
-  skill_file: CODEX.md
+  skill_file: AGENTS.md
   rule_install:
   skill_install:
     type: copy
@@ -169,7 +169,7 @@ codex:
 agents:
   type: directory
   scope: user
-  display_name: Shared Agent Skills
+  display_name: Agents
   base_path: "~/.config/agents/"
   rules_dir: rules/
   skills_dir: skills/

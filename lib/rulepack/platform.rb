@@ -94,12 +94,54 @@ module Rulepack
       cfg
     end
 
-    # Resolve install path for a platform/target
-    # base_override: Pathname or String to override the platform's default base_path
     def resolve_install_path(platform_cfg, target_cfg, base_override = nil)
-      Rulepack::Common.resolve_install_path(platform_cfg, target_cfg, base_override)
-    end
+      base = if base_override
+               base_override.to_s
+             else
+               expand_user_path(platform_cfg[:base_path])
+             end
 
+      install_cfg = target_cfg[:install] || {}
+      target_dir = install_cfg[:target_dir]
+
+      if target_dir
+        target_subdir = expand_user_path(target_dir)
+        resolved = if platform_cfg[:type] == 'directory'
+                     dir = if %w[skill skill-bundle].include?(target_cfg[:format])
+                             platform_cfg[:skills_dir]
+                           else
+                             platform_cfg[:rules_dir]
+                           end
+                     if Pathname.new(target_subdir).absolute?
+                       Pathname.new(target_subdir)
+                     else
+                       Pathname.new(base).join(dir, target_subdir)
+                     end
+                   elsif Pathname.new(target_subdir).absolute?
+                     Pathname.new(target_subdir)
+                   else
+                     Pathname.new(base).join(target_subdir)
+                   end
+        resolved = resolved.join(target_cfg[:output]) unless target_cfg[:format] == 'skill-bundle'
+        resolved
+      else
+        case platform_cfg[:type]
+        when 'directory'
+          dir = if target_cfg[:format] == 'skill'
+                  platform_cfg[:skills_dir] || platform_cfg[:rules_dir]
+                else
+                  platform_cfg[:rules_dir]
+                end
+          Pathname.new(base).join(dir, target_cfg[:output])
+        when 'import'
+          Pathname.new(base).join(platform_cfg[:config_file])
+        when 'skill'
+          Pathname.new(base).join(platform_cfg[:skill_file])
+        else
+          raise "Unknown platform type: #{platform_cfg[:type]}"
+        end
+      end
+    end
     # Safe relative path (no escaping parent)
     def safe_relative(path, base)
       relative = Pathname.new(path).relative_path_from(base).to_s
@@ -119,7 +161,11 @@ module Rulepack
       scope = platform_cfg[:scope] || 'user'
       return unless scope == 'project'
 
-      project_arg ? Pathname.new(project_arg).expand_path : Pathname.pwd
+      unless project_arg
+        raise StandardError, "Platform '#{platform_cfg[:display_name]}' is project-scoped and does not support global user rules. You must specify a target project path with --project <path>."
+      end
+
+      Pathname.new(project_arg).expand_path
     end
   end
 end

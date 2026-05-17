@@ -87,7 +87,7 @@ end
 
 def select_platform_packages(packages, platform_id)
   packages.select do |_, pkg|
-    pkg[:installed]&.any? { |i| i[:platform] == platform_id }
+    pkg[:installed].is_a?(Array) && pkg[:installed].any? { |i| i[:platform] == platform_id }
   end
 end
 
@@ -123,8 +123,8 @@ def verify_package(platform_id, platform_cfg, pkgname, pkgdata, inst, base_path)
     return verify_skill_build_artifact(platform_id, pkgname, expected_output, expected_checksum)
   end
 
-  installed_path = Rulepack::Install.resolve_install_path_for_target(platform_cfg, target,
-                                                                     base_path, base_path)
+  installed_path = Rulepack::Install.resolve_check_path(platform_cfg, target,
+                                                        base_path, base_path)
 
   case format_type
   when 'skill-bundle'
@@ -206,8 +206,8 @@ def scan_orphans(platform_id, platform_cfg, base_path, packages)
       target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
       next unless target
 
-      p = Rulepack::Install.resolve_install_path_for_target(platform_cfg, target, base_path,
-                                                            base_path)
+      p = Rulepack::Install.resolve_check_path(platform_cfg, target, base_path,
+                                              base_path)
       expected_top << p.to_s
     end
   end

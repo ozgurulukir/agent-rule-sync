@@ -12,8 +12,7 @@ class TestUninstallPackages < Minitest::Test
     @build_root = Pathname.new(@tmpdir)
     @ssot_root = @build_root.join('ssot')
     @build_dir = @ssot_root.join('build')
-    FileUtils.cp_r(ROOT.join('ssot').to_s, @ssot_root.to_s, preserve: false)
-    FileUtils.rm_rf(@build_dir)
+    @ssot_root.mkpath
     @build_dir.mkpath
 
     # Write a minimal build index for uninstall to reference

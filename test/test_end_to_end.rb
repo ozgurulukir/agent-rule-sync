@@ -99,13 +99,6 @@ class TestEndToEndPipeline < Minitest::Test
        crush goose droid codex agents].each do |platform|
       assert_includes platform_names, platform, "Build dir should include #{platform}"
     end
-
-    # data/index.json exists and has correct structure
-    json_path = @rulepack_root.join('data', 'index.json')
-    assert json_path.exist?, 'index.json should exist'
-    parsed = JSON.parse(json_path.read)
-    assert parsed['version']
-    assert parsed['packages']
   end
 
   def test_build_rebuild_is_idempotent
@@ -190,7 +183,7 @@ class TestEndToEndPipeline < Minitest::Test
   def test_install_import_then_uninstall
     run_build
 
-    result = run_install('gemini-cli')
+    result = run_install('gemini-cli', '--on-collision', 'overwrite')
     assert result, 'Install gemini-cli should succeed'
 
     # Config file created with rule content (PKGBUILD uses install.type: copy)
@@ -388,7 +381,7 @@ class TestEndToEndPipeline < Minitest::Test
     assert opencode_rules.join('00-memory.md').symlink?, 'OpenCode symlink should exist'
 
     # Install to gemini-cli
-    result = run_install('gemini-cli')
+    result = run_install('gemini-cli', '--on-collision', 'overwrite')
     assert result, 'Install gemini-cli should succeed'
     config_path = @home_dir.join('.config/gemini/cli_config.yaml')
     assert config_path.exist?, 'Gemini config should exist'

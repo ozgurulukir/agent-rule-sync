@@ -35,6 +35,7 @@ module Rulepack
       pattern = index_path.parent.join("#{index_path.basename}.bak.*")
       Pathname.glob(pattern.to_s).each(&:delete) rescue nil
       cleanup_old_backups
+      true
     end
 
     # Create a backup of a generic file or directory.

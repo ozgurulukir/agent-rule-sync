@@ -1,0 +1,57 @@
+---
+pkgname: ruby-type-signature-sorbet
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: Generate Sorbet RBI type signature files in separate .rbi files inside the sorbet/ or rbi/ directory.
+arch: any
+order: 12
+
+source:
+  - type: local
+    path: src/
+
+targets:
+  - platform: opencode
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-type-signature-sorbet/
+  - platform: cursor
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-type-signature-sorbet/
+  - platform: claude
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-type-signature-sorbet/
+
+checksums:
+  source: null
+  built: {}
+
+tags:
+  - ruby
+  - sorbet
+  - rbi
+  - type-signatures
+  - static-typing
+  - code-generation
+
+provides:
+  - ruby-sorbet-generation
+
+dependencies:
+  - ruby-sorbet
+  - ruby-type-signature-base
+
+maintainer: DmitryPogrebnoy
+license: MIT

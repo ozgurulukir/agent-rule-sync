@@ -27,7 +27,7 @@ module Rulepack
       return specific_packages if specific_packages
 
       index[:packages].select do |_name, pkg|
-        pkg[:installed]&.any? { |i| i[:platform] == platform_id }
+        pkg[:installed].is_a?(Array) && pkg[:installed].any? { |i| i[:platform] == platform_id }
       end.keys
     end
 
@@ -108,7 +108,12 @@ module Rulepack
 
     # Migrate installed records to include pkgrel/epoch if missing (for old index)
     def migrate_installed_records(pkg_index)
-      return unless pkg_index[:installed].is_a?(Array)
+      return if pkg_index[:installed].nil?
+
+      unless pkg_index[:installed].is_a?(Array)
+        pkg_index[:installed] = []
+        return
+      end
 
       pkg_index[:installed].each do |rec|
         rec[:pkgrel] ||= 1

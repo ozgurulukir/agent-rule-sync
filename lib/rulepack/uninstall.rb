@@ -88,7 +88,7 @@ end
 
 # Find all installed packages for this platform
 installed_pkgs = index[:packages].select do |_, pkg|
-  pkg[:installed]&.any? do |i|
+  pkg[:installed].is_a?(Array) && pkg[:installed].any? do |i|
     i[:platform] == platform_id
   end
 end

@@ -3,16 +3,16 @@
 - **Type**: import
 - **Scope**: user
 - **Base path**: `~/.config/gemini/`
-- **Config file**: `cli_config.yaml` (actually GEMINI.md is the instructions file)
-- **Rules file**: `~/.config/gemini/GEMINI.md`
-- **Install method**: inject `@import` lines into GEMINI.md
+- **Config file**: `cli_config.yaml`
+- **Rules file**: `~/.config/gemini/cli_config.yaml`
+- **Install method**: inject `@import` lines into `cli_config.yaml`
 - **Provider**: Google (Gemini)
 - **Auth**: OAuth personal
 - **MCP**: Configured via `gemini mcp` CLI
 - **Extensions**: Installed via `gemini extensions install` (stored in `~/.gemini/extensions/`); currently installed: brooks-lint
 - **Hooks**: `~/.gemini/hooks/` for custom CLI behavior
 - **Skills**: `~/.gemini/skills/`
-- **Rules loading**: `~/.config/gemini/GEMINI.md` loaded at session start; extensions can contribute additional context via `contextFileName` in `gemini-extension.json`
+- **Rules loading**: `~/.config/gemini/cli_config.yaml` loaded at session start; extensions can contribute additional context via `contextFileName` in `gemini-extension.json`
 
 ## Update
 
@@ -24,7 +24,7 @@ gemini extensions update --all  # extensions only; CLI updates via npm
 
 ```bash
 bin/rulepack install gemini-cli
-# Injects @import lines into ~/.config/gemini/GEMINI.md
+# Injects @import lines into ~/.config/gemini/cli_config.yaml
 ```
 
 ## Notes

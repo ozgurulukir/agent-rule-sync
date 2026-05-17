@@ -2,7 +2,7 @@
 
 # Test helper — sets up load paths and shared utilities
 
-$LOAD_PATH.unshift File.expand_path('..', __dir__)
+$LOAD_PATH.unshift File.join(File.expand_path('..', __dir__), 'lib')
 $LOAD_PATH.unshift File.join(File.expand_path('..', __dir__), 'lib', 'rulepack')
 
 require 'minitest/autorun'

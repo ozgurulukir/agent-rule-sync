@@ -4,17 +4,17 @@
 - **Scope**: user
 - **Base path**: `~/.config/qwen/`
 - **Config file**: `config.yaml`
-- **Rules file**: `~/.config/qwen/QWEN.md`
-- **Install method**: inject `@import` lines into QWEN.md
+- **Rules file**: `~/.config/qwen/config.yaml`
+- **Install method**: inject `@import` lines into `config.yaml`
 - **Provider**: Alibaba Cloud (Qwen)
 - **Auth**: Qwen OAuth
 - **MCP**: context7 (`npx -y @upstash/context7-mcp`)
 - **Skills**: ast-grep
 - **Extensions**: superpowers (in `~/.qwen/extensions/`)
 - **Permissions**: fine-grained allow/ask/deny per tool pattern:
-  - Allowed: `gh *`, `git *`, `ast-grep *`, `npm run *`, `cargo *`, `Read`
-  - Ask: `sudo *`, `rm *`, `Edit`, `WebFetch`
-  - Denied: `rm -rf *`, `.env*`, `secrets/**`
+-   Allowed: `gh *`, `git *`, `ast-grep *`, `npm run *`, `cargo *`, `Read`
+-   Ask: `sudo *`, `rm *`, `Edit`, `WebFetch`
+-   Denied: `rm -rf *`, `.env*`, `secrets/**`
 - **Features**: auto-update, git co-author, chat compression at 70% threshold, built-in multi-language query pipeline (translate to English, generate 2–5 queries, search both languages in parallel)
 - **Subagent system**: Supports general-purpose, Explore, and code-reviewer subagents. Rule: never chain sequentially (failure compounds). Prefer inline execution for sequential work.
 
@@ -29,7 +29,7 @@ qwen auth   # re-auth if needed
 
 ```bash
 bin/rulepack install qwen-code
-# Injects @import lines into ~/.config/qwen/QWEN.md
+# Injects @import lines into ~/.config/qwen/config.yaml
 ```
 
 ## Notes

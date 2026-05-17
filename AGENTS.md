@@ -106,6 +106,8 @@ bin/rulepack check opencode
 
 Each package is defined in `data/packages/<pkgname>/PKGBUILD` (YAML). Full reference: [docs/agents/REFERENCE.md](docs/agents/REFERENCE.md).
 
+> **🤖 LLM INSTRUCTION**: When asked to create a PKGBUILD, you MUST include targets for ALL supported platforms (opencode, cursor, windsurf, claude-code, antigravity, oh-my-pi, crush, goose, droid, gemini-cli, qwen-code, codex, agents) unless the user specifically excludes them. Use `type: url` for upstream sources.
+
 Minimum example:
 
 ```yaml
@@ -119,8 +121,9 @@ arch: any
 order: 0
 
 source:
-  - type: local
-    path: src/my-rule.md
+  - type: url
+    url: https://example.com/rules.md
+    sha256: "abc123def456..."
 
 targets:
   - platform: opencode
@@ -129,6 +132,20 @@ targets:
     transformer: copy
     install:
       type: symlink
+  - platform: agents
+    format: directory
+    output: 00-my-rule.md
+    transformer: copy
+    install:
+      type: symlink
+  - platform: codex
+    format: skill
+    output: my-rule.md
+    transformer: copy
+    install:
+      type: copy
+  # ... (include ALL other platforms similarly)
+
 
 checksums:
   source: null

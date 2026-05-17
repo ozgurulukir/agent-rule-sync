@@ -1,0 +1,58 @@
+---
+pkgname: ruby-type-signature-rbs-inline
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: Generate RBS-inline type annotations as comments directly in Ruby source files using # @rbs and #: syntax.
+arch: any
+order: 11
+
+source:
+  - type: local
+    path: src/
+
+targets:
+  - platform: opencode
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-type-signature-rbs-inline/
+  - platform: cursor
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-type-signature-rbs-inline/
+  - platform: claude
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-type-signature-rbs-inline/
+
+checksums:
+  source: null
+  built: {}
+
+tags:
+  - ruby
+  - rbs
+  - rbs-inline
+  - type-signatures
+  - inline-annotations
+  - static-typing
+  - code-generation
+
+provides:
+  - ruby-rbs-inline-generation
+
+dependencies:
+  - ruby-rbs
+  - ruby-type-signature-base
+
+maintainer: DmitryPogrebnoy
+license: MIT

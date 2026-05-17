@@ -179,14 +179,15 @@ module Rulepack
 
     def install_single_platform(platform_id, index, build_index, options)
       Rulepack::Common.log "\n📦 Platform: #{platform_id}"
-      install_platform(index, build_index, platform_id,
-                       dry_run: options.fetch(:dry_run, false),
-                       force_mode: options.fetch(:force_mode, false),
-                       needed_mode: options.fetch(:needed_mode, false),
-                       select_list: options.fetch(:select_list, nil),
-                       project_arg: options.fetch(:project_arg, nil),
-                       collision_strategy: options.fetch(:collision_strategy, 'stop'),
-                       quiet: true)
+      ctx = InstallContext.new(
+        index: index, build_index: build_index, platform_id: platform_id,
+        dry_run: options.fetch(:dry_run, false), force_mode: options.fetch(:force_mode, false),
+        needed_mode: options.fetch(:needed_mode, false), collision_strategy: options.fetch(:collision_strategy, 'stop'),
+        select_list: options.fetch(:select_list, nil), quiet: true,
+        project_root: options[:project_arg] ? Pathname.new(options[:project_arg]).expand_path : nil,
+        installed_this_run: []
+      )
+      install_platform(ctx)
     rescue StandardError => e
       Rulepack::Common.log_warn "Failed to install platform #{platform_id}: #{e.message}"
       puts "  ⚠️  #{platform_id}: #{e.message}"
@@ -401,7 +402,7 @@ module Rulepack
         return "Build artifact checksum mismatch: #{pkgname}"
       end
 
-      installed_path = resolve_check_path(platform_cfg, target, base_path, nil)
+      installed_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
 
       if format_type == 'skill-bundle'
         verify_skill_bundle(installed_path, pkgname)
@@ -522,7 +523,7 @@ module Rulepack
           end
         end
       else
-        strategy = opts[:collision_strategy] || 'stop'
+        strategy = ctx.collision_strategy || 'stop'
         return false unless copy_sub_skills(build_src_dir, dest_dir, selected, pkgname,
                                            strategy: strategy, quiet: quiet)
 
@@ -940,32 +941,5 @@ module Rulepack
       selected
     end
 
-    def resolve_check_path(platform_cfg, target, base_path, project_root)
-      install_cfg = target[:install] || {}
-      output = target[:output]
-      if install_cfg[:target_dir]
-        target_subdir = Rulepack::Common.expand_user_path(install_cfg[:target_dir])
-        resolved = if platform_cfg[:type] == 'directory'
-                     base_subdir = if %w[skill skill-bundle].include?(target[:format])
-                                     platform_cfg[:skills_dir]
-                                   else
-                                     platform_cfg[:rules_dir]
-                                   end
-                     if Pathname.new(target_subdir).absolute?
-                       Pathname.new(target_subdir)
-                     else
-                       base_path.join(base_subdir, target_subdir)
-                     end
-                   elsif Pathname.new(target_subdir).absolute?
-                     Pathname.new(target_subdir)
-                   else
-                     base_path.join(target_subdir)
-                   end
-        resolved = resolved.join(output) unless target[:format] == 'skill-bundle'
-        resolved
-      else
-        Rulepack::Common.resolve_install_path(platform_cfg, target, project_root)
-      end
-    end
   end
 end

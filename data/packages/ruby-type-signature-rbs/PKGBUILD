@@ -1,0 +1,56 @@
+---
+pkgname: ruby-type-signature-rbs
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: Generate RBS type signatures in separate .rbs files inside the sig/ directory.
+arch: any
+order: 10
+
+source:
+  - type: local
+    path: src/
+
+targets:
+  - platform: opencode
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-type-signature-rbs/
+  - platform: cursor
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-type-signature-rbs/
+  - platform: claude
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-type-signature-rbs/
+
+checksums:
+  source: null
+  built: {}
+
+tags:
+  - ruby
+  - rbs
+  - type-signatures
+  - static-typing
+  - code-generation
+
+provides:
+  - ruby-rbs-generation
+
+dependencies:
+  - ruby-rbs
+  - ruby-type-signature-base
+
+maintainer: DmitryPogrebnoy
+license: MIT

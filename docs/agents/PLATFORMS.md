@@ -10,9 +10,9 @@ Complete reference for all supported agent platforms, their configuration locati
 | [Oh My Pi](#oh-my-pi) | user | directory | `~/.config/oh-my-pi/rules/` | `bin/rulepack install oh-my-pi` |
 | [Crush](#crush) | user | skill | `/usr/local/share/crush/crush.md` | `bin/rulepack install crush` |
 | [Goose](#goose) | user | skill | `~/.local/share/goose/goose.md` | `bin/rulepack install goose` |
-| [Droid](#droid) | user | skill | `~/.config/droid/droid.md` | `bin/rulepack install droid` |
-| [Gemini CLI](#gemini-cli) | user | import | `~/.config/gemini/GEMINI.md` | `bin/rulepack install gemini-cli` |
-| [Qwen Code](#qwen-code) | user | import | `~/.config/qwen/QWEN.md` | `bin/rulepack install qwen-code` |
+| [Droid](#droid) | user | skill | `~/.factory/AGENTS.md` | `bin/rulepack install droid` |
+| [Gemini CLI](#gemini-cli) | user | import | `~/.config/gemini/cli_config.yaml` | `bin/rulepack install gemini-cli` |
+| [Qwen Code](#qwen-code) | user | import | `~/.config/qwen/config.yaml` | `bin/rulepack install qwen-code` |
 | [Cursor](#cursor) | project | directory | `.cursor/rules/` | `bin/rulepack install cursor --project .` |
 | [Windsurf](#windsurf) | project | directory | `.windsurf/rules/` | `bin/rulepack install windsurf --project .` |
 | [GitHub Copilot](#github-copilot) | project | import | `.github/copilot-instructions.md` | `bin/rulepack install github-copilot --project .` |
@@ -117,7 +117,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Extensions**: `gemini extensions install` (stored in `~/.gemini/extensions/`)
 - **Update**: `gemini extensions update --all` (CLI via npm; extensions separate)
 
-**Rulepack integration**: `bin/rulepack install gemini-cli` → injects `@import` lines into `~/.config/gemini/GEMINI.md`
+**Rulepack integration**: `bin/rulepack install gemini-cli` → injects `@import` lines into `~/.config/gemini/cli_config.yaml`
 
 ---
 
@@ -134,7 +134,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Permissions**: fine-grained allow/ask/deny per tool pattern
 - **Features**: auto-update, git co-author, chat compression at 70% threshold
 
-**Rulepack integration**: `bin/rulepack install qwen-code` → injects `@import` lines into `~/.config/qwen/QWEN.md`
+**Rulepack integration**: `bin/rulepack install qwen-code` → injects `@import` lines into `~/.config/qwen/config.yaml`
 
 ---
 
