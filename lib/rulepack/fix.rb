@@ -172,7 +172,7 @@ def find_broken_packages(platform_id, index)
                   !Rulepack::Common::BUILD_DIR.join(platform_id, inst[:output]).exist?
                 else
                   installed_path = resolve_install_path(platform_cfg, target, base_path)
-                  !installed_path.exist? || Digest::SHA256.hexdigest(installed_path.read) != inst[:checksum]
+                  !installed_path.exist? || !Rulepack::Common.verify_checksum(installed_path, inst[:checksum], pkgname)
                 end
 
     broken << pkgname if is_broken

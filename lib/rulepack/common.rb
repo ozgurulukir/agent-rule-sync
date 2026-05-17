@@ -154,6 +154,26 @@ module Rulepack
       end
     end
 
+    # Verify checksum of file, supporting marker-based content
+    def verify_checksum(path, expected_checksum, pkgname)
+      path = Pathname.new(path)
+      return false unless path.exist?
+
+      content = path.read
+      start_marker = "<!-- rulepack:#{pkgname} start -->"
+      end_marker = "<!-- rulepack:#{pkgname} end -->"
+
+      if content.include?(start_marker) && content.include?(end_marker)
+        pattern = /#{Regexp.escape(start_marker)}\n(.*?)\n#{Regexp.escape(end_marker)}/m
+        if content =~ pattern
+          extracted = $1
+          return Digest::SHA256.hexdigest(extracted) == expected_checksum
+        end
+      end
+
+      Digest::SHA256.hexdigest(content) == expected_checksum
+    end
+
     # Expand user home directory in path (~/...)
     def expand_user_path(path)
       path.start_with?('~') ? File.expand_path(path) : path

@@ -154,8 +154,7 @@ def verify_single_file_on_disk(path, expected_checksum, pkgname, expected_output
     puts "  ⚠ MISSING: #{pkgname} (#{expected_output}) at #{path}"
     return :drift
   end
-  actual_sha = Digest::SHA256.hexdigest(path.read)
-  if actual_sha == expected_checksum
+  if Rulepack::Common.verify_checksum(path, expected_checksum, pkgname)
     puts "  ✓ #{pkgname} (#{expected_output})"
     return :ok
   end

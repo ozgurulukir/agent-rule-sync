@@ -452,8 +452,7 @@ module Rulepack
     def verify_single_file(installed_path, expected_checksum, pkgname, expected_output)
       return "Missing: #{pkgname} (#{expected_output}) at #{installed_path}" unless installed_path.exist?
 
-      actual_sha = Digest::SHA256.hexdigest(installed_path.read)
-      return nil if actual_sha == expected_checksum
+      return nil if Rulepack::Common.verify_checksum(installed_path, expected_checksum, pkgname)
 
       "Checksum mismatch: #{pkgname} (#{expected_output})"
     end
@@ -756,8 +755,7 @@ module Rulepack
 
     def do_copy(built_path, install_path, content_sha256, pkgname, strategy)
       if install_path.exist?
-        existing_sha = Digest::SHA256.hexdigest(install_path.read)
-        return Rulepack::Common.log '    ↺ Already up-to-date' if existing_sha == content_sha256
+        return Rulepack::Common.log '    ↺ Already up-to-date' if Rulepack::Common.verify_checksum(install_path, content_sha256, pkgname)
 
         case strategy
         when 'append'
