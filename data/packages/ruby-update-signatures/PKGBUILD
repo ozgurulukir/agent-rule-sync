@@ -28,7 +28,7 @@ targets:
     install:
       type: copy
       target_dir: ruby-update-signatures/
-  - platform: claude
+  - platform: claude-code
     format: skill-bundle
     output: .
     transformer: strip-frontmatter

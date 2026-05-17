@@ -26,7 +26,7 @@ targets:
     install:
       type: copy
       target_dir: ruby-type-signature-rbs-inline/
-  - platform: claude
+  - platform: claude-code
     format: skill-bundle
     output: .
     transformer: strip-frontmatter

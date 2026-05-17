@@ -1,6 +1,8 @@
 ---
 pkgname: memory
-pkgver: 1.0.0
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
 pkgdesc: Workstation Memory Constraints rule
 arch: any
 order: 0
@@ -83,7 +85,3 @@ tags:
 - performance
 maintainer:
 license: MIT
-:pkgrel: 1
-:epoch: 0
-:requires:
-  :python: ">=3.8"

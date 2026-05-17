@@ -1,6 +1,8 @@
 ---
 pkgname: shell
-pkgver: 1.0.0
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
 pkgdesc: Non-Interactive Shell Strategy rule
 arch: any
 order: 1
@@ -83,7 +85,3 @@ tags:
 - strategy
 maintainer:
 license: MIT
-:pkgrel: 1
-:epoch: 0
-:requires:
-  :python: ">=3.8"
