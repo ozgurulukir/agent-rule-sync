@@ -118,6 +118,8 @@ bin/rulepack -Qk [pkg] -t <plat|all>                # pacman -Qk flag shortcut e
 bin/rulepack fix [pkg] --target <plat|all> [--auto] # Automatically repairs and reinstalls drifted files
 bin/rulepack -F [pkg] -t <plat|all> [--auto]        # pacman -F flag shortcut equivalent
 
+bin/rulepack audit [--strict] [--target PLAT]       # Audits declarative package descriptors & validation schemas
+
 # De-registration (Uninstall / pacman -R)
 bin/rulepack uninstall [pkg] --target <plat|all>    # Surgically removes rule fragments and restores state
 bin/rulepack -R [pkg] -t <plat|all>                 # pacman -R flag shortcut equivalent
@@ -125,6 +127,7 @@ bin/rulepack -R [pkg] -t <plat|all>                 # pacman -R flag shortcut eq
 # Metadata Querying (query / pacman -Q)
 bin/rulepack query <search_term>                    # Search package descriptors and variables
 bin/rulepack -Q <search_term>                       # pacman -Q flag shortcut equivalent
+
 ```
 
 ---

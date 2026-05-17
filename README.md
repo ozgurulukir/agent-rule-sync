@@ -47,6 +47,12 @@ bin/rulepack -Qk memory -t opencode                 # Verify single package on o
 bin/rulepack fix --target opencode                  # Repair any modified/missing files
 bin/rulepack -F memory -t opencode                  # Repair single package
 
+# Audit package descriptors for integrity & platforms coverage
+bin/rulepack audit                                  # Audit all packages (schema, local sources, platforms)
+bin/rulepack audit --strict                         # Strict audit (requires targets for all 14 platforms)
+bin/rulepack audit --target opencode                # Target-specific platform check
+bin/rulepack audit --format json                    # Machine-readable output
+
 # Uninstall from platforms (uninstall or -R)
 bin/rulepack uninstall --target opencode            # Uninstall all packages from opencode
 bin/rulepack -R memory -t cursor --project .        # Uninstall single package from cursor project
@@ -54,6 +60,7 @@ bin/rulepack -R memory -t cursor --project .        # Uninstall single package f
 # Query database (query or -Q)
 bin/rulepack query memory
 bin/rulepack -Q security
+
 ```
 
 ## Project Structure
@@ -140,9 +147,11 @@ bin/rulepack installed --platform opencode  # List installed for a platform
 bin/rulepack platforms         # List available platforms
 ```
 
-## Validation
+## Validation & Auditing
 
 ```bash
+bin/rulepack audit                            # Audit all PKGBUILD descriptors (highly recommended)
+bin/rulepack audit --strict                   # Strict audit (warn/error on partial platform coverage)
 bin/rulepack install opencode --dry-run       # Preview changes
 bin/rulepack uninstall opencode --dry-run      # Preview removal
 bin/rulepack check opencode                    # Verify installed state
