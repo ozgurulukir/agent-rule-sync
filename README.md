@@ -23,34 +23,37 @@ bin/rulepack build
 # Build with timing info
 bin/rulepack build --timing
 
-# Install to a user-level platform
-bin/rulepack install opencode          # real install
-bin/rulepack install opencode --dry-run  # preview
-bin/rulepack install --all --dry-run    # preview install to all platforms
-bin/rulepack install --targets memory   # show target platforms for a package
+# Install to a user-level platform (Zero Assumptions: target is mandatory)
+bin/rulepack install --target opencode              # Real install (all built packages)
+bin/rulepack install memory --target opencode       # Real install of a single package (exact match)
+bin/rulepack install memory -t opencode --dry-run   # Dry run preview
 
-# Install a single package by name (fuzzy match: "mem" → "memory")
-bin/rulepack install memory
+# Pacman flag shortcut equivalents
+bin/rulepack -S --target opencode                   # Equivalent to install --target opencode
+bin/rulepack -S memory -t opencode                  # Equivalent to install memory -t opencode
 
-# Install to a project-level platform (run from project root)
-bin/rulepack install cursor --project .   # install to current project
+# Install to a project-level platform (Target and Project are mandatory)
+bin/rulepack install --target cursor --project .    # Install to current project
+bin/rulepack install memory -t cursor --project /path/to/project
 
-# Verify installed state
-bin/rulepack check opencode
+# Global Sync (Install all packages to all user-level platforms)
+bin/rulepack install --target all
 
-# Uninstall from a platform
-bin/rulepack uninstall opencode
+# Verify installed packages and integrity (verify or -Qk)
+bin/rulepack verify --target opencode               # Verify all packages on opencode
+bin/rulepack -Qk memory -t opencode                 # Verify single package on opencode
 
-# Detect drift between index and disk
-bin/rulepack verify opencode
+# Repair drift (fix or -F)
+bin/rulepack fix --target opencode                  # Repair any modified/missing files
+bin/rulepack -F memory -t opencode                  # Repair single package
 
-# Repair drift automatically
-bin/rulepack fix opencode
+# Uninstall from platforms (uninstall or -R)
+bin/rulepack uninstall --target opencode            # Uninstall all packages from opencode
+bin/rulepack -R memory -t cursor --project .        # Uninstall single package from cursor project
 
-# Query package database
-bin/rulepack list
-bin/rulepack show memory
-bin/rulepack search security
+# Query database (query or -Q)
+bin/rulepack query memory
+bin/rulepack -Q security
 ```
 
 ## Project Structure
@@ -85,20 +88,20 @@ rulepack/
 
 | Agent | Type | Scope | Config Location | Install Command |
 |-------|------|-------|-----------------|-----------------|
-| [OpenCode](docs/agents/agents/opencode.md) | directory | user | `~/.config/opencode/rules/` | `bin/rulepack install opencode` |
-| [Oh My Pi](docs/agents/agents/oh-my-pi.md) | directory | user | `~/.config/oh-my-pi/rules/` | `bin/rulepack install oh-my-pi` |
-| [Crush](docs/agents/agents/crush.md) | skill | user | `/usr/local/share/crush/crush.md` | `bin/rulepack install crush` |
-| [Goose](docs/agents/agents/goose.md) | skill | user | `~/.local/share/goose/goose.md` | `bin/rulepack install goose` |
-| [Droid](docs/agents/agents/droid.md) | skill | user | `~/.config/droid/droid.md` | `bin/rulepack install droid` |
-| [Gemini CLI](docs/agents/agents/gemini-cli.md) | import | user | `~/.config/gemini/GEMINI.md` | `bin/rulepack install gemini-cli` |
-| [Qwen Code](docs/agents/agents/qwen-code.md) | import | user | `~/.config/qwen/QWEN.md` | `bin/rulepack install qwen-code` |
-| [Cursor](docs/agents/agents/cursor.md) | directory | project | `.cursor/rules/` | `bin/rulepack install cursor --project .` |
-| [Windsurf](docs/agents/agents/windsurf.md) | directory | project | `.windsurf/rules/` | `bin/rulepack install windsurf --project .` |
-| [GitHub Copilot](docs/agents/agents/github-copilot.md) | import | project | `.github/copilot-instructions.md` | `bin/rulepack install github-copilot --project .` |
-| [Claude Code](docs/agents/agents/claude-code.md) | directory | project | `.claude/rules/` | `bin/rulepack install claude-code --project .` |
-| [Codex CLI](docs/agents/agents/codex.md) | skill | project | `AGENTS.md` | `bin/rulepack install codex --project .` |
-| [Antigravity](docs/agents/agents/antigravity.md) | directory | project | `.agent/skills/` | `bin/rulepack install antigravity --project .` |
-| [Agents](docs/agents/agents/agents.md) | directory | user | `~/.config/agents/rules/` | `bin/rulepack install agents` |
+| [OpenCode](docs/agents/agents/opencode.md) | directory | user | `~/.config/opencode/rules/` | `bin/rulepack install --target opencode` |
+| [Oh My Pi](docs/agents/agents/oh-my-pi.md) | directory | user | `~/.config/oh-my-pi/rules/` | `bin/rulepack install --target oh-my-pi` |
+| [Crush](docs/agents/agents/crush.md) | skill | user | `/usr/local/share/crush/crush.md` | `bin/rulepack install --target crush` |
+| [Goose](docs/agents/agents/goose.md) | skill | user | `~/.local/share/goose/goose.md` | `bin/rulepack install --target goose` |
+| [Droid](docs/agents/agents/droid.md) | skill | user | `~/.config/droid/droid.md` | `bin/rulepack install --target droid` |
+| [Gemini CLI](docs/agents/agents/gemini-cli.md) | import | user | `~/.config/gemini/GEMINI.md` | `bin/rulepack install --target gemini-cli` |
+| [Qwen Code](docs/agents/agents/qwen-code.md) | import | user | `~/.config/qwen/QWEN.md` | `bin/rulepack install --target qwen-code` |
+| [Cursor](docs/agents/agents/cursor.md) | directory | project | `.cursor/rules/` | `bin/rulepack install --target cursor --project .` |
+| [Windsurf](docs/agents/agents/windsurf.md) | directory | project | `.windsurf/rules/` | `bin/rulepack install --target windsurf --project .` |
+| [GitHub Copilot](docs/agents/agents/github-copilot.md) | import | project | `.github/copilot-instructions.md` | `bin/rulepack install --target github-copilot --project .` |
+| [Claude Code](docs/agents/agents/claude-code.md) | directory | project | `.claude/rules/` | `bin/rulepack install --target claude-code --project .` |
+| [Codex CLI](docs/agents/agents/codex.md) | skill | project | `AGENTS.md` | `bin/rulepack install --target codex --project .` |
+| [Antigravity](docs/agents/agents/antigravity.md) | directory | project | `.agent/skills/` | `bin/rulepack install --target antigravity --project .` |
+| [Agents](docs/agents/agents/agents.md) | directory | user | `~/.config/agents/rules/` | `bin/rulepack install --target agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 

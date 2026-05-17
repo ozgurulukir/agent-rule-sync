@@ -111,7 +111,15 @@ module Rulepack
       Rulepack::Common.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
 
       registry  = Rulepack::Common.load_platform_registry
-      platforms = registry.keys
+      platforms = registry.keys.select do |p|
+        cfg = registry[p]
+        scope = cfg[:scope] || 'user'
+        if scope == 'project'
+          !options[:project_arg].nil?
+        else
+          true
+        end
+      end
 
       Rulepack::Common.log "🚀 Installing ALL platforms (#{platforms.size} platforms)#{' (dry-run)' if dry_run}"
       puts "🚀 Installing ALL platforms (#{platforms.size} platforms)#{' (dry-run)' if dry_run}"

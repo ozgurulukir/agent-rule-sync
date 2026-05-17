@@ -36,19 +36,21 @@ class TestEndToEndPipeline < Minitest::Test
   end
 
   def run_install(platform, *args)
-    result = system(@env, @ruby, @rulepack_root.join('lib/rulepack/install.rb').to_s, platform, *args,
+    cmd_args = ["--target", platform] + args
+    result = system(@env, @ruby, @rulepack_root.join('lib/rulepack/install.rb').to_s, *cmd_args,
                     chdir: @rulepack_root.to_s)
     result
   end
 
   def run_check(platform)
-    system(@env, @ruby, @rulepack_root.join('lib/rulepack/install.rb').to_s, '--check', platform,
+    system(@env, @ruby, @rulepack_root.join('lib/rulepack/install.rb').to_s, '--check', '--target', platform,
            chdir: @rulepack_root.to_s)
     $?.exitstatus
   end
 
   def run_uninstall(platform, *args)
-    result = system(@env, @ruby, @rulepack_root.join('lib/rulepack/uninstall.rb').to_s, platform, *args,
+    cmd_args = ["--target", platform] + args
+    result = system(@env, @ruby, @rulepack_root.join('lib/rulepack/uninstall.rb').to_s, *cmd_args,
                     chdir: @rulepack_root.to_s)
     result
   end
