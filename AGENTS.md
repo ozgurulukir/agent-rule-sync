@@ -141,7 +141,10 @@ Installation paths resolve dynamically based on **Scope** (defined in `data/regi
 Create `data/packages/<pkgname>/PKGBUILD` (YAML). Below is the complete, canonical schema.
 
 > [!IMPORTANT]
-> **🤖 LLM / AI AGENT INSTRUCTION**: When asked to create a PKGBUILD, you **MUST** include targets for **ALL** supported platforms (`opencode`, `cursor`, `windsurf`, `claude-code`, `antigravity`, `oh-my-pi`, `crush`, `goose`, `droid`, `gemini-cli`, `qwen-code`, `codex`, `agents`) unless explicitly excluded by the user. Use `type: url` or `type: git` for upstream assets.
+> **🤖 LLM / AI AGENT INSTRUCTION**: When asked to create a PKGBUILD:
+> 1. You **MUST** include targets for **ALL** 14 supported platforms (`opencode`, `cursor`, `windsurf`, `claude-code`, `antigravity`, `oh-my-pi`, `crush`, `goose`, `droid`, `gemini-cli`, `qwen-code`, `codex`, `github-copilot`, `agents`).
+> 2. **SCHEMA-DRIVEN ENGINE**: The build engine dynamically applies schema constraints (e.g. `frontmatter: strip`, `emoji_policy: strip`) based on `data/platforms/<agent>.yaml`. Therefore, you do **NOT** need to manually specify `transformer: strip-frontmatter` if the platform schema already declares it.
+> 3. **DYNAMIC TRANSLATORS**: Before adding a new platform or complex format conversion, actively read the `data/platforms/<agent>.yaml` schema. If a complex structural change is required that the SchemaEngine does not support out-of-the-box, you **MUST** write a custom Ruby script under `data/translators/` and map it via `translate: custom:data/translators/your_script.rb`.
 
 ```yaml
 ---

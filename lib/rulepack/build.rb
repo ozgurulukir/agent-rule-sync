@@ -9,6 +9,7 @@ require 'net/http'
 require 'uri'
 require 'open3'
 require_relative 'common'
+require_relative 'schema_engine'
 
 LOG_PATH = Rulepack::Common::BUILD_DIR.join('build.log')
 Rulepack::Common.log_file = LOG_PATH
@@ -326,6 +327,17 @@ pkgbuilds.each do |pkgbuild_path|
           end
           Rulepack::Common.log "    ✓ Translated (#{translate})"
           puts "    ✓ Translated (#{translate})"
+        end
+
+        # ─── SCHEMA ENGINE step ────────────────────────────────────────────────────
+        # Dynamically apply constraints based on data/platforms/<agent>.yaml
+        begin
+          target_format = tgt[:format]
+          format_profile = Rulepack::Common.platform_config(platform_id, _platforms)[:format_profile]
+          source_content = Rulepack::SchemaEngine.apply(source_content, format_profile, target_format)
+        rescue StandardError => e
+          Rulepack::Common.log_error "Schema engine failed for #{pkgname}/#{platform_id}: #{e.message}"
+          next
         end
 
         # ─── TRANSFORM step ────────────────────────────────────────────────────────

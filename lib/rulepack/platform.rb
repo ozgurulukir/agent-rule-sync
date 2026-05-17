@@ -57,7 +57,11 @@ module Rulepack
       registry_path = RULEPACK_ROOT.join('data', 'registry', 'platforms.yaml')
       raw = load_yaml(registry_path)
 
-      raw.each { |id, cfg| validate_platform_config(id, cfg) }
+      raw.each do |id, cfg|
+        validate_platform_config(id, cfg)
+        profile_path = RULEPACK_ROOT.join('data', 'platforms', "#{id}.yaml")
+        cfg[:format_profile] = profile_path.exist? ? load_yaml(profile_path) : {}
+      end
 
       @_platform_registry = raw
     end

@@ -18,10 +18,10 @@ abort "❌ Build index not found: #{Rulepack::Common::BUILD_INDEX_PATH}. Run `ru
 
 # Load build index (package metadata) with symbol keys
 index = YAML.safe_load(Rulepack::Common::BUILD_INDEX_PATH.read, permitted_classes: [Symbol], symbolize_names: true)
-platforms = YAML.safe_load(Rulepack::Common::RULEPACK_ROOT.join('data', 'registry', 'platforms.yaml').read, permitted_classes: [Symbol], symbolize_names: true)
+platforms = Rulepack::Common.load_platform_registry
 
 # Identify skill-based agents
-skill_agents = platforms.select { |_id, cfg| cfg[:type] == 'skill' }.keys
+skill_agents = platforms.select { |_id, cfg| cfg[:type] == :skill || cfg[:type] == 'skill' }.keys
 
 if skill_agents.empty?
   puts 'ℹ️ No skill-based agents configured in registry.'
@@ -114,7 +114,18 @@ skill_agents.each do |agent_id|
   end
 
   # ─── Combine and write vendor skill ─────────────────────────────────────────
-  final_content = content_parts.join("\n\n---\n\n")
+  section_sep = "\n\n---\n\n"
+  if platform_cfg[:format_profile]
+    rules_cfg = platform_cfg[:format_profile][:rules]
+    skills_cfg = platform_cfg[:format_profile][:skills]
+    if rules_cfg && rules_cfg[:section_separator]
+      section_sep = rules_cfg[:section_separator]
+    elsif skills_cfg && skills_cfg[:section_separator]
+      section_sep = skills_cfg[:section_separator]
+    end
+  end
+
+  final_content = content_parts.join(section_sep)
 
   # Determine output path: Rulepack::Common::BUILD_DIR/<agent>/skills/vendor/<agent>.md
   vendor_dir = Rulepack::Common::BUILD_DIR.join(agent_id.to_s, 'skills', 'vendor')
