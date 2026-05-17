@@ -39,4 +39,7 @@ module TestHelpers
   end
 end
 
+# Set environment flag to disable interactive CLI TUI prompts during testing
+ENV['RULEPACK_TEST'] = '1'
+
 Minitest::Test.include TestHelpers

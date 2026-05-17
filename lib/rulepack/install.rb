@@ -58,10 +58,13 @@ while i < ARGV.length
     project_arg = ARGV[i + 1]
     i += 2
   when '--select'
-    raise 'Missing value for --select' if i + 1 >= ARGV.length
-
-    select_list = ARGV[i + 1].split(',').map(&:strip).reject(&:empty?)
-    i += 2
+    if i + 1 >= ARGV.length || ARGV[i + 1].start_with?('-')
+      select_list = :interactive
+      i += 1
+    else
+      select_list = ARGV[i + 1].split(',').map(&:strip).reject(&:empty?)
+      i += 2
+    end
   when '-v', '--verbose'
     verbose_mode = true
     i += 1
