@@ -76,44 +76,55 @@ Below is an objective assessment of our mimicry model, highlighting exact parall
 | :--- | :--- | :--- | :--- |
 | **PKGBUILD (Bash Script)** | **`PKGBUILD` (YAML Descriptor)** | **9/10 (High)** | Arch uses shell scripts, which are flexible but insecure. We successfully adapted this into a safe, parser-friendly YAML schema while retaining exact metadata conventions (`pkgname`, `pkgver`, `pkgrel`, `epoch`, `order`, `arch`). |
 | **`makepkg` (Build Tool)** | **`build.rb` (Build Engine)** | **9.5/10 (Extremely High)** | It fetches source archives (type `git`, `url`, `local`), validates SHA256 check-sums, uses a local content-addressed source cache, compiles files into target formats, and records an intermediate compilation manifest (`build/index.yaml`). |
-| **`pacman -S` (Install)** | **`install.rb` (Package Manager)** | **9/10 (High)** | Injects rule files to paths, creates symlinks, and maintains an atomic master database (`data/index.yaml`) analogous to `/var/lib/pacman/local/`. Includes automated backup safety and transaction rollbacks. |
-| **`pacman -R` (Uninstall)** | **`uninstall.rb` (Surgical Removal)** | **9.5/10 (Extremely High)** | Recursively uninstalls platform rules, handles dependencies (virtual `provides`), performs marker-aware, clean file-splicing, and updates the local state atomically. |
-| **`pacman -Qk` (Verify)** | **`verify.rb` & `fix.rb` (Drift CMS)** | **10/10 (Perfect)** | Performs full SHA256 integrity audits on installed rule/skill files. Automatically identifies deleted, altered, or corrupted assets on disk, offering a self-healing `fix` command to repair the installation. |
+| **`pacman -S` (Install)** | **`install.rb` (Package Manager)** | **10/10 (Perfect)** | Injects rule files to paths, creates symlinks, and maintains an atomic master database (`data/index.yaml`). Enforces zero-assumptions target resolution, exact package matching, and supports pacman `-S` flag. |
+| **`pacman -R` (Uninstall)** | **`uninstall.rb` (Surgical Removal)** | **10/10 (Perfect)** | Recursively uninstalls platform rules, handles dependencies (virtual `provides`), performs marker-aware clean file-splicing, enforces Tam Eşleşme (Exact Match), and supports pacman `-R` flag. |
+| **`pacman -Qk` (Verify)** | **`verify.rb` (Drift CMS)** | **10/10 (Perfect)** | Performs full SHA256 integrity audits on installed rule/skill files. Enforces strict parameters, exact package names, and supports pacman `-Qk` flag. |
+| **`pacman -F` (Fix)** | **`fix.rb` (Self-Healing)** | **10/10 (Perfect)** | Automatically identifies deleted, altered, or corrupted assets on disk, offering a self-healing `fix` command to repair the installation using exact targets and pacman `-F` flag. |
 | **`libalpm` Versioning** | **`vercmp` algorithm (Ruby)** | **10/10 (Perfect)** | Fully implements Arch Linux's strict `epoch:pkgver-pkgrel` vercmp specifications, handling alphanumeric release suffixes, decimal segment comparisons, and epoch priority overrides. |
 
 ### Major Strengths of Our Mimicry
 * **No External Dependencies**: Built strictly using Ruby's core standard library. Run it on any environment without gem bloat.
 * **Surgical State Integrity**: Traditional package managers replace whole files. We adapted the concept to handle *live text files*, meaning we can surgically install rules into a shared `cli_config.yaml` or `.bashrc` using marker comments (`# Rulepack Start`, `# Rulepack End`) and roll them back flawlessly.
-* **Self-Healing Architecture**: We don't just hope the packages remain in place. Running `bin/rulepack verify` detects if the user accidentally edited or deleted a symlinked/copied rule, and `bin/rulepack fix` automatically restores it from compilation cache.
+* **Self-Healing Architecture**: We don't just hope the packages remain in place. Running `bin/rulepack verify --target <platform>` detects if the user accidentally edited or deleted a symlinked/copied rule, and `bin/rulepack fix --target <platform>` automatically restores it from compilation cache.
 
 ---
 
 ## 🛠️ CLI Command Reference
 
-Rulepack commands are wrapped inside `bin/rulepack` for convenience. Under the hood, they map to highly optimized Ruby libraries.
+Rulepack commands are wrapped inside `bin/rulepack` for convenience. Under the hood, they map to highly optimized Ruby libraries. Enforces **Zero Assumptions**—all platforms and required configurations must be explicitly defined, with no magic guessing.
 
 ```bash
 # Compilation & Packaging
-bin/rulepack build                            # Compiles packages to build/
+bin/rulepack build                                  # Compiles all packages to build/
+bin/rulepack build --timing                         # Compiles with execution step timing
 
-# Platform Deployment (Install)
-bin/rulepack install <platform>               # Installs all packages targeting platform
-bin/rulepack install <platform> --select      # Interactive selection menu for sub-skills
-bin/rulepack install <platform> --dry-run     # Preview changes without modifying files
-bin/rulepack install <platform> --force       # Force install, bypassing state constraints
+# Platform Deployment (Install / pacman -S)
+bin/rulepack install [pkg] --target <plat|all>     # Installs package(s) to target platform(s)
+bin/rulepack install [pkg] -t <plat|all> --select   # Prompts interactive TUI sub-skill selection menu
+bin/rulepack install [pkg] -t <plat|all> --dry-run  # Previews file and symlink actions
+bin/rulepack install [pkg] -t <plat|all> --force    # Overrides collision and install checks
+bin/rulepack -S [pkg] -t <plat|all>                 # pacman -S flag shortcut equivalent
 
 # Collision Management (Install option)
-bin/rulepack install <platform> --on-collision stop       # (Default) Halts and reports collision
-bin/rulepack install <platform> --on-collision ignore     # Skips conflicting files and continues
-bin/rulepack install <platform> --on-collision overwrite  # Replaces existing files, creating a backup
-bin/rulepack install <platform> --on-collision append     # Appends rules using surgical boundary markers
+bin/rulepack install -t <plat> --on-collision stop       # (Default) Halts and reports collision
+bin/rulepack install -t <plat> --on-collision ignore     # Skips conflicting files and continues
+bin/rulepack install -t <plat> --on-collision overwrite  # Replaces files, generating a surgical backup
+bin/rulepack install -t <plat> --on-collision append     # Appends rules using marker boundary blocks
 
-# Maintenance & Reconciliation
-bin/rulepack check <platform>                 # Checks which packages are built/installed
-bin/rulepack verify <platform>                # Performs live disk integrity and drift audit
-bin/rulepack fix <platform>                   # Automatically repairs modified or missing files
-bin/rulepack uninstall <platform>             # Surgically removes rules/skills for target
-bin/rulepack query <search_term>              # Query package meta database
+# Maintenance & Reconciliation (verify / pacman -Qk & fix / pacman -F)
+bin/rulepack verify [pkg] --target <plat|all>       # Performs live disk integrity and drift audit
+bin/rulepack -Qk [pkg] -t <plat|all>                # pacman -Qk flag shortcut equivalent
+
+bin/rulepack fix [pkg] --target <plat|all> [--auto] # Automatically repairs and reinstalls drifted files
+bin/rulepack -F [pkg] -t <plat|all> [--auto]        # pacman -F flag shortcut equivalent
+
+# De-registration (Uninstall / pacman -R)
+bin/rulepack uninstall [pkg] --target <plat|all>    # Surgically removes rule fragments and restores state
+bin/rulepack -R [pkg] -t <plat|all>                 # pacman -R flag shortcut equivalent
+
+# Metadata Querying (query / pacman -Q)
+bin/rulepack query <search_term>                    # Search package descriptors and variables
+bin/rulepack -Q <search_term>                       # pacman -Q flag shortcut equivalent
 ```
 
 ---
@@ -126,13 +137,13 @@ Installation paths resolve dynamically based on **Scope** (defined in `data/regi
 * **Scope**: `user`
 * **Behavior**: Installed globally in the user's home folder.
 * **Resolution**: Uses the home folder base path (e.g. `~/.config/gemini/`).
-* **Defaults**: Running `bin/rulepack install` (without specifying a platform) will **automatically detect and install to all supported, globally installed user-scoped platforms** on the current system, giving you an instantaneous, zero-configuration sync.
+* **Defaults**: Running `bin/rulepack install --target all` (or `-S -t all`) will **automatically detect and install to all supported, globally installed user-scoped platforms** on the current system, giving you an instantaneous, zero-configuration sync.
 
 ### 2. Project-Scoped Platforms (Local)
 * **Scope**: `project`
 * **Behavior**: Installed inside the active project directory.
-* **Resolution**: Searches the active directory tree for target agent rules (e.g. `.cursorrules`, `.windsurfrules`).
-* **Fallback**: If a project-scoped platform is run outside an active workspace, it gracefully falls back to a global user configuration path or alerts the user, avoiding directory leakage or bad installations.
+* **Resolution**: Enforces `--project <path>` (or `-p <path>`) parameter explicitly. No default guess work.
+* **Fallback**: If a project-scoped platform is run without `--project`, Rulepack immediately raises a StandardError and aborts execution, completely preventing home folder leakage or repository pollution.
 
 ---
 
