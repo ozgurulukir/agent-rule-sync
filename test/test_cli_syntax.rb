@@ -2,6 +2,7 @@
 
 require_relative 'helper'
 require 'stringio'
+require 'json'
 
 class TestCliSyntax < Minitest::Test
   def setup
@@ -165,4 +166,60 @@ class TestCliSyntax < Minitest::Test
     assert_equal 1, res[:exit_code]
     assert_match(/Package 'nonexistentpkg' is not registered as installed/, res[:stderr])
   end
+
+  # ─── Audit CLI Tests ──────────────────────────────────────────────────────────
+  # Audit is a proper Ruby module (not a standalone script), so we call it directly.
+
+  def capture_audit_run(argv)
+    require_relative '../lib/rulepack/audit'
+
+    out_io = StringIO.new
+    err_io = StringIO.new
+    old_stdout = $stdout
+    old_stderr = $stderr
+    $stdout = out_io
+    $stderr = err_io
+
+    exit_code = 0
+    begin
+      exit_code = Rulepack::Audit.run(argv)
+    rescue SystemExit => e
+      exit_code = e.status
+    rescue StandardError => e
+      err_io.puts(e.message)
+      exit_code = 1
+    ensure
+      $stdout = old_stdout
+      $stderr = old_stderr
+    end
+
+    { exit_code: exit_code, stdout: out_io.string, stderr: err_io.string }
+  end
+
+  def test_audit_normal_run_passes
+    res = capture_audit_run([])
+    assert_equal 0, res[:exit_code], "Expected exit 0 but got: #{res[:stderr]}"
+    assert_match(/Rulepack PKGBUILD Audit Report/, res[:stdout])
+    assert_match(/Success! All PKGBUILD files conform perfectly/, res[:stdout])
+  end
+
+  def test_audit_json_format
+    res = capture_audit_run(['--format', 'json'])
+    assert_equal 0, res[:exit_code], "Expected exit 0 but got: #{res[:stderr]}"
+    data = JSON.parse(res[:stdout])
+    assert_kind_of Hash, data
+    assert_equal 14, data['packages'].size
+  end
+
+  def test_audit_strict_mode_fails_due_to_partial_coverage
+    res = capture_audit_run(['--strict'])
+    assert_equal 1, res[:exit_code], "Expected exit 1 (not all platforms covered)"
+    assert_match(/Failure! Found \d+ total error/, res[:stdout])
+  end
+
+  def test_audit_unknown_target_exits
+    res = capture_audit_run(['--target', 'nonexistent-platform'])
+    assert_equal 1, res[:exit_code]
+  end
 end
+

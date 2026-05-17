@@ -11,6 +11,7 @@ $LOAD_PATH.unshift(ROOT.to_s)
 
 require "lib/rulepack/common"
 require "lib/rulepack/query"
+require "lib/rulepack/audit"
 
 module Rulepack
   class Error < StandardError; end
@@ -40,6 +41,8 @@ module Rulepack
         invoke("lib/rulepack/install.rb", full_argv)
       when "uninstall"
         invoke("lib/rulepack/uninstall.rb", full_argv)
+      when "audit"
+        Rulepack::Audit.run(argv)
       when "query"
         Rulepack::Query.run(argv)
       when "list"
@@ -111,6 +114,7 @@ module Rulepack
           show <pkgname>               Show package details
           search <tag>                 Search packages by tag
           status                       Show overall system status
+          audit [options]              Audit all PKGBUILD descriptors for schema compliance
           check <platform>             Verify installed state matches index
           verify [platform]            Comprehensive index vs disk reconciliation
           catalog                      Show package catalog (JSON)
@@ -136,6 +140,7 @@ module Rulepack
           rulepack search security
           rulepack verify opencode
           rulepack fix opencode
+          rulepack audit --strict
       HELP
     end
 
