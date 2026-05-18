@@ -1,17 +1,19 @@
 # frozen_string_literal: true
 
-class Translator
-  def self.translate(content, _args: {})
-    clean = content.sub(/\A---\s*\n.*?\n---\s*\n/m, '').strip
+module RulepackTranslator
+  class Impl
+    def self.translate(content, _args: {})
+      clean = content.strip
 
-    lines = clean.each_line.map do |line|
-      if line =~ /^###\s+(.+)$/
-        "## #{Regexp.last_match(1)}"
-      else
-        line.rstrip
+      lines = clean.each_line.map do |line|
+        if line =~ /^###\s+(.+)$/
+          "## #{Regexp.last_match(1)}"
+        else
+          line.rstrip
+        end
       end
-    end
 
-    "#{lines.join("\n")}\n"
+      "#{lines.join("\n")}\n"
+    end
   end
 end
