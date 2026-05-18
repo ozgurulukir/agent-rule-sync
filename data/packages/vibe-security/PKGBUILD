@@ -60,6 +60,42 @@ targets:
   install:
     type: copy
     target_dir: vibe-security/
+- platform: gemini-cli
+  format: import
+  output: vibe-security-rule.md
+  transformer: strip-frontmatter
+  install:
+    type: copy
+- platform: qwen-code
+  format: import
+  output: vibe-security-rule.md
+  transformer: strip-frontmatter
+  install:
+    type: copy
+- platform: oh-my-pi
+  format: skill
+  output: SKILL.md
+  transformer: copy
+  install:
+    type: copy
+    target_dir: vibe-security/
+- platform: github-copilot
+  format: import
+  output: vibe-security-instructions.md
+  transformer: copy
+  install:
+    type: copy
+- platform: codex
+  format: skill
+  output: SKILL.md
+  transformer: copy
+- platform: antigravity
+  format: skill
+  output: SKILL.md
+  transformer: copy
+  install:
+    type: copy
+    target_dir: vibe-security/
 checksums:
   source:
   built: {}

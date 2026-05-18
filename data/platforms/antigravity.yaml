@@ -3,8 +3,8 @@
 # NOT enforced by build system — informational for translator authoring.
 
 rules:
-  format: none  # Antigravity does not use rules directory
-  note: "No rules support — skills only via .agent/skills/*/"
+  format: file
+  note: "Rules go to GEMINI.md"
 
 skills:
   format: directory_or_bundle  # single SKILL.md or skill-bundle directory
@@ -20,5 +20,5 @@ skills:
   note: "Skills go to .agent/skills/*/"
 
 notes: |
-  Antigravity reads .agent/skills/*/SKILL.md.
-  Project-scoped. No rules directory support.
+  Antigravity reads .agent/skills/*/SKILL.md for skills,
+  and GEMINI.md at the base path for rules.

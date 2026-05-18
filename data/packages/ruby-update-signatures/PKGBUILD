@@ -10,8 +10,11 @@ arch: any
 order: 5
 
 source:
-  - type: local
-    path: src/
+  - type: git
+    url: https://github.com/DmitryPogrebnoy/ruby-agent-skills.git
+    ref: main
+    path: plugins/ruby-type-signature-skills/agents/
+    depth: 1
 
 targets:
   - platform: opencode
@@ -29,6 +32,83 @@ targets:
       type: copy
       target_dir: ruby-update-signatures/
   - platform: claude-code
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: windsurf
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: oh-my-pi
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: agents
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: antigravity
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: crush
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: gemini-cli
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: goose
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: droid
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: qwen-code
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: github-copilot
+    format: skill-bundle
+    output: .
+    transformer: strip-frontmatter
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: codex
     format: skill-bundle
     output: .
     transformer: strip-frontmatter
@@ -53,10 +133,7 @@ provides:
   - ruby-signature-updates
 
 dependencies:
-  - ruby-type-signature-rbs
-  - ruby-type-signature-rbs-inline
-  - ruby-type-signature-sorbet
-  - ruby-type-signature-sorbet-inline
+  - ruby-agent-skills
 
 maintainer: DmitryPogrebnoy
 license: MIT

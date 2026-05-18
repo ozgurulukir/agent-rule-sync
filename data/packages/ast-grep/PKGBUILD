@@ -24,6 +24,72 @@ targets:
   transformer: copy
   install:
     type: symlink
+- platform: cursor
+  format: directory
+  output: ast-grep.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: windsurf
+  format: directory
+  output: ast-grep.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: claude-code
+  format: directory
+  output: ast-grep.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: oh-my-pi
+  format: directory
+  output: ast-grep.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: antigravity
+  format: directory
+  output: ast-grep-rule.md
+  transformer: strip-frontmatter
+- platform: crush
+  format: skill
+  output: ast-grep.md
+  translate: custom:data/translators/rule_to_skill.rb
+  transformer: copy
+- platform: goose
+  format: skill
+  output: ast-grep.md
+  translate: custom:data/translators/rule_to_skill.rb
+  transformer: copy
+- platform: droid
+  format: skill
+  output: ast-grep.md
+  translate: custom:data/translators/rule_to_skill.rb
+  transformer: copy
+- platform: codex
+  format: skill
+  output: ast-grep.md
+  translate: custom:data/translators/rule_to_skill.rb
+  transformer: copy
+- platform: gemini-cli
+  format: import
+  output: ast-grep-rule.md
+  transformer: strip-frontmatter
+  install:
+    type: copy
+- platform: qwen-code
+  format: import
+  output: ast-grep-rule.md
+  transformer: strip-frontmatter
+  install:
+    type: copy
+- platform: github-copilot
+  format: import
+  output: ast-grep-instructions.md
+  transformer: copy
+  install:
+    type: copy
 checksums:
   source:
   built: {}

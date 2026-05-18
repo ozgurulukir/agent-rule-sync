@@ -72,6 +72,22 @@ targets:
   output: 00-memory.md
   translate: custom:data/translators/rule_to_skill.rb
   transformer: copy
+- platform: oh-my-pi
+  format: directory
+  output: 00-memory.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: agents
+  format: directory
+  output: 00-memory.md
+  transformer: copy
+  install:
+    type: symlink
+- platform: antigravity
+  format: directory
+  output: memory-rule.md
+  transformer: strip-frontmatter
 checksums:
   source:
   built: {}

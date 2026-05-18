@@ -180,11 +180,14 @@ agents:
     type: copy
 antigravity:
   type: directory
-  scope: project
+  scope: user
   display_name: Google Antigravity
-  base_path: "."
+  base_path: "~/.gemini/antigravity/"
   rules_dir: ""
   skills_dir: ".agent/skills/"
+  rules_file: GEMINI.md
+  rule_install:
+    type: append
   skill_install:
     type: copy
 
