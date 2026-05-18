@@ -166,7 +166,7 @@ module Rulepack
 
     # Get build directory for a platform
     def build_dir_for_platform(platform)
-      Pathname.new('build').join(platform)
+      Rulepack::Common::BUILD_DIR.join(platform)
     end
 
     # Resolve project root for project-scoped platforms.

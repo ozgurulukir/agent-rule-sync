@@ -10,18 +10,20 @@ module Rulepack
     #   versions: { ruby: ">=2.7", python: ">=3.8" }
     # Returns array of missing tools (empty = all present).
     def check_prerequisites(platform_cfg)
-      prereqs = platform_cfg[:prerequisites] || {}
+      prereqs = platform_cfg[:prerequisites] || platform_cfg['prerequisites'] || {}
+      tools = prereqs[:tools] || prereqs['tools']
+      versions = prereqs[:versions] || prereqs['versions']
 
       missing = []
 
       # Check tools
-      Array(prereqs[:tools]).each do |tool|
+      Array(tools).each do |tool|
         found = ENV['PATH'].split(File::PATH_SEPARATOR).any? { |d| File.executable?("#{d}/#{tool}") }
         missing << tool unless found
       end
 
       # Check versions (informational only, no enforcement)
-      Array(prereqs[:versions]).each do |tool, version_req|
+      Array(versions).each do |tool, version_req|
         next if missing.include?(tool) # skip if tool isn't even installed
 
         version_output = ''

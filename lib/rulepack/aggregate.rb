@@ -70,17 +70,9 @@ module Rulepack
           built_checksum = pkgdata[:checksums] && pkgdata[:checksums][:built] && pkgdata[:checksums][:built][agent_id]
           next unless built_checksum
 
-          # Find PKGBUILD to get target details
-          pkgbuild_path = Rulepack::Common::RULEPACK_ROOT.join('data', 'packages', pkgname.to_s, 'PKGBUILD')
-          next unless pkgbuild_path.exist?
-
-          pkgbuild = YAML.safe_load(pkgbuild_path.read, permitted_classes: [Symbol],
-                                                        symbolize_names: true)
-          targets = pkgbuild[:targets]
-          targets = [targets] unless targets.is_a?(Array)
-
+          targets = pkgdata[:targets] || []
           targets.each do |tgt|
-            next unless tgt[:platform] == agent_id.to_s
+            next unless tgt[:platform].to_s == agent_id.to_s
             next unless tgt[:format] == 'skill'
             next unless tgt[:output] # must have output
 

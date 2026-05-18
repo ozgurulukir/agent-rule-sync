@@ -1,0 +1,81 @@
+# frozen_string_literal: true
+
+require_relative 'common'
+require_relative 'schema_engine'
+
+module Rulepack
+  class BuildPipeline
+    STAGES = %i[fetch translate schema_engine transform].freeze
+
+    attr_reader :current_stage, :content, :platform_id, :pkgname, :target_format, :format_profile, :stage_log
+
+    def initialize(content, platform_id:, pkgname:, target_format:, format_profile:)
+      @content = content
+      @platform_id = platform_id.to_s
+      @pkgname = pkgname.to_s
+      @target_format = target_format.to_s
+      @format_profile = format_profile || {}
+      @current_stage = :fetch
+      @stage_log = [:fetch]
+    end
+
+    # Advance stage to target_stage and execute block
+    def advance(target_stage)
+      expected_index = STAGES.index(target_stage)
+      unless expected_index
+        raise "Unknown build pipeline stage: #{target_stage}"
+      end
+
+      current_index = STAGES.index(@current_stage)
+      if expected_index != current_index + 1
+        raise "Invalid pipeline stage transition: #{@current_stage} -> #{target_stage}. Stages must run sequentially: #{STAGES.join(' -> ')}"
+      end
+
+      @current_stage = target_stage
+      @stage_log << target_stage
+      yield
+    end
+
+    # Run the full pipeline
+    # Note: Explicit overrides are no longer supported per user decision.
+    def run(platform_cfg)
+      # Early frontmatter strip if platform schema requires it
+      schema_section = %w[skill skill-bundle].include?(@target_format) ? :skills : :rules
+      ruleset = @format_profile[schema_section]
+      if ruleset && ruleset[:frontmatter] == 'strip'
+        @content = Rulepack::Common.strip_frontmatter(@content)
+      end
+
+      # ─── TRANSLATE STAGE ──────────────────────────────────────────────────
+      advance(:translate) do
+        translator_cfg = Rulepack::SchemaEngine.auto_derive_translator(platform_cfg, @target_format)
+        if translator_cfg
+          Rulepack::Common.log "  → Translating for #{@platform_id} (#{translator_cfg})"
+          puts "  → Translating for #{@platform_id} (#{translator_cfg})"
+          @content = Rulepack::Common.apply_translator(translator_cfg, @content, pkgname: @pkgname)
+          Rulepack::Common.log "    ✓ Translated (#{translator_cfg})"
+          puts "    ✓ Translated (#{translator_cfg})"
+        end
+      end
+
+      # ─── SCHEMA ENGINE STAGE ──────────────────────────────────────────────
+      advance(:schema_engine) do
+        @content = Rulepack::SchemaEngine.apply(@content, @format_profile, @target_format)
+      end
+
+      # ─── TRANSFORM STAGE ──────────────────────────────────────────────────
+      advance(:transform) do
+        transformer_cfg = Rulepack::SchemaEngine.auto_derive_transformer(@format_profile, @target_format)
+        if transformer_cfg && transformer_cfg != 'copy'
+          Rulepack::Common.log "  → Transforming for #{@platform_id} (#{transformer_cfg})"
+          puts "  → Transforming for #{@platform_id} (#{transformer_cfg})"
+          @content = Rulepack::Common.apply_transformer(transformer_cfg, @content, pkgname: @pkgname)
+          Rulepack::Common.log "    ✓ Transformed (#{transformer_cfg})"
+          puts "    ✓ Transformed (#{transformer_cfg})"
+        end
+      end
+
+      @content
+    end
+  end
+end

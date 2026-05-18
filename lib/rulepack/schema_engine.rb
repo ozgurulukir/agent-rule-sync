@@ -78,5 +78,21 @@ module Rulepack
       end
       result
     end
+
+    # Auto-derive translator based on platform configuration and target format
+    def auto_derive_translator(platform_cfg, target_format)
+      # If platform type is skill/skill-bundle and target format is skill, automatically use rule_to_skill
+      if %w[skill skill-bundle].include?(target_format) && platform_cfg[:type].to_s == 'skill'
+        'custom:data/translators/rule_to_skill.rb'
+      else
+        nil
+      end
+    end
+
+    # Auto-derive transformer based on platform profile and target format
+    def auto_derive_transformer(format_profile, target_format)
+      # All formatting/stripping is natively done by SchemaEngine, so the additional transformer is just copy
+      'copy'
+    end
   end
 end

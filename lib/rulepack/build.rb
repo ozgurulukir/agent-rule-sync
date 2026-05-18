@@ -9,6 +9,7 @@ require 'uri'
 require 'open3'
 require_relative 'common'
 require_relative 'schema_engine'
+require_relative 'build_pipeline'
 require_relative 'cli_parser'
 
 module Rulepack
@@ -265,41 +266,21 @@ module Rulepack
                 next
               end
 
-              # ─── TRANSLATE step ────────────────────────────────────────────────────────
-              # Platform-specific content conversion (markdown dialect, format family).
-              # Runs BEFORE transformer. No-op if translate is nil or 'copy'.
-              if translate
-                Rulepack::Common.log "  → Translating for #{platform_id} (#{translate})"
-                puts "  → Translating for #{platform_id} (#{translate})"
-                begin
-                  source_content = Rulepack::Common.apply_translator(translate, source_content,
-                                                                     pkgname: pkgname)
-                rescue StandardError => e
-                  Rulepack::Common.log_error "Translator failed for #{pkgname}/#{platform_id}: #{e.message}"
-                  next
-                end
-                Rulepack::Common.log "    ✓ Translated (#{translate})"
-                puts "    ✓ Translated (#{translate})"
-              end
-
-              # ─── SCHEMA ENGINE step ────────────────────────────────────────────────────
-              # Dynamically apply constraints based on data/platforms/<agent>.yaml
+              # ─── BUILD PIPELINE step ──────────────────────────────────────────────────
               begin
-                target_format = tgt[:format]
                 format_profile = Rulepack::Common.platform_config(platform_id, platforms)[:format_profile]
-                source_content = Rulepack::SchemaEngine.apply(source_content, format_profile, target_format)
-              rescue StandardError => e
-                Rulepack::Common.log_error "Schema engine failed for #{pkgname}/#{platform_id}: #{e.message}"
-                next
-              end
+                platform_cfg = Rulepack::Common.platform_config(platform_id, platforms)
 
-              # ─── TRANSFORM step ────────────────────────────────────────────────────────
-              # Structural/format changes (copy, strip-frontmatter, custom)
-              begin
-                transformed = Rulepack::Common.apply_transformer(transformer, source_content,
-                                                                 pkgname: pkgname)
+                pipeline = Rulepack::BuildPipeline.new(
+                  source_content,
+                  platform_id: platform_id,
+                  pkgname: pkgname,
+                  target_format: tgt[:format],
+                  format_profile: format_profile
+                )
+                transformed = pipeline.run(platform_cfg)
               rescue StandardError => e
-                Rulepack::Common.log_error "Transformer failed for #{pkgname}/#{platform_id}: #{e.message}"
+                Rulepack::Common.log_error "Build pipeline failed for #{pkgname}/#{platform_id}: #{e.message}"
                 next
               end
 

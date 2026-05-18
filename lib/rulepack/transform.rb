@@ -11,6 +11,7 @@ module Rulepack
       when 'copy'
         content
       when 'strip-frontmatter'
+        Rulepack::Common.log_warn "strip-frontmatter transformer is deprecated; SchemaEngine handles this automatically via platform schema."
         strip_frontmatter(content)
       when /^custom:(.+)/
         custom_rel = Regexp.last_match(1)
@@ -33,11 +34,20 @@ module Rulepack
         abs_path = real_path.to_s
         $LOADED_FEATURES.delete(abs_path)
         require abs_path
-        unless defined?(Transform) && Transform.respond_to?(:transform)
-          raise "Custom transformer #{custom_path} must define Transform.transform(content, pkgname: nil) method"
+
+        transformer_klass = if defined?(RulepackTransformer::Impl)
+                              RulepackTransformer::Impl
+                            elsif defined?(Transform)
+                              Transform
+                            else
+                              nil
+                            end
+
+        if transformer_klass.nil? || !transformer_klass.respond_to?(:transform)
+          raise "Custom transformer #{custom_path} must define RulepackTransformer::Impl.transform(content, pkgname: nil) or Transform.transform method"
         end
 
-        Transform.transform(content, pkgname: pkgname)
+        transformer_klass.transform(content, pkgname: pkgname)
       else
         raise "Unknown transformer: #{transformer}"
       end
@@ -78,11 +88,20 @@ module Rulepack
         abs_path = real_path.to_s
         $LOADED_FEATURES.delete(abs_path)
         require abs_path
-        unless defined?(Translator) && Translator.respond_to?(:translate)
-          raise "Custom translator #{custom_path} must define Translator.translate(content, args: {}) method"
+
+        translator_klass = if defined?(RulepackTranslator::Impl)
+                             RulepackTranslator::Impl
+                           elsif defined?(Translator)
+                             Translator
+                           else
+                             nil
+                           end
+
+        if translator_klass.nil? || !translator_klass.respond_to?(:translate)
+          raise "Custom translator #{custom_path} must define RulepackTranslator::Impl.translate(content, args: {}) or Translator.translate method"
         end
 
-        Translator.translate(content, args: { pkgname: pkgname })
+        translator_klass.translate(content, args: { pkgname: pkgname })
       else
         raise "Unknown translator: #{translator_cfg}"
       end
