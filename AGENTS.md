@@ -35,18 +35,18 @@ graph TD
         V[vibe-security/PKGBUILD]
     end
 
-    subgraph BLD [Build Pipeline: build.rb]
+    subgraph BLD [Build Pipeline: Build.run]
         F[Fetch Sources & Verify SHA256] --> C[Build Cache]
         C --> TL[Translate Formats e.g. rule-to-skill]
         TL --> TR[Transform Content e.g. strip-frontmatter]
         TR --> W[Write Target-Specific Artifacts]
     end
 
-    subgraph AGG [Skill Aggregator: aggregate.rb]
+    subgraph AGG [Skill Aggregator: Aggregate.run]
         SA[Collect rules & skills] --> CA[Concatenate into single skill file per platform]
     end
 
-    subgraph INST [Package Manager: install.rb]
+    subgraph INST [Package Manager: Install/Installer]
         CMS[Collision Management System CMS] --> INS[Install: symlink, copy, inject, append]
         INS --> IDX[Update Master Installed Index: data/index.yaml]
     end
@@ -56,13 +56,31 @@ graph TD
     AGG -->|Combined Agent Skills| INST
 ```
 
-### Key Lifecycle Phases
+### Key Lifecycle Phases (Fully Modularized)
 
-1. **Build (`build.rb`)**: Loads YAML descriptors from `data/packages/`. Downloads and caches remote assets (URL/git) inside a content-addressed directory, verifying integrity via SHA256. Translates content formats, executes custom Ruby filters, generates platform-specific output files under `build/`, and writes the build index (`build/index.yaml`).
-2. **Aggregate (`aggregate.rb`)**: Merges multiple rule fragments and common skills into single-file "skills" for platforms like Crush, Goose, Codex, and Droid, storing results under `build/<agent>/skills/vendor/`.
-3. **Install (`install.rb`)**: Installs rules to active platform directories using symlinks, direct copies, config injections, or marker-based boundaries. Supports transaction safety via automatic backup generation and strict collision strategies. Updates the local installed database (`data/index.yaml`).
-4. **Uninstall (`uninstall.rb`)**: Performs surgical, marker-aware uninstallation to restore files to their pre-installation state, gracefully removing lines or files and updating the database state.
-5. **Verify & Fix (`verify.rb` & `fix.rb`)**: Runs live reconciliation of the filesystem against the master database, flagging modified, deleted, or missing package assets, and providing automatic drift repair.
+1. **Build (`Rulepack::Build`)**: Loads YAML descriptors from `data/packages/`. Downloads and caches remote assets (URL/git) inside a content-addressed directory, verifying integrity via SHA256. Translates content formats, executes custom Ruby filters, generates platform-specific output files under `build/`, and writes the build index (`build/index.yaml`).
+2. **Aggregate (`Rulepack::Aggregate`)**: Merges multiple rule fragments and common skills into single-file "skills" for platforms like Crush, Goose, Codex, and Droid, storing results under `build/<agent>/skills/vendor/`.
+3. **Install (`Rulepack::Installer`)**: Installs rules to active platform directories using symlinks, direct copies, config injections, or marker-based boundaries. Supports transaction safety via automatic backup generation and strict collision strategies. Updates the local installed database (`data/index.yaml`).
+4. **Uninstall (`Rulepack::Uninstaller`)**: Performs surgical, marker-aware uninstallation to restore files to their pre-installation state, gracefully removing lines or files and updating the database state.
+5. **Verify & Fix (`Rulepack::Verify` & `Rulepack::Fix`)**: Runs live reconciliation of the filesystem against the master database, flagging modified, deleted, or missing package assets, and providing automatic drift repair.
+
+---
+
+## 🧱 Modular Architecture & Code Quality
+
+To maintain optimal code health and prevent god-object clutter, the installer and E2E scripts are partitioned into highly specialized modules under [lib/rulepack/](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/):
+
+### God Object Decomposition
+*   **[transaction.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/transaction.rb)**: Manages atomic transaction logs, backups, and safe directory rollbacks.
+*   **[install_handlers.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/install_handlers.rb)**: Coordinates low-level copy, symlink, and injection/append routines (marker-aware splicing).
+*   **[skill_bundle.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/skill_bundle.rb)**: Resolves complex directory skill-bundles, selectively caching sub-skills and parsing manifests.
+*   **[tui_selector.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/tui_selector.rb)**: Handles terminal keyboard inputs, formatted menu draws, and multi-selection prompts.
+
+### Programmatic Modules (Call-Aware)
+All procedural pipeline components (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`) are wrapped inside namespaces (e.g. `Rulepack::Build`). They use caller-aware runner hooks at their bottom margins, allowing them to run programmatically when required, or as standalone executables from the CLI without side effects.
+
+### Command Line Parsing Unification
+*   **[cli_parser.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/cli_parser.rb)**: Implements `Rulepack::CliParser`, unifying `ARGV` parsing, pacman flag conversions (`-S`, `-R`, `-Qk`, `-F`), selective configurations, and project scopes under a single robust interface.
 
 ---
 
@@ -75,11 +93,11 @@ Below is an objective assessment of our mimicry model, highlighting exact parall
 | Arch Linux Model | Rulepack Parallel | Assessment & Success Rate | Mechanics |
 | :--- | :--- | :--- | :--- |
 | **PKGBUILD (Bash Script)** | **`PKGBUILD` (YAML Descriptor)** | **9/10 (High)** | Arch uses shell scripts, which are flexible but insecure. We successfully adapted this into a safe, parser-friendly YAML schema while retaining exact metadata conventions (`pkgname`, `pkgver`, `pkgrel`, `epoch`, `order`, `arch`). |
-| **`makepkg` (Build Tool)** | **`build.rb` (Build Engine)** | **9.5/10 (Extremely High)** | It fetches source archives (type `git`, `url`, `local`), validates SHA256 check-sums, uses a local content-addressed source cache, compiles files into target formats, and records an intermediate compilation manifest (`build/index.yaml`). |
-| **`pacman -S` (Install)** | **`install.rb` (Package Manager)** | **10/10 (Perfect)** | Injects rule files to paths, creates symlinks, and maintains an atomic master database (`data/index.yaml`). Enforces zero-assumptions target resolution, exact package matching, and supports pacman `-S` flag. |
-| **`pacman -R` (Uninstall)** | **`uninstall.rb` (Surgical Removal)** | **10/10 (Perfect)** | Recursively uninstalls platform rules, handles dependencies (virtual `provides`), performs marker-aware clean file-splicing, enforces Tam Eşleşme (Exact Match), and supports pacman `-R` flag. |
-| **`pacman -Qk` (Verify)** | **`verify.rb` (Drift CMS)** | **10/10 (Perfect)** | Performs full SHA256 integrity audits on installed rule/skill files. Enforces strict parameters, exact package names, and supports pacman `-Qk` flag. |
-| **`pacman -F` (Fix)** | **`fix.rb` (Self-Healing)** | **10/10 (Perfect)** | Automatically identifies deleted, altered, or corrupted assets on disk, offering a self-healing `fix` command to repair the installation using exact targets and pacman `-F` flag. |
+| **`makepkg` (Build Tool)** | **`Rulepack::Build` (Build Engine)** | **9.5/10 (Extremely High)** | It fetches source archives (type `git`, `url`, `local`), validates SHA256 check-sums, uses a local content-addressed source cache, compiles files into target formats, and records an intermediate compilation manifest (`build/index.yaml`). |
+| **`pacman -S` (Install)** | **`Rulepack::Installer` (Package Manager)** | **10/10 (Perfect)** | Injects rule files to paths, creates symlinks, and maintains an atomic master database (`data/index.yaml`). Enforces zero-assumptions target resolution, exact package matching, and supports pacman `-S` flag. |
+| **`pacman -R` (Uninstall)** | **`Rulepack::Uninstaller` (Surgical Removal)** | **10/10 (Perfect)** | Recursively uninstalls platform rules, handles dependencies (virtual `provides`), performs marker-aware clean file-splicing, enforces Tam Eşleşme (Exact Match), and supports pacman `-R` flag. |
+| **`pacman -Qk` (Verify)** | **`Rulepack::Verify` (Drift CMS)** | **10/10 (Perfect)** | Performs full SHA256 integrity audits on installed rule/skill files. Enforces strict parameters, exact package names, and supports pacman `-Qk` flag. |
+| **`pacman -F` (Fix)** | **`Rulepack::Fix` (Self-Healing)** | **10/10 (Perfect)** | Automatically identifies deleted, altered, or corrupted assets on disk, offering a self-healing `fix` command to repair the installation using exact targets and pacman `-F` flag. |
 | **`libalpm` Versioning** | **`vercmp` algorithm (Ruby)** | **10/10 (Perfect)** | Fully implements Arch Linux's strict `epoch:pkgver-pkgrel` vercmp specifications, handling alphanumeric release suffixes, decimal segment comparisons, and epoch priority overrides. |
 
 ### Major Strengths of Our Mimicry

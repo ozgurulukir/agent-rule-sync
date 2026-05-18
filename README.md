@@ -68,24 +68,32 @@ bin/rulepack -Q security
 ```
 rulepack/
 ├── bin/rulepack              # CLI entry point
-├── lib/rulepack/             # Library modules (20 .rb files)
+├── lib/rulepack/             # Library modules (25 .rb files)
 │   ├── common.rb             # Constants, Config, basic IO
-│   ├── installer.rb          # Installer library
-│   ├── build.rb              # Build orchestrator
-│   ├── query.rb              # Package database queries
+│   ├── installer.rb          # Installer orchestrator
+│   ├── cli_parser.rb         # Unified command-line argument parser
+│   ├── build.rb              # Build orchestrator namespace
+│   ├── verify.rb             # Verification/drift namespace
+│   ├── fix.rb                # Drift self-healing namespace
+│   ├── uninstaller.rb        # Surgical uninstallation namespace
+│   ├── lib/                  # Decomposed installer components
+│   │   ├── transaction.rb    # Backups, journals, and atomic rollbacks
+│   │   ├── install_handlers.rb # Link/copy/marker append low-level handlers
+│   │   ├── skill_bundle.rb   # Sub-skills selection, caching, and manifest audits
+│   │   └── tui_selector.rb   # Multi-select terminal draws and keyboard prompts
 │   └── ... (logging, cache, backup, version, source,
-│             transform, validation, platform, uninstaller,
-│             aggregate, translate, verify, fix,
-│             generate-catalog, install CLI, uninstall CLI)
+│             transform, validation, platform, aggregate,
+│             translate, generate-catalog, install CLI, uninstall CLI)
 ├── data/                     # Single Source of Truth
-│   ├── packages/             # Package definitions (9 packages)
+├── data/                     # Single Source of Truth
+│   ├── packages/             # Package definitions (14 packages)
 │   ├── registry/platforms.yaml  # 14 platform configurations
 │   ├── platforms/            # Format profiles (informational)
-│   ├── translators/          # 3 custom translators
-│   ├── transformers/         # 3 custom transformers
+│   ├── translators/          # Custom translation layers
+│   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (202 tests)
+├── test/                     # Test suite (254 tests)
 ├── Rakefile
 ├── README.md
 └── AGENTS.md
@@ -107,30 +115,33 @@ rulepack/
 | [GitHub Copilot](docs/agents/agents/github-copilot.md) | import | project | `.github/copilot-instructions.md` | `bin/rulepack install --target github-copilot --project .` |
 | [Claude Code](docs/agents/agents/claude-code.md) | directory | project | `.claude/rules/` | `bin/rulepack install --target claude-code --project .` |
 | [Codex CLI](docs/agents/agents/codex.md) | skill | project | `AGENTS.md` | `bin/rulepack install --target codex --project .` |
-| [Antigravity](docs/agents/agents/antigravity.md) | directory | project | `.agent/skills/` | `bin/rulepack install --target antigravity --project .` |
+| [Antigravity](docs/agents/agents/antigravity.md) | directory | user | `~/.gemini/antigravity/` | `bin/rulepack install --target antigravity` |
 | [Agents](docs/agents/agents/agents.md) | directory | user | `~/.config/agents/rules/` | `bin/rulepack install --target agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
 ## Interactive Sub-skill Selection
 
-When installing a skill-bundle with 2-50 sub-skills in a real terminal, Rulepack shows an interactive numbered menu (pacman-style):
+When installing a skill-bundle with 2-150 sub-skills in a real terminal, Rulepack shows an interactive selection menu (TUI):
 
 ```
-📦 cc-skills-golang contains 44 sub-skills.
-Select sub-skills to install:
-  1) golang-benchmark
-  2) golang-cli
-  ...
- 44) golang-stay-updated
+┌──────────────────────────────────────────────────────────┐
+│  Rulepack Interactive Selector: cc-skills-golang          │
+└──────────────────────────────────────────────────────────┘
+  Use [↑/↓] (or j/k) to Navigate, [Space] to Toggle, [Enter] to Confirm
+  Press [a] for All, [n] for None, [i] to Invert, [q] to Quit
 
-Enter numbers (e.g. 1,2,3, 5-10, or 'all'):
+▸ ⬢ [x] golang-benchmark  — golang-benchmark
+  ⬢ [x] golang-cli — golang-cli
+  ⬢ [x] golang-code-style — golang-code-style
 ```
 
-- `1,2,3`, `5-10`, or `1-5,10,50-55` — select ranges
-- `all` or empty — install all sub-skills
-- Only in a real TTY; pipes/CI skip the menu and install all
-- Bundles with >50 sub-skills install all silently
+- `Space` — Toggle individual sub-skills
+- `a` — Select all
+- `n` — Deselect all
+- `i` — Invert selection
+- `Enter` — Confirm and install selected sub-skills
+- Only in a real TTY; pipes/CI skip the menu and install all sub-skills
 - Use `--select <names>` to skip the menu entirely:
 
 ```bash
