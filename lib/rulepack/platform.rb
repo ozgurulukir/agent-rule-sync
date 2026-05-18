@@ -79,7 +79,9 @@ module Rulepack
 
       case cfg[:type]
       when 'directory'
-        raise "Platform '#{id}' (directory) missing :rules_dir" unless cfg[:rules_dir]
+        unless cfg[:rules_dir] || cfg[:rules_file]
+          raise "Platform '#{id}' (directory) missing :rules_dir or :rules_file"
+        end
       when 'import'
         raise "Platform '#{id}' (import) missing :config_file" unless cfg[:config_file]
       when 'skill'
@@ -111,32 +113,40 @@ module Rulepack
       if target_dir
         target_subdir = expand_user_path(target_dir)
         resolved = if platform_cfg[:type] == 'directory'
-                     dir = if %w[skill skill-bundle].include?(target_cfg[:format])
-                             platform_cfg[:skills_dir]
-                           else
-                             platform_cfg[:rules_dir]
-                           end
-                     if Pathname.new(target_subdir).absolute?
-                       Pathname.new(target_subdir)
+                     if !%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file]
+                       Pathname.new(base).join(platform_cfg[:rules_file])
                      else
-                       Pathname.new(base).join(dir, target_subdir)
+                       dir = if %w[skill skill-bundle].include?(target_cfg[:format])
+                               platform_cfg[:skills_dir]
+                             else
+                               platform_cfg[:rules_dir]
+                             end
+                       if Pathname.new(target_subdir).absolute?
+                         Pathname.new(target_subdir)
+                       else
+                         Pathname.new(base).join(dir, target_subdir)
+                       end
                      end
                    elsif Pathname.new(target_subdir).absolute?
                      Pathname.new(target_subdir)
                    else
                      Pathname.new(base).join(target_subdir)
                    end
-        resolved = resolved.join(target_cfg[:output]) unless target_cfg[:format] == 'skill-bundle'
+        resolved = resolved.join(target_cfg[:output]) unless target_cfg[:format] == 'skill-bundle' || (!%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file])
         resolved
       else
         case platform_cfg[:type]
         when 'directory'
-          dir = if target_cfg[:format] == 'skill'
-                  platform_cfg[:skills_dir] || platform_cfg[:rules_dir]
-                else
-                  platform_cfg[:rules_dir]
-                end
-          Pathname.new(base).join(dir, target_cfg[:output])
+          if !%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file]
+            Pathname.new(base).join(platform_cfg[:rules_file])
+          else
+            dir = if target_cfg[:format] == 'skill'
+                    platform_cfg[:skills_dir] || platform_cfg[:rules_dir]
+                  else
+                    platform_cfg[:rules_dir]
+                  end
+            Pathname.new(base).join(dir, target_cfg[:output])
+          end
         when 'import'
           Pathname.new(base).join(platform_cfg[:config_file])
         when 'skill'

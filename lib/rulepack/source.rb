@@ -22,7 +22,46 @@ module Rulepack
 
       # Check versions (informational only, no enforcement)
       Array(prereqs[:versions]).each do |tool, version_req|
-        # Could add version check here; for now just log
+        next if missing.include?(tool) # skip if tool isn't even installed
+
+        version_output = ''
+        begin
+          flag = if tool.to_s == 'ruby'
+                   '-v'
+                 elsif tool.to_s == 'go'
+                   'version'
+                 else
+                   '--version'
+                 end
+          version_output = `#{tool} #{flag} 2>&1`
+        rescue StandardError
+          next
+        end
+
+        if version_output =~ /(\d+\.\d+(?:\.\d+)?)/
+          active_version = $1
+          if version_req.to_s =~ /^([>=<!]+)?\s*(.*)$/
+            op = $1 || '>='
+            req_ver = $2
+            cmp = vercmp(active_version, req_ver)
+            match = case op
+                    when '>=' then cmp >= 0
+                    when '<=' then cmp <= 0
+                    when '>'  then cmp > 0
+                    when '<'  then cmp < 0
+                    when '==' then cmp.zero?
+                    when '='  then cmp.zero?
+                    when '!=' then cmp != 0
+                    else
+                      cmp >= 0
+                    end
+
+            unless match
+              Rulepack::Common.log_warn "Tool version mismatch for #{tool}: active #{active_version}, required #{version_req}"
+              puts "  ⚠️  Tool version mismatch for #{tool}: active #{active_version}, required #{version_req}"
+            end
+          end
+        end
       end
 
       missing
@@ -71,6 +110,32 @@ module Rulepack
       commit_hash
     end
 
+    def fetch_with_redirects(url, limit = Rulepack::Config.max_redirects)
+      raise "HTTP Redirect Loop: too many redirects for #{url}" if limit <= 0
+
+      uri = URI.parse(url)
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = (uri.scheme == 'https')
+      http.read_timeout = Rulepack::Config.read_timeout
+      http.open_timeout = Rulepack::Config.read_timeout
+
+      request = Net::HTTP::Get.new(uri.request_uri)
+      response = http.request(request)
+
+      case response
+      when Net::HTTPSuccess
+        response.body
+      when Net::HTTPRedirection
+        redirect_url = response['location']
+        unless redirect_url.start_with?('http://', 'https://')
+          redirect_url = URI.join(url, redirect_url).to_s
+        end
+        fetch_with_redirects(redirect_url, limit - 1)
+      else
+        raise "Failed to fetch #{url}: #{response.code} #{response.message}"
+      end
+    end
+
     def read_source(source_entry, base_dir = nil)
       case source_entry[:type]
       when 'local'
@@ -90,12 +155,7 @@ module Rulepack
         url = source_entry[:url]
         expected_sha256 = source_entry[:sha256]
 
-        uri = URI.parse(url)
-        response = Net::HTTP.get_response(uri)
-
-        raise "Failed to fetch #{url}: #{response.code} #{response.message}" unless response.is_a?(Net::HTTPSuccess)
-
-        content = response.body
+        content = fetch_with_redirects(url)
         actual_sha256 = Digest::SHA256.hexdigest(content)
 
         if expected_sha256 && actual_sha256 != expected_sha256

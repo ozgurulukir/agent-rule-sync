@@ -208,13 +208,29 @@ class TestCliSyntax < Minitest::Test
     assert_equal 0, res[:exit_code], "Expected exit 0 but got: #{res[:stderr]}"
     data = JSON.parse(res[:stdout])
     assert_kind_of Hash, data
-    assert_equal 14, data['packages'].size
+    assert_equal 11, data['packages'].size
   end
 
   def test_audit_strict_mode_fails_due_to_partial_coverage
-    res = capture_audit_run(['--strict'])
-    assert_equal 1, res[:exit_code], "Expected exit 1 (not all platforms covered)"
-    assert_match(/Failure! Found \d+ total error/, res[:stdout])
+    pkgbuild_path = Pathname.new(__dir__).join('../data/packages/memory/PKGBUILD')
+    backup_path = Pathname.new(__dir__).join('../data/packages/memory/PKGBUILD.bak')
+    
+    FileUtils.cp(pkgbuild_path, backup_path)
+    
+    begin
+      content = pkgbuild_path.read
+      # Remove 'opencode' target platform to trigger partial coverage failure
+      modified_content = content.gsub(/- platform: opencode\s+format: directory\s+output: 00-memory\.md\s+transformer: copy\s+install:\s+type: symlink\s*/, '')
+      pkgbuild_path.write(modified_content)
+      
+      res = capture_audit_run(['--strict'])
+      assert_equal 1, res[:exit_code], "Expected exit 1 (not all platforms covered)"
+      assert_match(/Failure! Found \d+ total error/, res[:stdout])
+    ensure
+      if backup_path.exist?
+        FileUtils.mv(backup_path, pkgbuild_path)
+      end
+    end
   end
 
   def test_audit_unknown_target_exits

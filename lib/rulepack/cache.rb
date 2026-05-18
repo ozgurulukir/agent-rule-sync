@@ -107,8 +107,10 @@ module Rulepack
         raise "Path not found in git repo: #{git_path}" unless source_in_repo.exist?
 
         content = source_in_repo.read
-        # Cache by commit hash
-        cache_source(commit_hash, content, source_type: 'content')
+        path_hash = Digest::SHA256.hexdigest(git_path.to_s)[0..7]
+        cache_key = "#{commit_hash}-#{path_hash}"
+
+        cache_source(cache_key, content, source_type: 'content')
         [content, commit_hash]
       end
     end
@@ -117,6 +119,7 @@ module Rulepack
     # Returns [persistent_dir_path, commit_hash]
     def cached_fetch_git_dir(url, ref, git_path, depth: Rulepack::Config.git_clone_depth)
       commit_hash = nil
+      cache_key = nil
       require 'tmpdir'
       Dir.mktmpdir('rulepack-git-') do |tmp|
         commit_hash = fetch_git_source(url, ref, tmp, depth: depth)
@@ -127,11 +130,13 @@ module Rulepack
         end
         raise "Path not found in git repo: #{git_path}" unless source_in_repo.exist?
 
-        # Cache by commit hash
-        cache_source(commit_hash, source_in_repo, source_type: 'file')
+        path_hash = Digest::SHA256.hexdigest(git_path.to_s)[0..7]
+        cache_key = "#{commit_hash}-#{path_hash}"
+
+        cache_source(cache_key, source_in_repo, source_type: 'file')
       end
       # Return persistent cache dir + hash
-      [cache_dir(commit_hash).join('extracted'), commit_hash]
+      [cache_dir(cache_key).join('extracted'), commit_hash]
     end
 
     # Fetch git source with cache (generic: returns content/dir based on source type)

@@ -77,7 +77,7 @@ module Rulepack
         dest_dir = base_path.join(platform_cfg[:skills_dir]).join(target_dir)
         remove_path(dest_dir, pkgname)
       else
-        install_path = resolve_install_path(platform_cfg, target, nil)
+        install_path = resolve_install_path(platform_cfg, target, base_path)
         remove_path(install_path, pkgname)
       end
     end
