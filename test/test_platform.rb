@@ -210,14 +210,14 @@ end
 class TestBuildDirForPlatform < Minitest::Test
   def test_returns_correct_build_path
     path = Rulepack::Common.build_dir_for_platform('opencode')
-    assert_equal Pathname.new('build/opencode'), path
+    assert_equal Rulepack::Common::BUILD_DIR.join('opencode'), path
   end
 
   def test_returns_pathname_for_all_platforms
     %w[opencode crush cursor].each do |platform|
       path = Rulepack::Common.build_dir_for_platform(platform)
       assert_kind_of Pathname, path
-      assert_equal "build/#{platform}", path.to_s
+      assert_equal Rulepack::Common::BUILD_DIR.join(platform).to_s, path.to_s
     end
   end
 end

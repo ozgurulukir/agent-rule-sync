@@ -220,7 +220,7 @@ class TestCliSyntax < Minitest::Test
     begin
       content = pkgbuild_path.read
       # Remove 'opencode' target platform to trigger partial coverage failure
-      modified_content = content.gsub(/- platform: opencode\s+format: directory\s+output: 00-memory\.md\s+transformer: copy\s+install:\s+type: symlink\s*/, '')
+      modified_content = content.gsub(/- platform: opencode\s+format: directory\s+output: 00-memory\.md\s+install:\s+type: symlink\s*/, '')
       pkgbuild_path.write(modified_content)
       
       res = capture_audit_run(['--strict'])
