@@ -633,19 +633,5 @@ module Rulepack
     def project_root_for(_platform_id, platform_cfg, project_arg)
       Rulepack::Common.project_root_for(platform_cfg, project_arg)
     end
-
-    # ─── Backwards-Compatible Test Delegates ─────────────────────────────────────
-
-    def record_journal(ctx, entry)
-      Rulepack::Transaction.record_journal(ctx, entry)
-    end
-
-    def rollback_journal(journal)
-      Rulepack::Transaction.rollback_journal(journal)
-    end
-
-    def select_sub_skills(sub_skills, select_list, pkgname)
-      Rulepack::SkillBundle.select_sub_skills(sub_skills, select_list, pkgname)
-    end
   end
 end

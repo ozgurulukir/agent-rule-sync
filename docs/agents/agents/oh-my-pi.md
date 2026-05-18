@@ -2,7 +2,7 @@
 
 - **Type**: directory
 - **Scope**: user
-- **Base path**: `~/.config/oh-my-pi/`
+- **Base path**: `~/.omp/agent/`
 - **Rules dir**: `rules/`
 - **Install method**: symlink
 - **Provider**: can1357 (fork of badlogic/pi-mono)
@@ -17,7 +17,7 @@
 - **Python tool**: IPython kernel with rich helpers
 - **TTSR rules**: time-traveling streamed rules (zero context cost until triggered)
 - **Browser tool**: Puppeteer-based
-- **Rules loading**: Reads `AGENTS.md` and `.omp/rules/*.md` per project
+- **Rules loading**: Reads `~/.omp/agent/rules/*.md` (native, priority 100) and `.omp/rules/*.md` (project) via TTSR. Also discovers from `.cursor/`, `.claude/`, `.windsurf/`, `.gemini/`, `.codex/`, `.github/copilot/`.
 
 ## Update
 
@@ -28,7 +28,7 @@ omp update  # bun-installed self-updater
 ## Rulepack Integration
 
 ```bash
-bin/rulepack install oh-my-pi   # → ~/.config/oh-my-pi/rules/*.md (symlinks)
+bin/rulepack install oh-my-pi   # → ~/.omp/agent/rules/*.md (symlinks)
 ```
 
 ## Notes

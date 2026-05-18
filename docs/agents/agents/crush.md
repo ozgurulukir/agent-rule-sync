@@ -2,7 +2,7 @@
 
 - **Type**: skill
 - **Scope**: user
-- **Base path**: `/usr/local/share/crush/`
+- **Base path**: `~/.config/crush/`
 - **Skill file**: `crush.md`
 - **Install method**: copy (vendor skill file)
 - **Provider**: ZAI (OpenAI-compatible API at `api.z.ai`)
@@ -21,7 +21,7 @@ sudo apt update && sudo apt install crush  # Debian repo from repo.charm.sh
 
 ```bash
 bin/rulepack install crush
-# Copies build/crush/skills/vendor/crush.md → /usr/local/share/crush/crush.md
+# Copies build/crush/skills/vendor/crush.md → ~/.config/crush/crush.md
 ```
 
 ## Notes

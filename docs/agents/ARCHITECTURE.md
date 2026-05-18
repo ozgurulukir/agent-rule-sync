@@ -91,13 +91,13 @@ Global configuration stored in the user's home directory, applies across all pro
 | Platform | Type | Base Path | Format |
 |----------|------|-----------|--------|
 | OpenCode | directory | `~/.config/opencode/` | Symlinked rule files |
-| Oh My Pi | directory | `~/.config/oh-my-pi/` | Symlinked rule files |
-| Crush | skill | `/usr/local/share/crush/` | Single skill file |
+| Oh My Pi | directory | `~/.omp/agent/` | Symlinked rule files |
+| Crush | skill | `~/.config/crush/` | Single skill file |
 | Goose | skill | `~/.local/share/goose/` | Single skill file (guardrails.md) |
-| Droid | skill | `~/.config/droid/` | Single skill file (AGENTS.md) |
+| Droid | skill | `~/.factory/` | Single skill file (AGENTS.md) |
 | Gemini CLI | import | `~/.config/gemini/` | `@import` lines in GEMINI.md |
 | Qwen Code | import | `~/.config/qwen/` | `@import` lines in QWEN.md |
-| Agents | directory | `~/.config/agents/` | Symlinked rule files |
+| Agents | directory | `~/.agents/` | Symlinked rule files |
 
 ### Project-Level Platforms
 

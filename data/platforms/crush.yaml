@@ -28,5 +28,7 @@ aggregation: |
   Each package's section should be separated by "---".
 
 notes: |
-  Crush reads /usr/local/share/crush/crush.md as its skill file.
-  The install type is `copy` — the entire file is replaced on each install.
+  Crush reads SKILL.md files from directories listed in options.skills_paths
+  in crush.json (default: ~/.config/crush/skills/ and .crush/skills/).
+  Rulepack aggregates all rule fragments into a single crush.md vendor file.
+  The install type is copy to ~/.config/crush/crush.md.

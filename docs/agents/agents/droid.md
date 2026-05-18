@@ -2,7 +2,7 @@
 
 - **Type**: skill
 - **Scope**: user
-- **Base path**: `~/.config/droid/` (actually `~/.factory/`)
+- **Base path**: `~/.factory/`
 - **Skill file**: `droid.md` (actually AGENTS.md)
 - **Install method**: copy (vendor skill file)
 - **Config**: No persistent config file; uses `--settings` flag at runtime

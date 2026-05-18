@@ -18,5 +18,8 @@ skills:
   note: "Same as OpenCode directory format"
 
 notes: |
-  Oh My Pi reads ~/.config/oh-my-pi/rules/*.md and ~/.config/oh-my-pi/skills/*/SKILL.md.
-  User-scoped. Same format as OpenCode.
+  Oh My Pi reads ~/.omp/agent/rules/*.md and ~/.omp/agent/skills/*/SKILL.md.
+  User-scoped. Base path is ~/.omp/agent/ (NOT ~/.config/oh-my-pi/).
+  omp also discovers rules from other agent dirs (.cursor, .claude, etc.)
+  via its TTSR stream rules system with native priority 100.
+  Config: ~/.omp/agent/config.yml, models: ~/.omp/agent/models.yml

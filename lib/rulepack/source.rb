@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+
+require 'open3'
 module Rulepack
   module Common
     module_function
@@ -35,7 +37,7 @@ module Rulepack
                  else
                    '--version'
                  end
-          version_output = `#{tool} #{flag} 2>&1`
+          version_output, = Open3.capture2e(tool, flag.to_s)
         rescue StandardError
           next
         end
@@ -107,6 +109,8 @@ module Rulepack
 
       # Get the commit hash we ended up on
       commit_hash = Dir.chdir(dest_dir) { `git rev-parse HEAD`.strip }
+      stdout, status = Dir.chdir(dest_dir) { Open3.capture2e('git', 'rev-parse', 'HEAD') }
+      commit_hash = stdout.strip
       raise 'Failed to get commit hash from cloned repo' if commit_hash.empty? || commit_hash.length < 40
 
       commit_hash

@@ -43,7 +43,7 @@ module Rulepack
     @_default_log_file = LOG_PATH
     @_log_level = nil
     @_show_timing = false
-
+    @_build_index_override = nil
     module_function
 
     # Overrideable log level (falls back to Rulepack::Config.log_level)
@@ -62,6 +62,15 @@ module Rulepack
 
     def show_timing=(val)
       @_show_timing = val
+    end
+
+    # Overrideable build index path (for testing)
+    def build_index_path
+      @_build_index_override || BUILD_INDEX_PATH
+    end
+
+    def build_index_path=(val)
+      @_build_index_override = val
     end
 
     # ─── Basic IO Utilities ──────────────────────────────────────────────────────
@@ -182,6 +191,57 @@ module Rulepack
     # Remove YAML frontmatter (--- ... ---) from content
     def strip_frontmatter(content)
       content.sub(/\A---\s*\n.*?\n---\s*\n/m, '')
+    end
+
+    # Validate and resolve target platforms
+    # Returns array of platform IDs, or raises if validation fails
+    def validate_targets_and_packages(target_arg, package_arg, packages, registry, exit_on_failure: false)
+      unless target_arg
+        msg = "Please specify target platform(s) with --target <platform> (or --target all)."
+        if exit_on_failure
+          abort "❌ Error: #{msg}"
+        else
+          raise msg
+        end
+      end
+
+      targets_to_fix = []
+      if target_arg.to_s.downcase == 'all'
+        if package_arg
+          pkg_idx = packages[package_arg.to_sym] || packages[package_arg.to_s] || {}
+          targets_to_fix = (pkg_idx[:installed] || []).map { |i| i[:platform] }.uniq
+        else
+          platforms = Set.new
+          packages.each_value do |pkg|
+            (pkg[:installed] || []).each { |i| platforms << i[:platform] }
+          end
+          targets_to_fix = platforms.to_a
+        end
+      else
+        targets_to_fix = target_arg.to_s.split(',').map(&:strip).reject(&:empty?)
+      end
+
+      if targets_to_fix.empty?
+        puts "  No targets to fix."
+        return []
+      end
+
+      # Validate targets
+      targets_to_fix.each do |p|
+        unless registry.key?(p.to_sym) || registry.key?(p.to_s)
+          msg = "Unknown target platform '#{p}'."
+          if exit_on_failure
+            abort "❌ Error: #{msg}"
+          else
+            raise msg
+          end
+        end
+
+        cfg = registry[p.to_sym] || registry[p.to_s]
+        # No project_root validation here - caller handles it
+      end
+
+      targets_to_fix
     end
   end
 end

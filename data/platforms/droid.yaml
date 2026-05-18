@@ -19,5 +19,7 @@ aggregation: |
   writes all skill/rule fragments into this file via "---\n\n" separator.
 
 notes: |
-  Droid reads ~/.config/droid/droid.md.
-  Same aggregation model as Crush and Goose.
+notes: |
+  Droid reads AGENTS.md hierarchy: project root → parent dirs → ~/.factory/AGENTS.md.
+  Rulepack copies aggregated vendor skill to ~/.factory/AGENTS.md.
+  Droid-specific config at ~/.factory/droid.md (not managed by rulepack).

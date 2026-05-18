@@ -78,27 +78,9 @@ module Rulepack
         return { ok: 0, drift: 0, orphans: 0 }
       end
 
-      # Validate targets
-      targets_to_verify.each do |p|
-        unless registry.key?(p.to_sym) || registry.key?(p.to_s)
-          msg = "Unknown target platform '#{p}'."
-          if exit_on_failure
-            abort "❌ Error: #{msg}"
-          else
-            raise msg
-          end
-        end
 
-        cfg = registry[p.to_sym] || registry[p.to_s]
-        if cfg[:scope] == 'project' && !project_arg
-          msg = "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>."
-          if exit_on_failure
-            abort "❌ Error: #{msg}"
-          else
             raise msg
           end
-        end
-      end
 
       total_drifts = 0
       total_orphans = 0

@@ -9,7 +9,7 @@ rules:
   bullet_style: dash
   code_block: fenced
   frontmatter: strip
-  note: "Rules go to ~/.config/agents/rules/*.md"
+  note: "Rules go to ~/.agents/rules/*.md"
 
 skills:
   format: single_file_or_bundle  # SKILL.md file or skill-bundle directory
@@ -24,6 +24,7 @@ skills:
   code_block: fenced
 
 notes: |
-  Shared agent skills at ~/.config/agents/skills/.
+  Shared agent skills at ~/.agents/skills/ and rules at ~/.agents/rules/.
+  Follows the emerging ~/.agents/ standard (crush #2072, agents.md #91).
   Used by ast-grep, line-repetition-control, vibe-security, workstation-rules.
   Same format as OpenCode but under agents/ namespace.

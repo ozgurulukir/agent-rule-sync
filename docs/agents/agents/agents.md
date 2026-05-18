@@ -2,7 +2,7 @@
 
 - **Type**: directory
 - **Scope**: user
-- **Base path**: `~/.config/agents/`
+- **Base path**: `~/.agents/`
 - **Rules dir**: `rules/`
 - **Skills dir**: `skills/`
 - **Install method**: symlink for rules, copy for skills
@@ -12,7 +12,7 @@
 
 ```bash
 bin/rulepack install agents
-# Symlinks/copies to ~/.config/agents/rules/ and ~/.config/agents/skills/
+# Symlinks/copies to ~/.agents/rules/ and ~/.agents/skills/
 ```
 
 ## Notes

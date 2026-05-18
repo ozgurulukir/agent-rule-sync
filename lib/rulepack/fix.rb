@@ -21,7 +21,7 @@ module Rulepack
       auto_mode = options.fetch(:auto, false)
       exit_on_failure = options.fetch(:exit_on_failure, false)
 
-      unless Rulepack::Common::BUILD_INDEX_PATH.exist?
+      unless Rulepack::Common.build_index_path.exist?
         msg = 'Build index not found. Run build first.'
         if exit_on_failure
           abort "❌ Error: #{msg}"
@@ -90,27 +90,7 @@ module Rulepack
         return false
       end
 
-      # Validate targets
-      targets_to_fix.each do |p|
-        unless registry.key?(p.to_sym) || registry.key?(p.to_s)
-          msg = "Unknown target platform '#{p}'."
-          if exit_on_failure
-            abort "❌ Error: #{msg}"
-          else
-            raise msg
-          end
-        end
 
-        cfg = registry[p.to_sym] || registry[p.to_s]
-        if cfg[:scope] == 'project' && !project_arg
-          msg = "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>."
-          if exit_on_failure
-            abort "❌ Error: #{msg}"
-          else
-            raise msg
-          end
-        end
-      end
 
       fixed_anything = false
       targets_to_fix.each do |platform_id|

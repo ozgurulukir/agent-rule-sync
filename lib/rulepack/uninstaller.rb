@@ -11,7 +11,7 @@ module Rulepack
                            specific_packages: nil)
       platform_cfg = platform_config(platform_id, load_platform_registry)
       base_path = project_root || Pathname.new(expand_user_path(platform_cfg[:base_path]))
-      build_index = load_yaml(BUILD_INDEX_PATH)
+      build_index = load_yaml(build_index_path)
       pkg_names = resolve_uninstall_targets(index, platform_id, specific_packages)
 
       uninstalled = []

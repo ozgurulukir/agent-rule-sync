@@ -18,7 +18,7 @@ crush:
   type: skill
   scope: user
   display_name: Crush
-  base_path: "/usr/local/share/crush/"
+  base_path: "~/.config/crush/"
   skill_file: crush.md
   rule_install:
   skill_install:
@@ -84,7 +84,7 @@ oh-my-pi:
   type: directory
   scope: user
   display_name: Oh My Pi
-  base_path: "~/.config/oh-my-pi/"
+  base_path: "~/.omp/agent/"
   rules_dir: rules/
   skills_dir: skills/
   docs_dir: docs/
@@ -170,7 +170,7 @@ agents:
   type: directory
   scope: user
   display_name: Agents
-  base_path: "~/.config/agents/"
+  base_path: "~/.agents/"
   rules_dir: rules/
   skills_dir: skills/
   docs_dir: docs/
@@ -183,7 +183,6 @@ antigravity:
   scope: user
   display_name: Google Antigravity
   base_path: "~/.gemini/antigravity/"
-  rules_dir: ""
   skills_dir: ".agent/skills/"
   rules_file: GEMINI.md
   rule_install:

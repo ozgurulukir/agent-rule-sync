@@ -7,8 +7,8 @@ Complete reference for all supported agent platforms, their configuration locati
 | Platform | Scope | Type | Config Location | Install Command |
 |----------|-------|------|-----------------|-----------------|
 | [OpenCode](#opencode) | user | directory | `~/.config/opencode/rules/` | `bin/rulepack install opencode` |
-| [Oh My Pi](#oh-my-pi) | user | directory | `~/.config/oh-my-pi/rules/` | `bin/rulepack install oh-my-pi` |
-| [Crush](#crush) | user | skill | `/usr/local/share/crush/crush.md` | `bin/rulepack install crush` |
+| [Oh My Pi](#oh-my-pi) | user | directory | `~/.omp/agent/rules/` | `bin/rulepack install oh-my-pi` |
+| [Crush](#crush) | user | skill | `~/.config/crush/crush.md` | `bin/rulepack install crush` |
 | [Goose](#goose) | user | skill | `~/.local/share/goose/goose.md` | `bin/rulepack install goose` |
 | [Droid](#droid) | user | skill | `~/.factory/AGENTS.md` | `bin/rulepack install droid` |
 | [Gemini CLI](#gemini-cli) | user | import | `~/.config/gemini/cli_config.yaml` | `bin/rulepack install gemini-cli` |
@@ -19,7 +19,7 @@ Complete reference for all supported agent platforms, their configuration locati
 | [Claude Code](#claude-code) | project | directory | `.claude/rules/` + `CLAUDE.md` | `bin/rulepack install claude-code --project .` |
 | [Codex CLI](#codex-cli) | project | skill | `AGENTS.md` | `bin/rulepack install codex --project .` |
 | [Antigravity](#antigravity) | project | directory | `.agent/skills/` | `bin/rulepack install antigravity --project .` |
-| [Agents](#agents) | user | directory | `~/.config/agents/rules/` | `bin/rulepack install agents` |
+| [Agents](#agents) | user | directory | `~/.agents/rules/` | `bin/rulepack install agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
@@ -47,7 +47,7 @@ Complete reference for all supported agent platforms, their configuration locati
 
 - **Type**: directory
 - **Scope**: user
-- **Base path**: `~/.config/oh-my-pi/`
+- **Base path**: `~/.omp/agent/`
 - **Rules dir**: `rules/`
 - **Install method**: symlink
 - **Config file**: `~/.omp/agent/config.yml`
@@ -55,7 +55,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: Hash-anchored edits, TTSR rules (zero context until triggered), IPython kernel
 - **Update**: `omp update` (bun-installed self-updater)
 
-**Rulepack integration**: `bin/rulepack install oh-my-pi` → symlinks to `~/.config/oh-my-pi/rules/`
+**Rulepack integration**: `bin/rulepack install oh-my-pi` → symlinks to `~/.omp/agent/rules/`
 
 ---
 
@@ -63,7 +63,7 @@ Complete reference for all supported agent platforms, their configuration locati
 
 - **Type**: skill
 - **Scope**: user
-- **Base path**: `/usr/local/share/crush/`
+- **Base path**: `~/.config/crush/`
 - **Skill file**: `crush.md`
 - **Install method**: copy (single vendor skill file)
 - **Provider**: ZAI (api.z.ai)
@@ -71,7 +71,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: Session-based, LSP-enhanced, mid-session model switching
 - **Update**: `sudo apt update && sudo apt install crush` (Debian repo)
 
-**Rulepack integration**: `bin/rulepack install crush` → copies `build/crush/skills/vendor/crush.md` to `/usr/local/share/crush/crush.md`
+**Rulepack integration**: `bin/rulepack install crush` → copies `build/crush/skills/vendor/crush.md` to `~/.config/crush/crush.md`
 
 ---
 
@@ -95,7 +95,7 @@ Complete reference for all supported agent platforms, their configuration locati
 
 - **Type**: skill
 - **Scope**: user
-- **Base path**: `~/.config/droid/`
+- **Base path**: `~/.factory/`
 - **Skill file**: `droid.md`
 - **Install method**: copy
 - **Config**: No persistent file; uses `--settings` flag at runtime
@@ -232,12 +232,12 @@ Complete reference for all supported agent platforms, their configuration locati
 
 - **Type**: directory
 - **Scope**: user
-- **Base path**: `~/.config/agents/`
+- **Base path**: `~/.agents/`
 - **Rules dir**: `rules/`
 - **Skills dir**: `skills/`
 - **Install method**: symlink for rules, copy for skills
 
-**Rulepack integration**: `bin/rulepack install agents` → symlinks/copies to `~/.config/agents/rules/` and `~/.config/agents/skills/`
+**Rulepack integration**: `bin/rulepack install agents` → symlinks/copies to `~/.agents/rules/` and `~/.agents/skills/`
 
 ---
 
@@ -295,7 +295,7 @@ Install to fixed locations in home directory or system paths:
 
 ```bash
 bin/rulepack install opencode    # → ~/.config/opencode/rules/
-bin/rulepack install crush       # → /usr/local/share/crush/crush.md
+bin/rulepack install crush       # → ~/.config/crush/crush.md
 bin/rulepack install goose       # → ~/.local/share/goose/goose.md
 ```
 

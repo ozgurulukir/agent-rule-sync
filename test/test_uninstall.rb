@@ -1,3 +1,9 @@
+
+
+
+
+
+
 # frozen_string_literal: true
 
 # Unit tests for uninstall_packages (index mutation)
@@ -52,12 +58,11 @@ class TestUninstallPackages < Minitest::Test
 
   def with_build_index_override
     # Temporarily override BUILD_INDEX_PATH to point to our test build dir
-    mod = Rulepack::Common
-    old_path = mod::BUILD_INDEX_PATH
-    mod.const_set(:BUILD_INDEX_PATH, @build_dir.join('index.yaml'))
+    old_path = Rulepack::Common.build_index_path
+    Rulepack::Common.build_index_path = @build_dir.join('index.yaml')
     yield
   ensure
-    mod.const_set(:BUILD_INDEX_PATH, old_path) if mod.const_defined?(:BUILD_INDEX_PATH)
+    Rulepack::Common.build_index_path = old_path
   end
 
   # ─── Index Mutation ──────────────────────────────────────────────────────────

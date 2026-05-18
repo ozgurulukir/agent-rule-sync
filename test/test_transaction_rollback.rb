@@ -28,7 +28,7 @@ class TestTransactionRollback < Minitest::Test
     assert @install_path.exist?
 
     # Verify rollback deletes the created file
-    Rulepack::Install.rollback_journal(ctx.journal)
+    Rulepack::Transaction.rollback_journal(ctx.journal)
     refute @install_path.exist?
   end
 
@@ -45,7 +45,7 @@ class TestTransactionRollback < Minitest::Test
     assert install_dir.exist?
 
     # Verify rollback deletes the created directory
-    Rulepack::Install.rollback_journal(ctx.journal)
+    Rulepack::Transaction.rollback_journal(ctx.journal)
     refute install_dir.exist?
   end
 
@@ -66,7 +66,7 @@ class TestTransactionRollback < Minitest::Test
     assert_equal "replaced-content\n", @install_path.read
 
     # Rollback should restore original content
-    Rulepack::Install.rollback_journal(ctx.journal)
+    Rulepack::Transaction.rollback_journal(ctx.journal)
     assert @install_path.exist?
     assert_equal "original-content\n", @install_path.read
   end
@@ -88,7 +88,7 @@ class TestTransactionRollback < Minitest::Test
     assert_equal "original-content\nappended-content\n", @install_path.read
 
     # Rollback should restore original content
-    Rulepack::Install.rollback_journal(ctx.journal)
+    Rulepack::Transaction.rollback_journal(ctx.journal)
     assert @install_path.exist?
     assert_equal "original-content\n", @install_path.read
   end
@@ -114,7 +114,7 @@ class TestTransactionRollback < Minitest::Test
     assert_equal "replaced-1\n", install_dir.join('file1.txt').read
 
     # Rollback should restore original directory and its files
-    Rulepack::Install.rollback_journal(ctx.journal)
+    Rulepack::Transaction.rollback_journal(ctx.journal)
     assert install_dir.exist?
     assert_equal "original-1\n", install_dir.join('file1.txt').read
   end

@@ -11,6 +11,21 @@ require 'tmpdir'
 require 'fileutils'
 
 ROOT = Pathname.new(__dir__).parent.expand_path
+
+# Platform Registry Memoization Contract:
+# ========================================
+# The platform registry is cached after first load via Rulepack::Common.load_platform_registry
+# (see lib/rulepack/platform.rb:54-67). Tests that modify data/registry/platforms.yaml or
+# data/platforms/*.yaml MUST call Rulepack::Common.clear_platform_registry_cache! in their
+# setup/teardown to ensure changes are picked up. Otherwise, the cached registry will cause
+# false test passes or stale configuration bugs.
+#
+# Example:
+#   def setup
+#     Rulepack::Common.clear_platform_registry_cache!
+#     # ... modify platform YAML ...
+#   end
+#
 FIXTURES_ROOT = ROOT.join('test', 'fixtures')
 
 # Load Rulepack modules

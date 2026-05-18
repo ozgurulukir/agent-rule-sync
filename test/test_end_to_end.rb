@@ -8,6 +8,14 @@ require 'json'
 require 'fileutils'
 require 'set'
 
+
+# Gate full network E2E tests behind environment variable
+# Full E2E tests take ~3 minutes due to real git clones
+# Set RULEPACK_RUN_NETWORK_E2E=1 to run full network tests
+# Otherwise, only fast local tests run
+NETWORK_E2E = ENV['RULEPACK_RUN_NETWORK_E2E'] == '1'
+
+
 class TestEndToEndPipeline < Minitest::Test
   def setup
     @tmpdir = Dir.mktmpdir('rulepack-e2e-')
@@ -70,6 +78,7 @@ class TestEndToEndPipeline < Minitest::Test
   # ─── Test: Clean Build ──────────────────────────────────────────────────────────
 
   def test_build_creates_all_artifacts
+    skip "Full E2E requires RULEPACK_RUN_NETWORK_E2E=1 (takes ~3 minutes)" unless NETWORK_E2E
     run_build
 
     # Build index exists with all packages
@@ -112,6 +121,34 @@ class TestEndToEndPipeline < Minitest::Test
 
     assert_equal first_packages, second_packages, 'Rebuild should produce same packages'
   end
+
+  def test_build_creates_local_packages_fast
+    skip "Use RULEPACK_RUN_NETWORK_E2E=1 for full E2E" if NETWORK_E2E
+
+    run_build
+
+    # Build index exists with local packages only (no git clones)
+    build_index = load_build_index
+    refute_nil build_index, 'Build index should exist'
+
+    # Local packages (no git repos)
+    local_packages = %w[memory shell ast-grep workstation-rules windsurf-rules line-repetition-control]
+    pkg_names = build_index[:packages].keys.map(&:to_s)
+
+    # Verify all expected local packages are present
+    local_packages.each do |expected|
+      assert_includes pkg_names, expected, "Build index should include local #{expected}"
+    end
+
+    # Verify metadata
+    build_index[:packages].each do |name, data|
+      refute_nil data[:pkgver], "#{name}: missing pkgver"
+      refute_nil data[:pkgdesc], "#{name}: missing pkgdesc"
+      refute_nil data[:available_targets], "#{name}: missing available_targets"
+    end
+  end
+
+
 
   # ─── Test: Install directory platform (opencode) ────────────────────────────────
 

@@ -95,7 +95,8 @@ rulepack/
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (261 tests)
+├── test/                     # Test suite (276 tests: 261 existing + 15 new fix.rb tests)
+
 ├── Rakefile
 ├── README.md
 └── AGENTS.md

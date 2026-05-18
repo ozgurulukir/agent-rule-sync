@@ -100,6 +100,60 @@ module Rulepack
       cfg
     end
 
+    # Resolve install path for directory-type platforms
+    def resolve_directory_path(platform_cfg, target_cfg, base)
+      install_cfg = target_cfg[:install] || {}
+      target_dir = install_cfg[:target_dir]
+
+      if target_dir
+        target_subdir = expand_user_path(target_dir)
+        # If rules_file override (single-file platforms like antigravity)
+        if !%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file]
+          Pathname.new(base).join(platform_cfg[:rules_file])
+        else
+          # skill/skill-bundle vs directory
+          dir = if %w[skill skill-bundle].include?(target_cfg[:format])
+                   platform_cfg[:skills_dir]
+                 else
+                   platform_cfg[:rules_dir]
+                 end
+          # Absolute or relative target_subdir
+          resolved = if Pathname.new(target_subdir).absolute?
+                       Pathname.new(target_subdir)
+                     else
+                       Pathname.new(base).join(dir, target_subdir)
+                     end
+          # Append output unless skill-bundle or rules_file override
+          resolved = resolved.join(target_cfg[:output]) unless target_cfg[:format] == 'skill-bundle' || (!%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file])
+          resolved
+        end
+      else
+        # No target_dir specified
+        if !%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file]
+          Pathname.new(base).join(platform_cfg[:rules_file])
+        else
+          dir = if target_cfg[:format] == 'skill'
+                   platform_cfg[:skills_dir] || platform_cfg[:rules_dir]
+                 else
+                   platform_cfg[:rules_dir]
+                 end
+          Pathname.new(base).join(dir, target_cfg[:output])
+        end
+      end
+    end
+
+    # Resolve install path for import-type platforms
+    def resolve_import_path(platform_cfg, base)
+      Pathname.new(base).join(platform_cfg[:config_file])
+    end
+
+    # Resolve install path for skill-type platforms
+    def resolve_skill_path(platform_cfg, base)
+      Pathname.new(base).join(platform_cfg[:skill_file])
+    end
+
+
+
     def resolve_install_path(platform_cfg, target_cfg, base_override = nil)
       base = if base_override
                base_override.to_s
@@ -112,45 +166,23 @@ module Rulepack
 
       if target_dir
         target_subdir = expand_user_path(target_dir)
-        resolved = if platform_cfg[:type] == 'directory'
-                     if !%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file]
-                       Pathname.new(base).join(platform_cfg[:rules_file])
-                     else
-                       dir = if %w[skill skill-bundle].include?(target_cfg[:format])
-                               platform_cfg[:skills_dir]
-                             else
-                               platform_cfg[:rules_dir]
-                             end
-                       if Pathname.new(target_subdir).absolute?
-                         Pathname.new(target_subdir)
-                       else
-                         Pathname.new(base).join(dir, target_subdir)
-                       end
-                     end
-                   elsif Pathname.new(target_subdir).absolute?
-                     Pathname.new(target_subdir)
-                   else
-                     Pathname.new(base).join(target_subdir)
-                   end
-        resolved = resolved.join(target_cfg[:output]) unless target_cfg[:format] == 'skill-bundle' || (!%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file])
-        resolved
+        # Directory-type platforms have special handling
+        if platform_cfg[:type] == 'directory'
+          resolve_directory_path(platform_cfg, target_cfg, base)
+        elsif Pathname.new(target_subdir).absolute?
+          Pathname.new(target_subdir)
+        else
+          Pathname.new(base).join(target_subdir)
+        end
       else
+        # No target_dir specified - dispatch by platform type
         case platform_cfg[:type]
         when 'directory'
-          if !%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file]
-            Pathname.new(base).join(platform_cfg[:rules_file])
-          else
-            dir = if target_cfg[:format] == 'skill'
-                    platform_cfg[:skills_dir] || platform_cfg[:rules_dir]
-                  else
-                    platform_cfg[:rules_dir]
-                  end
-            Pathname.new(base).join(dir, target_cfg[:output])
-          end
+          resolve_directory_path(platform_cfg, target_cfg, base)
         when 'import'
-          Pathname.new(base).join(platform_cfg[:config_file])
+          resolve_import_path(platform_cfg, base)
         when 'skill'
-          Pathname.new(base).join(platform_cfg[:skill_file])
+          resolve_skill_path(platform_cfg, base)
         else
           raise "Unknown platform type: #{platform_cfg[:type]}"
         end

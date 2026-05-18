@@ -39,13 +39,6 @@ module Rulepack
     # Run the full pipeline
     # Note: Explicit overrides are no longer supported per user decision.
     def run(platform_cfg)
-      # Early frontmatter strip if platform schema requires it
-      schema_section = %w[skill skill-bundle].include?(@target_format) ? :skills : :rules
-      ruleset = @format_profile[schema_section]
-      if ruleset && ruleset[:frontmatter] == 'strip'
-        @content = Rulepack::Common.strip_frontmatter(@content)
-      end
-
       # ─── TRANSLATE STAGE ──────────────────────────────────────────────────
       advance(:translate) do
         translator_cfg = Rulepack::SchemaEngine.auto_derive_translator(platform_cfg, @target_format)
