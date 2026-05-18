@@ -40,3 +40,7 @@ build/git-sources/
 .DS_Store
 Thumbs.db
 inspration/
+
+# Backups and Scratch
+data/backups/
+scratch/

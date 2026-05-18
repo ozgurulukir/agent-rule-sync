@@ -7,39 +7,34 @@
 require_relative 'helper'
 
 class TestAggregateSkills < Minitest::Test
-  def setup
-    @original_dir = Dir.pwd
-  end
-
-  def teardown
-    Dir.chdir(@original_dir)
-  end
-
   def test_aggregate_runs_without_error
     # Change to repo root so aggregate.rb finds paths correctly
-    Dir.chdir(ROOT)
-    output = `ruby lib/rulepack/aggregate.rb 2>&1`
-    assert_equal 0, $?.exitstatus, "aggregate.rb failed: #{output}"
-    # Should mention at least one skill agent (crush, goose, droid, codex)
-    assert_match(/Aggregating vendor skills|No skill-based agents|Vendor skill aggregation complete/, output)
+    Dir.chdir(ROOT) do
+      output = `ruby lib/rulepack/aggregate.rb 2>&1`
+      assert_equal 0, $?.exitstatus, "aggregate.rb failed: #{output}"
+      # Should mention at least one skill agent (crush, goose, droid, codex)
+      assert_match(/Aggregating vendor skills|No skill-based agents|Vendor skill aggregation complete/, output)
+    end
   end
 
   def test_aggregate_detects_skill_agents
-    Dir.chdir(ROOT)
-    output = `ruby lib/rulepack/aggregate.rb 2>&1`
-    # Registry has 4 skill-type agents: crush, goose, droid, codex
-    assert_match(/crush|goose|droid|codex/, output)
+    Dir.chdir(ROOT) do
+      output = `ruby lib/rulepack/aggregate.rb 2>&1`
+      # Registry has 4 skill-type agents: crush, goose, droid, codex
+      assert_match(/crush|goose|droid|codex/, output)
+    end
   end
 
   def test_aggregate_creates_vendor_files
-    Dir.chdir(ROOT)
-    `ruby lib/rulepack/aggregate.rb 2>&1`
+    Dir.chdir(ROOT) do
+      `ruby lib/rulepack/aggregate.rb 2>&1`
 
-    # Check if vendor skill files were created for skill agents
-    %w[crush goose droid codex].each do |agent|
-      vendor_file = ROOT.join('build', agent, 'skills', 'vendor', "#{agent}.md")
-      # File may exist but be empty if no packages target this agent
-      # Just verify aggregation ran without crashing
+      # Check if vendor skill files were created for skill agents
+      %w[crush goose droid codex].each do |agent|
+        vendor_file = ROOT.join('build', agent, 'skills', 'vendor', "#{agent}.md")
+        # File may exist but be empty if no packages target this agent
+        # Just verify aggregation ran without crashing
+      end
     end
   end
 
