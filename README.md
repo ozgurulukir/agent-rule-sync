@@ -9,7 +9,7 @@ Package-based rule management for AI coding agents, inspired by PKGBUILD/pacman.
 A **PKGBUILD-inspired package manager** for agent rules and skills:
 
 - **Package format**: Each rule/skill is a package with a `PKGBUILD` descriptor
-- **Build pipeline**: Fetch → Transform → Build artifacts per platform → Aggregate vendor skills → Install
+- **Build pipeline**: 4-stage sequential pipeline (Fetch → Auto-derive Translator → Dynamic Schema Engine → Transformer) mapping dynamically via registry formatting profiles
 - **Multi-platform**: One source → multiple target platforms (OpenCode, Crush, Gemini CLI, etc.)
 - **Change detection**: SHA256 checksums track source and built artifacts
 - **Index database**: `data/index.yaml` tracks package state, versions, and installations
@@ -68,11 +68,13 @@ bin/rulepack -Q security
 ```
 rulepack/
 ├── bin/rulepack              # CLI entry point
-├── lib/rulepack/             # Library modules (25 .rb files)
+├── lib/rulepack/             # Library modules (27 .rb files)
 │   ├── common.rb             # Constants, Config, basic IO
 │   ├── installer.rb          # Installer orchestrator
 │   ├── cli_parser.rb         # Unified command-line argument parser
 │   ├── build.rb              # Build orchestrator namespace
+│   ├── build_pipeline.rb     # 4-stage sequential build pipeline state machine
+│   ├── schema_engine.rb      # Centralized dynamic formatting and emoji/bullet normalizer
 │   ├── verify.rb             # Verification/drift namespace
 │   ├── fix.rb                # Drift self-healing namespace
 │   ├── uninstaller.rb        # Surgical uninstallation namespace
@@ -86,14 +88,14 @@ rulepack/
 │             translate, generate-catalog, install CLI, uninstall CLI)
 ├── data/                     # Single Source of Truth
 ├── data/                     # Single Source of Truth
-│   ├── packages/             # Package definitions (14 packages)
+│   ├── packages/             # Package definitions (11 packages)
 │   ├── registry/platforms.yaml  # 14 platform configurations
 │   ├── platforms/            # Format profiles (informational)
 │   ├── translators/          # Custom translation layers
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (254 tests)
+├── test/                     # Test suite (261 tests)
 ├── Rakefile
 ├── README.md
 └── AGENTS.md

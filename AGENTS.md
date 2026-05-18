@@ -35,15 +35,14 @@ graph TD
         V[vibe-security/PKGBUILD]
     end
 
-    subgraph BLD [Build Pipeline: Build.run]
+    subgraph BLD [Build Pipeline: BuildPipeline.run]
         F[Fetch Sources & Verify SHA256] --> C[Build Cache]
-        C --> TL[Translate Formats e.g. rule-to-skill]
-        TL --> TR[Transform Content e.g. strip-frontmatter]
-        TR --> W[Write Target-Specific Artifacts]
+        C --> SE[Centralized Dynamic Schema Engine: SchemaEngine.apply]
+        SE --> W[Write Target-Specific Artifacts]
     end
 
     subgraph AGG [Skill Aggregator: Aggregate.run]
-        SA[Collect rules & skills] --> CA[Concatenate into single skill file per platform]
+        SA[Collect rules & skills] --> CA[Concatenate into single skill file per platform using build/index.yaml]
     end
 
     subgraph INST [Package Manager: Install/Installer]
@@ -58,8 +57,8 @@ graph TD
 
 ### Key Lifecycle Phases (Fully Modularized)
 
-1. **Build (`Rulepack::Build`)**: Loads YAML descriptors from `data/packages/`. Downloads and caches remote assets (URL/git) inside a content-addressed directory, verifying integrity via SHA256. Translates content formats, executes custom Ruby filters, generates platform-specific output files under `build/`, and writes the build index (`build/index.yaml`).
-2. **Aggregate (`Rulepack::Aggregate`)**: Merges multiple rule fragments and common skills into single-file "skills" for platforms like Crush, Goose, Codex, and Droid, storing results under `build/<agent>/skills/vendor/`.
+1. **Build (`Rulepack::Build` & `Rulepack::BuildPipeline`)**: Loads YAML descriptors from `data/packages/`. Downloads and caches remote assets (URL/git) inside a content-addressed directory, verifying integrity via SHA256. Executes a 4-stage sequential build pipeline (Fetch → Auto-derive Translator → Dynamic Schema Engine → Transformer), writing target-specific outputs under `build/`, and saving target metadata to the build index (`build/index.yaml`). Formatting concerns are centrally derived and executed by the Dynamic Schema Engine.
+2. **Aggregate (`Rulepack::Aggregate`)**: Merges multiple rule fragments and common skills into single-file "skills" for platforms like Crush, Goose, Codex, and Droid, reading platform-specific target configurations from `build/index.yaml` and storing results under `build/<agent>/skills/vendor/`.
 3. **Install (`Rulepack::Installer`)**: Installs rules to active platform directories using symlinks, direct copies, config injections, or marker-based boundaries. Supports transaction safety via automatic backup generation and strict collision strategies. Updates the local installed database (`data/index.yaml`).
 4. **Uninstall (`Rulepack::Uninstaller`)**: Performs surgical, marker-aware uninstallation to restore files to their pre-installation state, gracefully removing lines or files and updating the database state.
 5. **Verify & Fix (`Rulepack::Verify` & `Rulepack::Fix`)**: Runs live reconciliation of the filesystem against the master database, flagging modified, deleted, or missing package assets, and providing automatic drift repair.
@@ -75,6 +74,8 @@ To maintain optimal code health and prevent god-object clutter, the installer an
 *   **[install_handlers.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/install_handlers.rb)**: Coordinates low-level copy, symlink, and injection/append routines (marker-aware splicing).
 *   **[skill_bundle.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/skill_bundle.rb)**: Resolves complex directory skill-bundles, selectively caching sub-skills and parsing manifests.
 *   **[tui_selector.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/tui_selector.rb)**: Handles terminal keyboard inputs, formatted menu draws, and multi-selection prompts.
+*   **[build_pipeline.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/build_pipeline.rb)**: Orchestrates sequential build stage progression (:fetch → :translate → :schema_engine → :transform) and stage-transition validations.
+*   **[schema_engine.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/schema_engine.rb)**: Centralized Dynamic Schema Engine that normalizes document structure (YAML frontmatter, emoji policies, ATX heading style, dash bullets) using platform mappings.
 
 ### Programmatic Modules (Call-Aware)
 All procedural pipeline components (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`) are wrapped inside namespaces (e.g. `Rulepack::Build`). They use caller-aware runner hooks at their bottom margins, allowing them to run programmatically when required, or as standalone executables from the CLI without side effects.
@@ -93,7 +94,7 @@ Below is an objective assessment of our mimicry model, highlighting exact parall
 | Arch Linux Model | Rulepack Parallel | Assessment & Success Rate | Mechanics |
 | :--- | :--- | :--- | :--- |
 | **PKGBUILD (Bash Script)** | **`PKGBUILD` (YAML Descriptor)** | **9/10 (High)** | Arch uses shell scripts, which are flexible but insecure. We successfully adapted this into a safe, parser-friendly YAML schema while retaining exact metadata conventions (`pkgname`, `pkgver`, `pkgrel`, `epoch`, `order`, `arch`). |
-| **`makepkg` (Build Tool)** | **`Rulepack::Build` (Build Engine)** | **9.5/10 (Extremely High)** | It fetches source archives (type `git`, `url`, `local`), validates SHA256 check-sums, uses a local content-addressed source cache, compiles files into target formats, and records an intermediate compilation manifest (`build/index.yaml`). |
+| **`makepkg` (Build Tool)** | **`Rulepack::Build` (Build Engine)** | **9.5/10 (Extremely High)** | It fetches source archives (type `git`, `url`, `local`), validates SHA256 check-sums, uses a local content-addressed source cache, compiles files into target formats via the 4-stage build pipeline, and records an intermediate compilation manifest (`build/index.yaml`). |
 | **`pacman -S` (Install)** | **`Rulepack::Installer` (Package Manager)** | **10/10 (Perfect)** | Injects rule files to paths, creates symlinks, and maintains an atomic master database (`data/index.yaml`). Enforces zero-assumptions target resolution, exact package matching, and supports pacman `-S` flag. |
 | **`pacman -R` (Uninstall)** | **`Rulepack::Uninstaller` (Surgical Removal)** | **10/10 (Perfect)** | Recursively uninstalls platform rules, handles dependencies (virtual `provides`), performs marker-aware clean file-splicing, enforces Tam Eşleşme (Exact Match), and supports pacman `-R` flag. |
 | **`pacman -Qk` (Verify)** | **`Rulepack::Verify` (Drift CMS)** | **10/10 (Perfect)** | Performs full SHA256 integrity audits on installed rule/skill files. Enforces strict parameters, exact package names, and supports pacman `-Qk` flag. |
@@ -200,25 +201,21 @@ targets:
   - platform: opencode
     format: directory
     output: 00-memory.md
-    transformer: copy
     install:
       type: symlink
   - platform: cursor
     format: directory
     output: 00-memory.md
-    transformer: strip-frontmatter
     install:
       type: symlink
   - platform: gemini-cli
     format: import
     output: memory-rule.md
-    transformer: strip-frontmatter
     install:
       type: inject
   - platform: crush
     format: skill
     output: memory.md
-    transformer: custom:transformers/rule_to_skill.rb
     install:
       type: copy
   # ... (include all other targets here)
