@@ -11,8 +11,8 @@ opencode:
     type: symlink
   skill_install:
     type: copy
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - ruby
 crush:
   type: skill
@@ -23,8 +23,8 @@ crush:
   rule_install:
   skill_install:
     type: copy
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - ruby
 gemini-cli:
   type: import
@@ -38,8 +38,8 @@ gemini-cli:
   skill_install:
     type: inject
     directive: "@import"
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - python
 goose:
   type: skill
@@ -50,8 +50,8 @@ goose:
   rule_install:
   skill_install:
     type: copy
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - ruby
 droid:
   type: skill
@@ -62,8 +62,8 @@ droid:
   rule_install:
   skill_install:
     type: copy
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - ruby
 qwen-code:
   type: import
@@ -77,8 +77,8 @@ qwen-code:
   skill_install:
     type: inject
     directive: "@import"
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - python
 oh-my-pi:
   type: directory
@@ -92,8 +92,8 @@ oh-my-pi:
     type: symlink
   skill_install:
     type: copy
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - bash
     - curl
 cursor:
@@ -108,8 +108,8 @@ cursor:
     type: symlink
   skill_install:
     type: copy
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - ruby
 windsurf:
   type: directory
@@ -123,8 +123,8 @@ windsurf:
     type: symlink
   skill_install:
     type: copy
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - ruby
 github-copilot:
   type: import
@@ -136,8 +136,8 @@ github-copilot:
     type: copy
   skill_install:
     type: copy
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - node
 claude-code:
   type: directory
@@ -151,8 +151,8 @@ claude-code:
     type: symlink
   skill_install:
     type: copy
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - ruby
 codex:
   type: skill
@@ -163,8 +163,8 @@ codex:
   rule_install:
   skill_install:
     type: copy
-  :prerequisites:
-    :tools:
+  prerequisites:
+    tools:
     - ruby
 agents:
   type: directory

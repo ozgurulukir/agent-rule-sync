@@ -15,98 +15,84 @@ targets:
 - platform: opencode
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: agents
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: oh-my-pi
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: cursor
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: windsurf
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: claude-code
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: antigravity
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: crush
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: gemini-cli
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: goose
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: droid
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: qwen-code
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: github-copilot
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/
 - platform: codex
   format: skill-bundle
   output: .
-  transformer: copy
   install:
     type: copy
     target_dir: line-repetition-control/

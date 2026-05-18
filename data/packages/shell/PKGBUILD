@@ -13,81 +13,63 @@ targets:
 - platform: opencode
   format: directory
   output: 01-shell.md
-  transformer: copy
   install:
     type: symlink
 - platform: gemini-cli
   format: import
   output: shell-rule.md
-  transformer: strip-frontmatter
   install:
     type: copy
 - platform: qwen-code
   format: import
   output: shell-rule.md
-  transformer: copy
   install:
     type: copy
 - platform: crush
   format: skill
   output: 01-shell.md
-  translate: custom:data/translators/rule_to_skill.rb
-  transformer: copy
 - platform: goose
   format: skill
   output: 01-shell.md
-  translate: custom:data/translators/rule_to_skill.rb
-  transformer: copy
 - platform: droid
   format: skill
   output: 01-shell.md
-  translate: custom:data/translators/rule_to_skill.rb
-  transformer: copy
 - platform: cursor
   format: directory
   output: workstation-shell.md
-  transformer: copy
   install:
     type: symlink
 - platform: windsurf
   format: directory
   output: shell.md
-  transformer: copy
   install:
     type: symlink
 - platform: github-copilot
   format: import
   output: shell-instructions.md
-  transformer: copy
   install:
     type: copy
 - platform: claude-code
   format: directory
   output: shell.md
-  transformer: copy
   install:
     type: symlink
 - platform: codex
   format: skill
   output: 01-shell.md
-  translate: custom:data/translators/rule_to_skill.rb
-  transformer: copy
 - platform: oh-my-pi
   format: directory
   output: 01-shell.md
-  transformer: copy
   install:
     type: symlink
 - platform: agents
   format: directory
   output: 01-shell.md
-  transformer: copy
   install:
     type: symlink
 - platform: antigravity
   format: directory
   output: shell-rule.md
-  transformer: strip-frontmatter
 checksums:
   source:
   built: {}
