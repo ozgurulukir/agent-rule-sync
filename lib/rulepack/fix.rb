@@ -23,82 +23,25 @@ module Rulepack
 
       unless Rulepack::Common.build_index_path.exist?
         msg = 'Build index not found. Run build first.'
-        if exit_on_failure
-          abort "❌ Error: #{msg}"
-        else
-          raise msg
-        end
+        exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
       end
 
-      unless Rulepack::Common::INDEX_YAML_PATH.exist?
-        msg = "Installed index not found at #{Rulepack::Common::INDEX_YAML_PATH}. Nothing is installed."
-        if exit_on_failure
-          abort "❌ Error: #{msg}"
-        else
-          raise msg
-        end
+      unless Rulepack::Common.index_yaml_path.exist?
+        msg = "Installed index not found at #{Rulepack::Common.index_yaml_path}. Nothing is installed."
+        exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
       end
 
-      index = Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
+      index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
       packages = index[:packages] || {}
       registry = Rulepack::Common.load_platform_registry
 
-      # ─── Exact package validation ──────────────────────────────────────────────────
-
-      target_package = nil
-      if package_arg
-        unless packages.key?(package_arg) || packages.key?(package_arg.to_sym)
-          msg = "Package '#{package_arg}' is not registered as installed in index."
-          if exit_on_failure
-            abort "❌ Error: #{msg}"
-          else
-            raise msg
-          end
-        end
-        target_package = packages.keys.find { |k| k.to_s == package_arg }.to_s
-      end
-
-      # ─── Target platform checks (MANDATORY) ────────────────────────────────────────
-
-      unless target_arg
-        msg = "Please specify target platform(s) with --target <platform> (or --target all)."
-        if exit_on_failure
-          abort "❌ Error: #{msg}"
-        else
-          raise msg
-        end
-      end
-
-      targets_to_fix = []
-      if target_arg.to_s.downcase == 'all'
-        if target_package
-          pkg_idx = packages[target_package.to_sym] || packages[target_package.to_s] || {}
-          targets_to_fix = (pkg_idx[:installed] || []).map { |i| i[:platform] }.uniq
-        else
-          platforms = Set.new
-          packages.each_value do |pkg|
-            (pkg[:installed] || []).each { |i| platforms << i[:platform] }
-          end
-          targets_to_fix = platforms.to_a
-        end
-      else
-        targets_to_fix = target_arg.to_s.split(',').map(&:strip).reject(&:empty?)
-      end
-
-      if targets_to_fix.empty?
-        puts "  No targets to fix."
-        return false
-      end
-
-      # ─── Project-scoped platform validation ───────────────────────────────────────
-      targets_to_fix.each do |platform_id|
-        platform_cfg = registry[platform_id.to_sym] || registry[platform_id.to_s]
-        unless platform_cfg
-          msg = "Unknown target platform '#{platform_id}'."
-          exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
-        end
-        Rulepack::Common.project_root_for(platform_cfg, project_arg)
-      end
+      targets_to_fix, target_package = Rulepack::Common.validate_targets_and_packages(
+        target_arg, package_arg, packages, registry,
+        exit_on_failure: exit_on_failure,
+        project_arg: project_arg,
+        enforce_project_scope: true
+      )
+      return false if targets_to_fix.empty?
 
       fixed_anything = false
       targets_to_fix.each do |platform_id|
@@ -111,9 +54,7 @@ module Rulepack
         puts "\nℹ No fixes needed."
       end
 
-      if exit_on_failure
-        exit 0
-      end
+      exit 0 if exit_on_failure
 
       fixed_anything
     end
@@ -121,20 +62,18 @@ module Rulepack
     # Execution Helpers
 
     def run_verify(platform_id, package_arg, project_arg)
-      # Capture verify run output cleanly
+      # Capture verify run output cleanly via output parameter
       out = StringIO.new
-      $stdout = out
       begin
         Rulepack::Verify.run(
           target: platform_id,
           package_name: package_arg,
           project_path: project_arg,
-          exit_on_failure: false
+          exit_on_failure: false,
+          output: out
         )
       rescue StandardError => e
         out.puts "Verify failed: #{e.message}"
-      ensure
-        $stdout = STDOUT
       end
       out.string
     end
@@ -172,9 +111,9 @@ module Rulepack
         return false
       end
 
-      index = Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
+      index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
       broken = find_broken_packages(platform_id, package_arg, project_arg, index)
-      
+
       if broken.empty?
         puts '  ✓ No broken packages matched.'
         return false
@@ -184,12 +123,12 @@ module Rulepack
         clear_installed_record(index, pkgname, platform_id)
         puts "  Cleared index record for #{pkgname}"
       end
-      
+
       index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-      Rulepack::Common.write_yaml_atomic(Rulepack::Common::INDEX_YAML_PATH, index)
-      
+      Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
+
       puts "  Reinstalling #{broken.size} package(s) on #{platform_id}..."
-      
+
       broken.each do |pkgname|
         begin
           Rulepack::Install.run(
@@ -203,7 +142,7 @@ module Rulepack
           puts "  ⚠ Reinstall failed for #{pkgname}: #{e.message}"
         end
       end
-      
+
       puts '  ✓ Reinstall complete'
       true
     end
@@ -255,7 +194,7 @@ module Rulepack
                       bundle_path = resolve_install_path(platform_cfg, target, base_path)
                       !bundle_path.exist?
                     elsif format_type == 'skill' && platform_cfg[:type] == 'skill'
-                      !Rulepack::Common::BUILD_DIR.join(platform_id, pkgname.to_s, inst[:output]).exist?
+                      !Rulepack::Common.build_dir.join(platform_id, pkgname.to_s, inst[:output]).exist?
                     else
                       installed_path = resolve_install_path(platform_cfg, target, base_path)
                       !installed_path.exist? || !Rulepack::Common.verify_checksum(installed_path, inst[:checksum], pkgname.to_s)

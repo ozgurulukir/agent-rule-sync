@@ -14,55 +14,40 @@
 require 'pathname'
 require 'fileutils'
 require_relative 'common'
+require_relative 'cli_parser'
 require_relative 'uninstaller'
 
-LOG_PATH = Rulepack::Common::BUILD_DIR.join('uninstall.log')
+LOG_PATH = Rulepack::Common.build_dir.join('uninstall.log')
 Rulepack::Common.log_file = LOG_PATH
 
 # Gracefully shift pacman -R flag if passed as first argument
 ARGV.shift if ARGV.first == '-R'
 
-# ─── Parse arguments ────────────────────────────────────────────────────────────
+# ─── Parse arguments (via CliParser) ─────────────────────────────────────────────────────────────────────────────────────────
 
-dry_run = false
-positional_args = []
-project_arg = nil
-target_arg = nil
-
-i = 0
-while i < ARGV.length
-  arg = ARGV[i]
-  case arg
-  when '--dry-run', '-p'
-    dry_run = true
-    i += 1
-  when '--target', '-t'
-    raise 'Missing value for --target' if i + 1 >= ARGV.length
-    target_arg = ARGV[i + 1]
-    i += 2
-  when '--project'
-    raise 'Missing path for --project' if i + 1 >= ARGV.length
-    project_arg = ARGV[i + 1]
-    i += 2
-  else
-    positional_args << arg
-    i += 1
-  end
+begin
+  _opts = Rulepack::CliParser.parse(ARGV)
+rescue StandardError => e
+  abort "❌ Error: #{e.message}"
 end
 
-if positional_args.size > 1
+package_arg    = _opts[:package_name]
+target_arg     = _opts[:target]
+project_arg    = _opts[:project_path]
+dry_run        = _opts[:dry_run]
+
+# Check positional count
+if _opts[:positional]&.size.to_i > 1
   abort "❌ Error: Too many positional arguments. Usage: ruby uninstall.rb [package_name] --target <platform|all>"
 end
 
-package_arg = positional_args.first
-
 # ─── Load master index and platform registry ───────────────────────────────────
 
-unless Rulepack::Common::INDEX_YAML_PATH.exist?
-  abort "❌ Error: Installed index not found at #{Rulepack::Common::INDEX_YAML_PATH}. Nothing is installed."
+unless Rulepack::Common.index_yaml_path.exist?
+  abort "❌ Error: Installed index not found at #{Rulepack::Common.index_yaml_path}. Nothing is installed."
 end
 
-index = Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
+index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
 registry = Rulepack::Common.load_platform_registry
 
 # ─── Exact package validation ──────────────────────────────────────────────────
@@ -179,9 +164,9 @@ begin
     puts "\n[DRY-RUN] Index write skipped"
   else
     index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-    Rulepack::Common.write_yaml_atomic(Rulepack::Common::INDEX_YAML_PATH, index)
-    Rulepack::Common.log "📝 Index updated: #{Rulepack::Common::INDEX_YAML_PATH}"
-    puts "\n📝 Index updated: #{Rulepack::Common::INDEX_YAML_PATH}"
+    Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
+    Rulepack::Common.log "📝 Index updated: #{Rulepack::Common.index_yaml_path}"
+    puts "\n📝 Index updated: #{Rulepack::Common.index_yaml_path}"
   end
 
   if uninstalled_total.empty?
@@ -202,3 +187,4 @@ rescue StandardError => e
 ensure
   Rulepack::Common.cleanup_backups rescue nil
 end
+

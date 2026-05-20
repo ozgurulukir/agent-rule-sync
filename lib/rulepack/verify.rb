@@ -17,64 +17,25 @@ module Rulepack
       target_arg = options[:target]
       project_arg = options[:project_path]
       exit_on_failure = options.fetch(:exit_on_failure, false)
+      @out = options.fetch(:output, $stdout)
 
-      unless Rulepack::Common::INDEX_YAML_PATH.exist?
-        msg = "Installed index not found at #{Rulepack::Common::INDEX_YAML_PATH}. Nothing is installed."
-        if exit_on_failure
-          abort "❌ Error: #{msg}"
-        else
-          raise msg
-        end
+      unless Rulepack::Common.index_yaml_path.exist?
+        msg = "Installed index not found at #{Rulepack::Common.index_yaml_path}. Nothing is installed."
+        exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
       end
 
-      index = Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
+      index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
       packages = index[:packages] || {}
       registry = Rulepack::Common.load_platform_registry
 
-      # ─── Exact package validation ──────────────────────────────────────────────────
-
-      target_package = nil
-      if package_arg
-        unless packages.key?(package_arg) || packages.key?(package_arg.to_sym)
-          msg = "Package '#{package_arg}' is not registered as installed in index."
-          if exit_on_failure
-            abort "❌ Error: #{msg}"
-          else
-            raise msg
-          end
-        end
-        target_package = packages.keys.find { |k| k.to_s == package_arg }.to_s
-      end
-
-      # ─── Target platform checks (MANDATORY) ────────────────────────────────────────
-
-      unless target_arg
-        msg = "Please specify target platform(s) with --target <platform> (or --target all)."
-        if exit_on_failure
-          abort "❌ Error: #{msg}"
-        else
-          raise msg
-        end
-      end
-
-      targets_to_verify = []
-      if target_arg.to_s.downcase == 'all'
-        if target_package
-          pkg_idx = packages[target_package.to_sym] || packages[target_package.to_s] || {}
-          targets_to_verify = (pkg_idx[:installed] || []).map { |i| i[:platform] }.uniq
-        else
-          platforms = Set.new
-          packages.each_value do |pkg|
-            (pkg[:installed] || []).each { |i| platforms << i[:platform] }
-          end
-          targets_to_verify = platforms.to_a
-        end
-      else
-        targets_to_verify = target_arg.to_s.split(',').map(&:strip).reject(&:empty?)
-      end
-
+      targets_to_verify, target_package = Rulepack::Common.validate_targets_and_packages(
+        target_arg, package_arg, packages, registry,
+        exit_on_failure: exit_on_failure,
+        project_arg: project_arg,
+        enforce_project_scope: true
+      )
       if targets_to_verify.empty?
-        puts "  No targets to verify."
+        @out.puts "  No targets to verify."
         return { ok: 0, drift: 0, orphans: 0 }
       end
 
@@ -86,10 +47,10 @@ module Rulepack
       targets_to_verify.each do |platform_id|
         platform_cfg = registry[platform_id.to_sym] || registry[platform_id.to_s]
         total_platforms += 1
-        puts "\n── #{platform_id} (#{platform_cfg[:display_name]}) ──"
+        @out.puts "\n── #{platform_id} (#{platform_cfg[:display_name]}) ──"
 
         base_path = resolve_base_path(platform_cfg, project_arg)
-        
+
         # Select packages for this platform, optionally filtering by target_package
         platform_pkgs = packages.select do |name, pkg|
           next false if target_package && name.to_s != target_package
@@ -97,7 +58,7 @@ module Rulepack
         end
 
         if platform_pkgs.empty?
-          puts '  No packages matched or installed.'
+          @out.puts '  No packages matched or installed.'
           next
         end
 
@@ -134,17 +95,17 @@ module Rulepack
         end
 
         if platform_ok.positive? || platform_drifts.positive? || orphans.any?
-          puts "  #{platform_ok} OK | #{platform_drifts} drift(s) | #{orphans.size} orphan(s)"
+          @out.puts "  #{platform_ok} OK | #{platform_drifts} drift(s) | #{orphans.size} orphan(s)"
         end
         total_drifts += platform_drifts
         total_orphans += orphans.size
         total_ok += platform_ok
       end
 
-      puts "\n── Summary (#{total_platforms} platform(s)) ──"
-      puts "  #{total_ok} package(s) OK"
-      puts "  #{total_drifts} drift(s)" if total_drifts.positive?
-      puts "  #{total_orphans} orphan(s)" if total_orphans.positive?
+      @out.puts "\n── Summary (#{total_platforms} platform(s)) ──"
+      @out.puts "  #{total_ok} package(s) OK"
+      @out.puts "  #{total_drifts} drift(s)" if total_drifts.positive?
+      @out.puts "  #{total_orphans} orphan(s)" if total_orphans.positive?
 
       if exit_on_failure
         exit 1 if total_drifts.positive?
@@ -163,36 +124,36 @@ module Rulepack
 
     def verify_single_file_on_disk(path, expected_checksum, pkgname, expected_output)
       unless path.exist?
-        puts "  ⚠ MISSING: #{pkgname} (#{expected_output}) at #{path}"
+        @out.puts "  ⚠ MISSING: #{pkgname} (#{expected_output}) at #{path}"
         return :drift
       end
       if Rulepack::Common.verify_checksum(path, expected_checksum, pkgname)
-        puts "  ✓ #{pkgname} (#{expected_output})"
+        @out.puts "  ✓ #{pkgname} (#{expected_output})"
         return :ok
       end
-      puts "  ⚠ CHECKSUM mismatch: #{pkgname} (#{expected_output})"
+      @out.puts "  ⚠ CHECKSUM mismatch: #{pkgname} (#{expected_output})"
       :drift
     end
 
     def verify_skill_build_artifact(platform_id, pkgname, expected_output, expected_checksum)
-      build_artifact = Rulepack::Common::BUILD_DIR.join(platform_id, pkgname.to_s, expected_output)
+      build_artifact = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s, expected_output)
       unless build_artifact.exist?
-        puts "  ⚠ MISSING build artifact: #{pkgname} (#{build_artifact})"
+        @out.puts "  ⚠ MISSING build artifact: #{pkgname} (#{build_artifact})"
         return :drift
       end
       actual_sha = Digest::SHA256.hexdigest(build_artifact.read)
       if actual_sha == expected_checksum
-        puts "  ✓ #{pkgname} (#{expected_output}) — build artifact OK"
+        @out.puts "  ✓ #{pkgname} (#{expected_output}) — build artifact OK"
         return :ok
       end
-      puts "  ⚠ CHECKSUM mismatch (build artifact): #{pkgname}"
+      @out.puts "  ⚠ CHECKSUM mismatch (build artifact): #{pkgname}"
       :drift
     end
 
     def verify_skill_bundle_on_disk(bundle_path, pkgname)
       manifest_path = bundle_path.join('manifest.json')
       unless manifest_path.exist?
-        puts "  ⚠ MISSING manifest: #{pkgname} at #{manifest_path}"
+        @out.puts "  ⚠ MISSING manifest: #{pkgname} at #{manifest_path}"
         return :drift
       end
       manifest = JSON.parse(manifest_path.read)
@@ -200,18 +161,18 @@ module Rulepack
       (manifest['files'] || {}).each do |rel_path, expected_sha|
         file_path = bundle_path.join(rel_path)
         unless file_path.exist?
-          puts "  ⚠ MISSING: #{pkgname}/#{rel_path}"
+          @out.puts "  ⚠ MISSING: #{pkgname}/#{rel_path}"
           all_ok = false
           next
         end
         actual_sha = Digest::SHA256.hexdigest(file_path.read)
         next if actual_sha == expected_sha
 
-        puts "  ⚠ CHECKSUM mismatch: #{pkgname}/#{rel_path}"
+        @out.puts "  ⚠ CHECKSUM mismatch: #{pkgname}/#{rel_path}"
         all_ok = false
       end
       if all_ok
-        puts "  ✓ #{pkgname} (skill-bundle, #{manifest['files']&.size || 0} file(s))"
+        @out.puts "  ✓ #{pkgname} (skill-bundle, #{manifest['files']&.size || 0} file(s))"
         return :ok
       end
       :drift
@@ -257,7 +218,7 @@ module Rulepack
         end
       end
 
-      orphans.each { |orphan| puts "  ? ORPHAN: #{orphan}" }
+      orphans.each { |orphan| @out.puts "  ? ORPHAN: #{orphan}" }
       orphans
     end
   end

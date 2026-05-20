@@ -18,15 +18,15 @@ module Rulepack
 
     def run(options = {})
       Rulepack::Common.log_level = options[:verbose] ? :debug : Rulepack::Config.log_level
-      log_path = Rulepack::Common::BUILD_DIR.join('build.log')
+      log_path = Rulepack::Common.build_dir.join('build.log')
       Rulepack::Common.log_file = log_path
 
       # ─── Clean Build Directory ──────────────────────────────────────────────────────
-      if Rulepack::Common::BUILD_DIR.exist?
-        puts "🧹 Cleaning stale build directory: #{Rulepack::Common::BUILD_DIR.relative_path_from(Rulepack::Common::RULEPACK_ROOT)}"
-        FileUtils.rm_rf(Rulepack::Common::BUILD_DIR)
+      if Rulepack::Common.build_dir.exist?
+        puts "🧹 Cleaning stale build directory: #{Rulepack::Common.build_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT)}"
+        FileUtils.rm_rf(Rulepack::Common.build_dir)
       end
-      Rulepack::Common::BUILD_DIR.mkdir
+      Rulepack::Common.build_dir.mkdir
 
       Rulepack::Common.log '🔧 Loading platform registry...'
       platforms = Rulepack::Common.load_platform_registry
@@ -137,7 +137,7 @@ module Rulepack
               Rulepack::Common.log "  Fetching git repo (cached): #{git_url} (ref: #{git_ref})"
               cached_dir, commit_hash = Rulepack::Common.cached_fetch_git_dir(git_url, git_ref, git_path,
                                                                               depth: git_depth)
-              persistent_dir = Rulepack::Common::BUILD_DIR.join('git-sources', pkgname.to_s)
+              persistent_dir = Rulepack::Common.build_dir.join('git-sources', pkgname.to_s)
               FileUtils.rm_rf(persistent_dir)
               FileUtils.mkpath(persistent_dir.parent)
               FileUtils.cp_r(cached_dir, persistent_dir)
@@ -224,7 +224,7 @@ module Rulepack
 
               sd = pkg_index[:source_dir] || raise('internal error: source_dir not set for skill-bundle')
               source_dir = Pathname.new(sd)
-              build_platform_dir = Rulepack::Common::BUILD_DIR.join(platform_id)
+              build_platform_dir = Rulepack::Common.build_dir.join(platform_id)
               begin
                 build_pkg_dir = build_platform_dir.join(pkgname.to_s)
                 FileUtils.mkpath(build_pkg_dir)
@@ -289,13 +289,13 @@ module Rulepack
               # Write to build store & link to build directory
               begin
                 # Write canonical file to build/store/
-                store_dir = Rulepack::Common::BUILD_DIR.join('store')
+                store_dir = Rulepack::Common.build_dir.join('store')
                 store_dir.mkpath
                 store_file = store_dir.join(transformed_sha256)
                 store_file.write(transformed) unless store_file.exist?
 
                 # Build destination path
-                build_platform_dir = Rulepack::Common::BUILD_DIR.join(platform_id, pkgname.to_s)
+                build_platform_dir = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s)
                 build_file = build_platform_dir.join(output)
                 build_file.parent.mkpath
 

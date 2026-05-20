@@ -33,7 +33,7 @@ def main
     platform_summary: platforms.sort_by { |_, count| -count }.to_h
   }
 
-  output_path = Rulepack::Common::BUILD_DIR.join('catalog.json')
+  output_path = Rulepack::Common.build_dir.join('catalog.json')
   File.write(output_path, "#{JSON.pretty_generate(catalog)}\n")
   puts "Catalog written: #{output_path} (#{catalog_pkgs.size} packages, #{platforms.size} platforms)"
 end

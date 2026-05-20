@@ -14,81 +14,35 @@
 require 'pathname'
 require_relative 'installer'
 require_relative 'common'
+require_relative 'cli_parser'
 
 # Gracefully shift pacman -S flag if passed as first argument
 ARGV.shift if ARGV.first == '-S'
 
-# ─── Parse arguments ────────────────────────────────────────────────────────────
+# ─── Parse arguments (via CliParser) ────────────────────────────────────────────────────────────────────────────────────────
 
-dry_run = false
-check_mode = false
-force_mode = false
-verbose_mode = false
-needed_mode = false
-select_list = nil
-positional_args = []
-project_arg = nil
-targets_mode = false
-target_arg = nil
-collision_strategy = 'stop'
-
-i = 0
-while i < ARGV.length
-  arg = ARGV[i]
-  case arg
-  when '--dry-run', '-p'
-    dry_run = true
-    i += 1
-  when '--check'
-    check_mode = true
-    i += 1
-  when '--force', '-f'
-    force_mode = true
-    i += 1
-  when '--needed'
-    needed_mode = true
-    i += 1
-  when '--target', '-t'
-    raise 'Missing value for --target' if i + 1 >= ARGV.length
-    target_arg = ARGV[i + 1]
-    i += 2
-  when '--project'
-    raise 'Missing path for --project' if i + 1 >= ARGV.length
-    project_arg = ARGV[i + 1]
-    i += 2
-  when '--select'
-    if i + 1 >= ARGV.length || ARGV[i + 1].start_with?('-')
-      select_list = :interactive
-      i += 1
-    else
-      select_list = ARGV[i + 1].split(',').map(&:strip).reject(&:empty?)
-      i += 2
-    end
-  when '-v', '--verbose'
-    verbose_mode = true
-    i += 1
-  when '--targets'
-    targets_mode = true
-    i += 1
-  when '--on-collision'
-    raise 'Missing value for --on-collision' if i + 1 >= ARGV.length
-    collision_strategy = ARGV[i + 1].downcase
-    unless %w[stop ignore overwrite append].include?(collision_strategy)
-      raise "Invalid collision strategy: #{collision_strategy}. Valid: stop, ignore, overwrite, append"
-    end
-    i += 2
-  else
-    positional_args << arg
-    i += 1
-  end
+begin
+  _opts = Rulepack::CliParser.parse(ARGV)
+rescue StandardError => e
+  abort "❌ Error: #{e.message}"
 end
+
+package_arg    = _opts[:package_name]
+target_arg     = _opts[:target]
+project_arg    = _opts[:project_path]
+dry_run        = _opts[:dry_run]
+check_mode     = _opts[:check_mode]
+force_mode     = _opts[:force]
+verbose_mode   = _opts[:verbose]
+needed_mode    = _opts[:needed]
+select_list    = _opts[:select]
+targets_mode   = _opts[:targets_mode]
+collision_strategy = _opts[:on_collision] || "stop"
 
 # Check positional count
-if positional_args.size > 1
+if _opts[:positional]&.size.to_i > 1
   abort "❌ Error: Too many positional arguments. Usage: ruby install.rb [package_name] --target <platform|all>"
 end
-
-package_arg = positional_args.first
 
 # ─── Load platforms registry and build index ───────────────────────────────────
 
@@ -169,8 +123,8 @@ if targets_mode
   puts ''
   puts 'Installed on:'
   # Load master index
-  index = if Rulepack::Common::INDEX_YAML_PATH.exist?
-            Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
+  index = if Rulepack::Common.index_yaml_path.exist?
+            Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
           else
             { version: 3.0, packages: {} }
           end
@@ -229,3 +183,4 @@ targets_to_install.each do |pkg_platform|
                         project_arg: project_arg, specific_package: target_package,
                         collision_strategy: collision_strategy)
 end
+

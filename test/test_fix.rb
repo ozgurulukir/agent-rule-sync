@@ -12,10 +12,6 @@ require 'rulepack/fix'
 
 class TestFix < Minitest::Test
   def setup
-    # Suppress constant redefinition warnings
-    old_verbose = $VERBOSE
-    $VERBOSE = nil
-
     @tmpdir = Dir.mktmpdir('rulepack-fix-test-')
     @root = Pathname.new(@tmpdir)
     @build_dir = @root.join('build')
@@ -23,13 +19,11 @@ class TestFix < Minitest::Test
     @build_dir.mkpath
     @install_dir.mkpath
 
-    @old_verbose = old_verbose
-
 
     # Override common paths
     Rulepack::Common.build_index_path = @build_dir.join('index.yaml')
-    Rulepack::Common.const_set(:INDEX_YAML_PATH, @install_dir.join('index.yaml'))
-    Rulepack::Common.const_set(:BUILD_DIR, @build_dir)
+    Rulepack::Common.index_yaml_path = @install_dir.join('index.yaml')
+    Rulepack::Common.build_dir = @build_dir
 
     # Write a minimal build index
     build_index = {
@@ -68,8 +62,9 @@ class TestFix < Minitest::Test
 
 
   def teardown
-    $VERBOSE = @old_verbose
     Rulepack::Common.build_index_path = nil
+    Rulepack::Common.index_yaml_path = nil
+    Rulepack::Common.build_dir = nil
     FileUtils.rm_rf(@tmpdir)
   end
 

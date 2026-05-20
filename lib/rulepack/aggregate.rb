@@ -76,7 +76,7 @@ module Rulepack
             next unless tgt[:format] == 'skill'
             next unless tgt[:output] # must have output
 
-            fragment_path = Rulepack::Common::BUILD_DIR.join(agent_id.to_s, pkgname.to_s, tgt[:output])
+            fragment_path = Rulepack::Common.build_dir.join(agent_id.to_s, pkgname.to_s, tgt[:output])
             if fragment_path.exist?
               # Determine order: from pkgdata order if available (from index) or from pkgbuild?
               order = pkgdata[:order] || 0
@@ -131,7 +131,7 @@ module Rulepack
         final_content = content_parts.join(section_sep)
 
         # Determine output path: Rulepack::Common::BUILD_DIR/<agent>/skills/vendor/<agent>.md
-        vendor_dir = Rulepack::Common::BUILD_DIR.join(agent_id.to_s, 'skills', 'vendor')
+        vendor_dir = Rulepack::Common.build_dir.join(agent_id.to_s, 'skills', 'vendor')
         vendor_dir.mkpath
         vendor_file = vendor_dir.join("#{agent_id}.md")
 

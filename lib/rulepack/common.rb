@@ -73,6 +73,24 @@ module Rulepack
       @_build_index_override = val
     end
 
+    # Overrideable index yaml path (for testing)
+    def index_yaml_path
+      @_index_yaml_override || INDEX_YAML_PATH
+    end
+
+    def index_yaml_path=(val)
+      @_index_yaml_override = val
+    end
+
+    # Overrideable build dir (for testing)
+    def build_dir
+      @_build_dir_override || BUILD_DIR
+    end
+
+    def build_dir=(val)
+      @_build_dir_override = val
+    end
+
     # ─── Basic IO Utilities ──────────────────────────────────────────────────────
 
     # Load YAML from path (symbol keys)
@@ -193,55 +211,65 @@ module Rulepack
       content.sub(/\A---\s*\n.*?\n---\s*\n/m, '')
     end
 
-    # Validate and resolve target platforms
-    # Returns array of platform IDs, or raises if validation fails
-    def validate_targets_and_packages(target_arg, package_arg, packages, registry, exit_on_failure: false)
+    # Validate and resolve target platforms against the installed index.
+    #
+    # @param target_arg [String, nil] "all" or comma-separated platform IDs
+    # @param package_arg [String, nil] optional package name to filter
+    # @param packages [Hash] index[:packages] — the installed-package index
+    # @param registry [Hash] platform registry from load_platform_registry
+    # @param exit_on_failure [Boolean] abort on error (CLI mode) vs raise
+    # @param project_arg [String, nil] --project path for project-scoped platforms
+    # @param enforce_project_scope [Boolean] call project_root_for during validation
+    # @return [Array(Array<String>, String|nil)] [targets, target_package]
+    def validate_targets_and_packages(target_arg, package_arg, packages, registry,
+                                      exit_on_failure: false, project_arg: nil,
+                                      enforce_project_scope: false)
+      # ── Package existence check ──────────────────────────────────────────────────
+      target_package = nil
+      if package_arg
+        unless packages.key?(package_arg) || packages.key?(package_arg.to_sym)
+          msg = "Package '#{package_arg}' is not registered as installed in index."
+          exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
+        end
+        target_package = packages.keys.find { |k| k.to_s == package_arg }.to_s
+      end
+
+      # ── Target arg required ──────────────────────────────────────────────────────
       unless target_arg
         msg = "Please specify target platform(s) with --target <platform> (or --target all)."
-        if exit_on_failure
-          abort "❌ Error: #{msg}"
-        else
-          raise msg
-        end
+        exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
       end
 
-      targets_to_fix = []
+      # ── Expand targets ───────────────────────────────────────────────────────────
+      targets = []
       if target_arg.to_s.downcase == 'all'
-        if package_arg
-          pkg_idx = packages[package_arg.to_sym] || packages[package_arg.to_s] || {}
-          targets_to_fix = (pkg_idx[:installed] || []).map { |i| i[:platform] }.uniq
+        if target_package
+          pkg_idx = packages[target_package.to_sym] || packages[target_package.to_s] || {}
+          targets = (pkg_idx[:installed] || []).map { |i| i[:platform] }.uniq
         else
-          platforms = Set.new
+          platform_set = Set.new
           packages.each_value do |pkg|
-            (pkg[:installed] || []).each { |i| platforms << i[:platform] }
+            (pkg[:installed] || []).each { |i| platform_set << i[:platform] }
           end
-          targets_to_fix = platforms.to_a
+          targets = platform_set.to_a
         end
       else
-        targets_to_fix = target_arg.to_s.split(',').map(&:strip).reject(&:empty?)
+        targets = target_arg.to_s.split(',').map(&:strip).reject(&:empty?)
       end
 
-      if targets_to_fix.empty?
-        puts "  No targets to fix."
-        return []
-      end
+      return [targets, target_package] if targets.empty?
 
-      # Validate targets
-      targets_to_fix.each do |p|
-        unless registry.key?(p.to_sym) || registry.key?(p.to_s)
-          msg = "Unknown target platform '#{p}'."
-          if exit_on_failure
-            abort "❌ Error: #{msg}"
-          else
-            raise msg
-          end
-        end
-
+      # ── Validate targets against registry ────────────────────────────────────────
+      targets.each do |p|
         cfg = registry[p.to_sym] || registry[p.to_s]
-        # No project_root validation here - caller handles it
+        unless cfg
+          msg = "Unknown target platform '#{p}'."
+          exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
+        end
+        project_root_for(cfg, project_arg) if enforce_project_scope
       end
 
-      targets_to_fix
+      [targets, target_package]
     end
   end
 end

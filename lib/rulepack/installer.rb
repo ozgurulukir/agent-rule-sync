@@ -54,8 +54,8 @@ module Rulepack
       end
 
       build_index = Rulepack::Common.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
-      index = if Rulepack::Common::INDEX_YAML_PATH.exist?
-                Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
+      index = if Rulepack::Common.index_yaml_path.exist?
+                Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
               else
                 { version: 3.0, packages: {} }
               end
@@ -86,9 +86,9 @@ module Rulepack
           puts "\n[DRY-RUN] Index write skipped"
         else
           index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-          Rulepack::Common.write_yaml_atomic(Rulepack::Common::INDEX_YAML_PATH, index)
-          Rulepack::Common.log "📝 Index written: #{Rulepack::Common::INDEX_YAML_PATH}"
-          puts "\n📝 Index written: #{Rulepack::Common::INDEX_YAML_PATH}"
+          Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
+          Rulepack::Common.log "📝 Index written: #{Rulepack::Common.index_yaml_path}"
+          puts "\n📝 Index written: #{Rulepack::Common.index_yaml_path}"
         end
       rescue StandardError => e
         Rulepack::Transaction.transaction_rollback(e, backup_path, ctx&.journal)
@@ -164,9 +164,9 @@ module Rulepack
         puts "\n[DRY-RUN] Index write skipped"
       else
         index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-        Rulepack::Common.write_yaml_atomic(Rulepack::Common::INDEX_YAML_PATH, index)
-        Rulepack::Common.log "\n📝 Index written: #{Rulepack::Common::INDEX_YAML_PATH}"
-        puts "\n📝 Index written: #{Rulepack::Common::INDEX_YAML_PATH}"
+        Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
+        Rulepack::Common.log "\n📝 Index written: #{Rulepack::Common.index_yaml_path}"
+        puts "\n📝 Index written: #{Rulepack::Common.index_yaml_path}"
       end
 
       puts "\n✅ Install #{dry_run ? 'preview' : 'complete'}. #{all_installed.size} package(s) affected:"
@@ -177,8 +177,8 @@ module Rulepack
     # ─── Install helpers (extracted from install_all) ────────────────────────────
 
     def load_master_index
-      index = if Rulepack::Common::INDEX_YAML_PATH.exist?
-                Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
+      index = if Rulepack::Common.index_yaml_path.exist?
+                Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
               else
                 { version: 3.0, packages: {} }
               end
@@ -249,12 +249,12 @@ module Rulepack
       Rulepack::Common.log "🔍 Checking installed state for platform: #{platform_id}"
       puts "🔍 Checking installed state for platform: #{platform_id}"
 
-      unless Rulepack::Common::INDEX_YAML_PATH.exist?
+      unless Rulepack::Common.index_yaml_path.exist?
         Rulepack::Common.log_error 'index.yaml not found. Run build first.'
         raise 'index.yaml not found'
       end
 
-      index = Rulepack::Common.load_yaml(Rulepack::Common::INDEX_YAML_PATH)
+      index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
       platform_cfg = platform_cfg_for(platform_id)
       warn_prerequisites(platform_id, platform_cfg, false)
 
@@ -394,7 +394,7 @@ module Rulepack
 
       # For skill-format packages on skill-type platforms: check build artifact
       if format_type == 'skill' && platform_cfg[:type] == 'skill'
-        build_artifact = Rulepack::Common::BUILD_DIR.join(platform_id, pkgname.to_s, expected_output)
+        build_artifact = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s, expected_output)
         return "Build artifact missing: #{pkgname} (#{build_artifact})" unless build_artifact.exist?
 
         actual_sha = Digest::SHA256.hexdigest(build_artifact.read)
@@ -495,7 +495,7 @@ module Rulepack
       index = ctx.index
       installed_this_run = ctx.installed_this_run
       output = target[:output]
-      built_path = Rulepack::Common::BUILD_DIR.join(platform_id, pkgname.to_s, output)
+      built_path = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s, output)
       unless built_path.exist?
         Rulepack::Common.log_error "Built artifact missing: #{built_path}. Run `ruby lib/rulepack/build.rb` first."
         return
@@ -571,7 +571,7 @@ module Rulepack
       if agg_ok
         Rulepack::Common.log '    ✓ Vendor skill aggregated'
         puts '    ✓ Vendor skill aggregated'
-        vendor_file = Rulepack::Common::BUILD_DIR.join(platform_id, 'skills', 'vendor',
+        vendor_file = Rulepack::Common.build_dir.join(platform_id, 'skills', 'vendor',
                                                        "#{platform_id}.md")
         if vendor_file.exist?
           install_path = base_path.join(platform_cfg[:skill_file])

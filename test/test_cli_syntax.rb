@@ -10,7 +10,7 @@ class TestCliSyntax < Minitest::Test
     ENV['RULEPACK_TEST'] = '1'
     
     # Create a dummy index.yaml if it doesn't exist
-    @index_path = Rulepack::Common::INDEX_YAML_PATH
+    @index_path = Rulepack::Common.index_yaml_path
     @created_dummy_index = false
     unless @index_path.exist?
       @index_path.dirname.mkpath

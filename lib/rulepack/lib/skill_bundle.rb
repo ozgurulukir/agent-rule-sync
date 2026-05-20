@@ -21,7 +21,7 @@ module Rulepack
       install_cfg = target[:install] || {}
       Rulepack::Common.log "  ⤷ #{pkgname} (skill-bundle) → #{install_cfg[:target_dir]} [copy]" unless quiet
 
-      build_src_dir = Rulepack::Common::BUILD_DIR.join(platform_id, pkgname.to_s)
+      build_src_dir = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s)
       unless build_src_dir.exist? && build_src_dir.directory?
         Rulepack::Common.log_error "Skill-bundle build directory missing: #{build_src_dir}"
         return false

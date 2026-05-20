@@ -24,7 +24,9 @@ module Rulepack
         needed: false,
         select: false,
         on_collision: nil,
-        verbose: false
+        verbose: false,
+        check_mode: false,
+        targets_mode: false
       }
 
       positional = []
@@ -42,7 +44,11 @@ module Rulepack
           i += 2
         when '--on-collision'
           raise 'Missing value for --on-collision' if i + 1 >= args.length
-          options[:on_collision] = args[i + 1]
+          val = args[i + 1].downcase
+          unless %w[stop ignore overwrite append].include?(val)
+            raise "Invalid collision strategy: #{val}. Valid: stop, ignore, overwrite, append"
+          end
+          options[:on_collision] = val
           i += 2
         when '--dry-run'
           options[:dry_run] = true
@@ -57,10 +63,21 @@ module Rulepack
           options[:needed] = true
           i += 1
         when '--select'
-          options[:select] = true
-          i += 1
+          if i + 1 < args.length && !args[i + 1].start_with?('-')
+            options[:select] = args[i + 1].split(',').map(&:strip).reject(&:empty?)
+            i += 2
+          else
+            options[:select] = :interactive
+            i += 1
+          end
         when '--verbose', '-v'
           options[:verbose] = true
+          i += 1
+        when '--check'
+          options[:check_mode] = true
+          i += 1
+        when '--targets'
+          options[:targets_mode] = true
           i += 1
         else
           positional << arg

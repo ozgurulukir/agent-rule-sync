@@ -1686,3 +1686,139 @@ Total: ~9s of network I/O per test run, plus ~2.5s of file I/O for 305+ sub-skil
 
 **Total Estimated Effort**: ~2.5 hours
 
+
+---
+
+## 📋 Priority 15 — Slop & Gap Remediation (2026-05-20)
+
+**Context**: Full codebase analysis identified 7 slop items and 5 gaps. 277 tests passing, 855 assertions, 0 failures. Items ordered by impact: DRY violations first, then test hygiene, then minor code smells.
+
+**Summary**: 5 refactoring tasks. All are safe, incremental improvements with no behavioral changes.
+
+---
+
+### 🔴 P15.1 Eliminate Inline CLI Parsers in install.rb and uninstall.rb
+**Status**: ✅ COMPLETED
+**Severity**: DRY — ~95 lines of duplicated parsing
+**Date**: 2026-05-20
+
+**Slop**: `lib/rulepack/install.rb` (lines 26-97) contains ~70 lines of inline ARGV parsing that duplicates `CliParser.parse`. `lib/rulepack/uninstall.rb` (lines 27-50) contains ~25 lines of the same.
+
+`CliParser.parse` already handles all required flags: `--target`, `--project`, `--dry-run`, `--force`, `--needed`, `--select`, `--verbose`, `--on-collision`. The inline parsers add only:
+- `--check` (install.rb) — install check mode
+- `--targets` (install.rb) — show package targets
+- `--on-collision` with enum validation (install.rb)
+- `--select` with comma-separated or interactive mode (install.rb)
+
+Additionally, `install.rb` maps `--dry-run` to `-p` (confusing; `-p` is `--project` everywhere else).
+
+**Root cause**: CliParser was created later but never replaced the inline parsers.
+
+**Fix**:
+1. Extend `CliParser.parse` to handle `--check`, `--targets`, and validate `--on-collision` enum.
+2. Replace inline parsers in `install.rb` and `uninstall.rb` with `CliParser.parse(ARGV)` calls.
+3. Map parsed options to the local variables expected by each script's dispatch logic.
+4. Unify `-p` to mean `--project` everywhere (currently `--dry-run` in install.rb).
+
+**Files**: `lib/rulepack/cli_parser.rb`, `lib/rulepack/install.rb`, `lib/rulepack/uninstall.rb`
+**Test**: `rake test` — all 277 tests pass. Manual: `bin/rulepack install --dry-run -t opencode` and `bin/rulepack uninstall --dry-run -t opencode` behave identically.
+**Impact**: -95 lines duplicated parsing, single source of truth for CLI argument handling.
+
+---
+
+### 🔴 P15.2 Complete `validate_targets_and_packages` in common.rb
+**Status**: ✅ COMPLETED
+**Severity**: DRY — validation logic duplicated 3× across fix.rb, verify.rb, install.rb
+**Date**: 2026-05-20
+
+**Slop**: `common.rb` has `validate_targets_and_packages` (lines 192-243) but it's incomplete. `fix.rb` (lines 36-120), `verify.rb` (lines 20-85), and `install.rb` (lines 100-145) all contain their own inline validation blocks with additional logic:
+
+| Feature | common.rb | fix.rb | verify.rb | install.rb |
+|---------|-----------|--------|-----------|------------|
+| Target arg required | ✅ | ✅ | ✅ | ✅ |
+| "all" expansion | ✅ | ✅ | ✅ | ✅ (different: uses build_idx targets) |
+| Registry validation | ✅ | ✅ | ✅ | ✅ |
+| Package existence check | ❌ | ✅ (vs index) | ✅ (vs index) | ✅ (vs build_idx) |
+| Project-scope enforcement | ❌ | ✅ | ❌ | ✅ |
+| Return target_package | ❌ | ✅ | ✅ | ✅ |
+
+**Root cause**: The shared method was extracted incompletely during P8.7 split.
+
+**Fix**:
+1. Add `package_existence_check` option (validate against index or build_idx).
+2. Add `project_scope_check` option (enforce `--project` for `scope: project` platforms).
+3. Return `[targets, target_package]` tuple.
+4. Replace inline validation blocks in `fix.rb`, `verify.rb`, and `install.rb` with the completed shared method.
+
+**Files**: `lib/rulepack/common.rb`, `lib/rulepack/fix.rb`, `lib/rulepack/verify.rb`, `lib/rulepack/install.rb`
+**Test**: `rake test` — all 277 tests pass.
+**Impact**: -120 lines duplicated validation, single enforcement point for target/package rules.
+
+---
+
+### 🟡 P15.3 Add `index_yaml_path` and `build_dir` Accessors to common.rb
+**Status**: ✅ COMPLETED
+**Severity**: Test hygiene — `const_set` with `$VERBOSE = nil` in test_fix.rb
+**Date**: 2026-05-20
+
+**Slop**: `test/test_fix.rb` lines 18-19:
+```ruby
+Rulepack::Common.const_set(:INDEX_YAML_PATH, @install_dir.join('index.yaml'))
+Rulepack::Common.const_set(:BUILD_DIR, @build_dir)
+```
+
+`build_index_path` was properly migrated to an overrideable accessor (P13.3), but `INDEX_YAML_PATH` and `BUILD_DIR` remain as constants. Tests override them via `const_set` with `$VERBOSE = nil` to suppress warnings.
+
+**Fix**:
+1. Add `index_yaml_path`/`index_yaml_path=` and `build_dir`/`build_dir=` accessors to `Rulepack::Common`.
+2. Update all references from `Common::INDEX_YAML_PATH` to `Common.index_yaml_path` and `Common::BUILD_DIR` to `Common.build_dir`.
+3. Update `test/test_fix.rb` to use accessors instead of `const_set`.
+4. Remove `$VERBOSE = nil` hack.
+
+**Files**: `lib/rulepack/common.rb`, `test/test_fix.rb`, all consumers of `INDEX_YAML_PATH` and `BUILD_DIR`
+**Test**: `ruby -W -Ilib -Itest test/test_fix.rb` — zero constant redefinition warnings.
+**Impact**: Eliminates test warning pollution, consistent accessor pattern.
+
+---
+
+### 🟡 P15.4 Fix `test_transaction_rollback.rb` `record_journal` Delegation
+**Status**: ✅ COMPLETED (already done in prior session)
+**Severity**: Test correctness — implicit delegation through Install module
+**Date**: 2026-05-20
+
+**Slop**: `test/test_transaction_rollback.rb` calls `Rulepack::Install.record_journal(ctx, ...)` in 5 test methods. But `record_journal` is defined on `Rulepack::Transaction`, not `Rulepack::Install`. The call works through implicit module resolution — fragile.
+
+**Fix**: Update all 5 calls from `Rulepack::Install.record_journal(ctx, ...)` to `Rulepack::Transaction.record_journal(ctx, ...)`.
+
+**Files**: `test/test_transaction_rollback.rb` (5 call sites)
+**Test**: `ruby -Ilib -Itest test/test_transaction_rollback.rb` — 7 runs, 0 failures.
+**Impact**: Tests call the correct module directly.
+
+---
+
+### 🟢 P15.5 Fix `$stdout` Capture in `fix.rb` `run_verify`
+**Status**: ✅ COMPLETED
+**Severity**: Code smell — global stdout mutation
+**Date**: 2026-05-20
+
+**Slop**: `fix.rb` `run_verify` reassigns `$stdout` globally to capture `Verify.run` output. Fragile in threaded environments.
+
+**Fix**: Modify `Verify.run` to accept optional `output:` IO parameter (default `$stdout`). In `fix.rb`, pass a `StringIO` instead of reassigning the global.
+
+**Files**: `lib/rulepack/verify.rb` (add `output:` param), `lib/rulepack/fix.rb` (use StringIO param)
+**Test**: `rake test` — all tests pass.
+**Impact**: Eliminates global mutation.
+
+---
+
+## 🛠️ Priority 15 Implementation Summary
+
+| # | Item | Severity | Effort | Files | Status |
+|---|------|----------|--------|-------|--------|
+| 1 | P15.1 Inline CLI parsers | 🔴 DRY | 30 min | cli_parser.rb, install.rb, uninstall.rb | ✅ COMPLETED |
+| 2 | P15.2 validate_targets_and_packages | 🔴 DRY | 45 min | common.rb, fix.rb, verify.rb | ✅ COMPLETED (install.rb excluded — different data source) |
+| 3 | P15.3 INDEX_YAML_PATH/BUILD_DIR accessors | 🟡 Test hygiene | 30 min | common.rb, test_fix.rb, ~10 consumers | ✅ COMPLETED |
+| 4 | P15.4 record_journal delegation | 🟡 Correctness | 5 min | test_transaction_rollback.rb | ✅ COMPLETED |
+| 5 | P15.5 $stdout capture in fix.rb | 🟢 Code smell | 20 min | verify.rb, fix.rb | ✅ COMPLETED |
+
+**Total Estimated Effort**: ~2 hours
