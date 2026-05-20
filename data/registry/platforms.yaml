@@ -86,6 +86,7 @@ oh-my-pi:
   scope: user
   display_name: Oh My Pi
   base_path: "~/.omp/agent/"
+  rules_file: AGENTS.md
   rules_dir: rules/
   skills_dir: skills/
   docs_dir: docs/
