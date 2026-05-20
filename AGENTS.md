@@ -130,6 +130,10 @@ bin/rulepack install -t <plat> --on-collision ignore     # Skips conflicting fil
 bin/rulepack install -t <plat> --on-collision overwrite  # Replaces files, generating a surgical backup
 bin/rulepack install -t <plat> --on-collision append     # Appends rules using marker boundary blocks
 
+# Rules Installation Mode (Install option)
+bin/rulepack install -t opencode --rules-to rules_dir    # (Default) Symlinks/copies rules to rules/ directory
+bin/rulepack install -t opencode --rules-to rules_file   # Appends rules into platform's rules_file (e.g. AGENTS.md)
+
 # Maintenance & Reconciliation (verify / pacman -Qk & fix / pacman -F)
 bin/rulepack verify [pkg] --target <plat|all>       # Performs live disk integrity and drift audit
 bin/rulepack verify -Qk [pkg] -t <plat|all>        # pacman -Qk flag option equivalent
@@ -240,4 +244,4 @@ All contributions must pass the absolute quality threshold before integration:
   ```bash
   rake test
   ```
-  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (277 tests, 810 assertions, 0 errors, 0 failures, 7 network skips by default).
+  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (277 tests, 855 assertions, 0 errors, 0 failures, 7 network skips by default).

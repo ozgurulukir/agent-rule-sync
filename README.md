@@ -39,6 +39,10 @@ bin/rulepack install memory -t cursor --project /path/to/project
 # Global Sync (Install all packages to all user-level platforms)
 bin/rulepack install --target all
 
+# Rules installation mode (--rules-to)
+bin/rulepack install -t opencode --rules-to rules_dir    # (Default) Symlinks rules to rules/ directory
+bin/rulepack install -t opencode --rules-to rules_file   # Appends rules into AGENTS.md instead
+
 # Verify installed packages and integrity (verify or -Qk)
 bin/rulepack verify --target opencode               # Verify all packages on opencode
 bin/rulepack verify -Qk memory -t opencode           # Verify single package on opencode
@@ -93,7 +97,7 @@ rulepack/
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (277 tests, 810 assertions)
+├── test/                     # Test suite (277 tests, 855 assertions)
 
 ├── Rakefile
 ├── README.md
@@ -104,7 +108,7 @@ rulepack/
 
 | Agent | Type | Scope | Config Location | Install Command |
 |-------|------|-------|-----------------|-----------------|
-| [OpenCode](docs/agents/agents/opencode.md) | directory | user | `~/.config/opencode/rules/` | `bin/rulepack install --target opencode` |
+| [OpenCode](docs/agents/agents/opencode.md) | directory | user | `~/.config/opencode/rules/` or `AGENTS.md` | `bin/rulepack install --target opencode` |
 | [Oh My Pi](docs/agents/agents/oh-my-pi.md) | directory | user | `~/.omp/agent/rules/` | `bin/rulepack install --target oh-my-pi` |
 | [Crush](docs/agents/agents/crush.md) | skill | user | `~/.config/crush/crush.md` | `bin/rulepack install --target crush` |
 | [Goose](docs/agents/agents/goose.md) | skill | user | `~/.local/share/goose/goose.md` | `bin/rulepack install --target goose` |
