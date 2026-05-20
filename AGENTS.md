@@ -67,7 +67,7 @@ graph TD
 
 ## 🧱 Modular Architecture & Code Quality
 
-To maintain optimal code health and prevent god-object clutter, the installer and E2E scripts are partitioned into highly specialized modules under [lib/rulepack/](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/):
+To maintain optimal code health and prevent god-object clutter, the installer and E2E scripts are partitioned into highly specialized modules under [lib/rulepack/](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/) (28 .rb files across main and lib subdirectories):
 
 ### God Object Decomposition
 *   **[transaction.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/transaction.rb)**: Manages atomic transaction logs, backups, and safe directory rollbacks.
@@ -103,7 +103,7 @@ Below is an objective assessment of our mimicry model, highlighting exact parall
 
 ### Major Strengths of Our Mimicry
 * **No External Dependencies**: Built strictly using Ruby's core standard library. Run it on any environment without gem bloat.
-* **Surgical State Integrity**: Traditional package managers replace whole files. We adapted the concept to handle *live text files*, meaning we can surgically install rules into a shared `cli_config.yaml` or `.bashrc` using marker comments (`# Rulepack Start`, `# Rulepack End`) and roll them back flawlessly.
+* **Surgical State Integrity**: Traditional package managers replace whole files. We adapted the concept to handle *live text files*, meaning we can surgically install rules into a shared `cli_config.yaml` or `.bashrc` using marker comments (`<!-- rulepack:<pkgname> start -->`, `<!-- rulepack:<pkgname> end -->`) and roll them back flawlessly.
 * **Self-Healing Architecture**: We don't just hope the packages remain in place. Running `bin/rulepack verify --target <platform>` detects if the user accidentally edited or deleted a symlinked/copied rule, and `bin/rulepack fix --target <platform>` automatically restores it from compilation cache.
 
 ---
@@ -117,12 +117,12 @@ Rulepack commands are wrapped inside `bin/rulepack` for convenience. Under the h
 bin/rulepack build                                  # Compiles all packages to build/
 bin/rulepack build --timing                         # Compiles with execution step timing
 
-# Platform Deployment (Install / pacman -S)
+# Platform Deployment (Install / pacman -S option)
 bin/rulepack install [pkg] --target <plat|all>     # Installs package(s) to target platform(s)
 bin/rulepack install [pkg] -t <plat|all> --select   # Prompts interactive TUI sub-skill selection menu
 bin/rulepack install [pkg] -t <plat|all> --dry-run  # Previews file and symlink actions
 bin/rulepack install [pkg] -t <plat|all> --force    # Overrides collision and install checks
-bin/rulepack -S [pkg] -t <plat|all>                 # pacman -S flag shortcut equivalent
+bin/rulepack install -S [pkg] -t <plat|all>         # pacman -S flag option equivalent
 
 # Collision Management (Install option)
 bin/rulepack install -t <plat> --on-collision stop       # (Default) Halts and reports collision
@@ -132,21 +132,21 @@ bin/rulepack install -t <plat> --on-collision append     # Appends rules using m
 
 # Maintenance & Reconciliation (verify / pacman -Qk & fix / pacman -F)
 bin/rulepack verify [pkg] --target <plat|all>       # Performs live disk integrity and drift audit
-bin/rulepack -Qk [pkg] -t <plat|all>                # pacman -Qk flag shortcut equivalent
+bin/rulepack verify -Qk [pkg] -t <plat|all>        # pacman -Qk flag option equivalent
 
 bin/rulepack fix [pkg] --target <plat|all> [--auto] # Automatically repairs and reinstalls drifted files
-bin/rulepack -F [pkg] -t <plat|all> [--auto]        # pacman -F flag shortcut equivalent
+bin/rulepack fix -F [pkg] -t <plat|all> [--auto]    # pacman -F flag option equivalent
 
 bin/rulepack audit [--strict] [--target PLAT]       # Audits declarative package descriptors & validation schemas
 
 # De-registration (Uninstall / pacman -R)
 bin/rulepack uninstall [pkg] --target <plat|all>    # Surgically removes rule fragments and restores state
-bin/rulepack -R [pkg] -t <plat|all>                 # pacman -R flag shortcut equivalent
+bin/rulepack uninstall -R [pkg] -t <plat|all>       # pacman -R flag option equivalent
 
-# Metadata Querying (query / pacman -Q)
-bin/rulepack query <search_term>                    # Search package descriptors and variables
-bin/rulepack -Q <search_term>                       # pacman -Q flag shortcut equivalent
-
+# Metadata Querying (query)
+bin/rulepack query show <pkgname>                   # Show package details
+bin/rulepack query search <search_term>             # Search package descriptors and variables
+bin/rulepack search <tag>                           # Quick search by tag or term
 ```
 
 ---
@@ -240,4 +240,4 @@ All contributions must pass the absolute quality threshold before integration:
   ```bash
   rake test
   ```
-  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (0 errors, 0 failures).
+  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (277 tests, 810 assertions, 0 errors, 0 failures, 7 network skips by default).

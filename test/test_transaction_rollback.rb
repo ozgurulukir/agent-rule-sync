@@ -23,7 +23,7 @@ class TestTransactionRollback < Minitest::Test
     )
 
     # Simulated install of a new file
-    Rulepack::Install.record_journal(ctx, { action: :create_file, path: @install_path })
+    Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: @install_path })
     @install_path.write("installed-content\n")
     assert @install_path.exist?
 
@@ -40,7 +40,7 @@ class TestTransactionRollback < Minitest::Test
 
     # Simulated install of a new directory
     install_dir = @base.join('installed_dir')
-    Rulepack::Install.record_journal(ctx, { action: :create_dir, path: install_dir })
+    Rulepack::Transaction.record_journal(ctx, { action: :create_dir, path: install_dir })
     install_dir.mkpath
     assert install_dir.exist?
 
@@ -60,7 +60,7 @@ class TestTransactionRollback < Minitest::Test
 
     # Perform replace simulation
     backup_path = Rulepack::Common.backup_file(@install_path)
-    Rulepack::Install.record_journal(ctx, { action: :replace_file, path: @install_path, backup: backup_path })
+    Rulepack::Transaction.record_journal(ctx, { action: :replace_file, path: @install_path, backup: backup_path })
     @install_path.write("replaced-content\n")
 
     assert_equal "replaced-content\n", @install_path.read
@@ -82,7 +82,7 @@ class TestTransactionRollback < Minitest::Test
 
     # Perform modification simulation (e.g. append)
     backup_path = Rulepack::Common.backup_file(@install_path)
-    Rulepack::Install.record_journal(ctx, { action: :modify_file, path: @install_path, backup: backup_path })
+    Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: @install_path, backup: backup_path })
     @install_path.write("original-content\nappended-content\n")
 
     assert_equal "original-content\nappended-content\n", @install_path.read
@@ -106,7 +106,7 @@ class TestTransactionRollback < Minitest::Test
 
     # Perform replace simulation
     backup_path = Rulepack::Common.backup_file(install_dir)
-    Rulepack::Install.record_journal(ctx, { action: :replace_dir, path: install_dir, backup: backup_path })
+    Rulepack::Transaction.record_journal(ctx, { action: :replace_dir, path: install_dir, backup: backup_path })
     FileUtils.rm_rf(install_dir)
     install_dir.mkpath
     install_dir.join('file1.txt').write("replaced-1\n")

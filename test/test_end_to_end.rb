@@ -9,11 +9,8 @@ require 'fileutils'
 require 'set'
 
 
-# Gate full network E2E tests behind environment variable
-# Full E2E tests take ~3 minutes due to real git clones
-# Set RULEPACK_RUN_NETWORK_E2E=1 to run full network tests
-# Otherwise, only fast local tests run
-NETWORK_E2E = ENV['RULEPACK_RUN_NETWORK_E2E'] == '1'
+# Gate full E2E tests. Now 100% offline and fast via local mock git repositories.
+NETWORK_E2E = true
 
 
 class TestEndToEndPipeline < Minitest::Test
@@ -25,6 +22,10 @@ class TestEndToEndPipeline < Minitest::Test
     @rulepack_root.mkpath
     FileUtils.cp_r(ROOT.join('lib').to_s, @rulepack_root.join('lib').to_s, preserve: false)
     FileUtils.cp_r(ROOT.join('data').to_s, @rulepack_root.join('data').to_s, preserve: false)
+
+    # Setup 5 local mock git repositories and rewrite target PKGBUILDs to point to them
+    mock_git_packages(@rulepack_root.join('data', 'packages'), Pathname.new(@tmpdir).join('mock-repos'))
+
     FileUtils.mkpath(@rulepack_root.join('build'))
     @build_dir = @rulepack_root.join('build')
     @ruby = File.join(RbConfig::CONFIG['bindir'], 'ruby')
@@ -113,6 +114,7 @@ class TestEndToEndPipeline < Minitest::Test
   end
 
   def test_build_rebuild_is_idempotent
+    skip "Full E2E requires RULEPACK_RUN_NETWORK_E2E=1 (takes ~3 minutes)" unless NETWORK_E2E
     run_build
     first_packages = load_build_index[:packages].keys.sort
 

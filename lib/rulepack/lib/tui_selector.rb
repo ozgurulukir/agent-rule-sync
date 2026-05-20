@@ -32,16 +32,18 @@ module Rulepack
     # Returns array of selected sub-skills, or nil to skip
     def prompt_sub_skill_selection(sub_skills, pkgname)
       return sub_skills unless $stdin.isatty && !ENV['RULEPACK_TEST']
-
+ 
       # Selected indices (0-indexed). Default: all selected.
       selected_indices = Set.new((0...sub_skills.size).to_a)
       cursor_index = 0
-
+      start_index = 0
+      page_size = 10
+ 
       # ANSI escape sequences
       cls_line = "\e[K"
       cursor_hide = "\e[?25l"
       cursor_show = "\e[?25h"
-
+ 
       puts "\n"
       puts "\e[38;5;99m┌──────────────────────────────────────────────────────────┐\e[0m"
       puts "\e[38;5;99m│\e[0m  \e[1mRulepack Interactive Selector:\e[0m \e[36m#{pkgname.to_s.ljust(25)}\e[0m \e[38;5;99m│\e[0m"
@@ -49,19 +51,32 @@ module Rulepack
       puts "  \e[90mUse \e[37m[↑/↓] (or j/k)\e[90m to Navigate, \e[37m[Space]\e[90m to Toggle, \e[37m[Enter]\e[90m to Confirm\e[0m"
       puts "  \e[90mPress \e[37m[a]\e[90m for All, \e[37m[n]\e[90m for None, \e[37m[i]\e[90m to Invert, \e[37m[q]\e[90m to Quit\e[0m"
       puts ""
-
-      # We will print sub_skills.size lines. Every update, we move the cursor up and reprint.
-      lines_to_clear = sub_skills.size
-
+ 
       $stdout.write(cursor_hide)
-
+ 
       begin
         loop do
-          # Print the list
-          sub_skills.each_with_index do |ss, idx|
+          total = sub_skills.size
+          effective_page_size = [page_size, total].min
+ 
+          # Adjust sliding window based on cursor index
+          if cursor_index < start_index
+            start_index = cursor_index
+          elsif cursor_index >= start_index + effective_page_size
+            start_index = cursor_index - effective_page_size + 1
+          end
+          # Enforce bounds
+          start_index = [0, [start_index, total - effective_page_size].min].max
+ 
+          # We will clear effective_page_size lines + 1 footer line
+          lines_to_clear = effective_page_size + 1
+ 
+          # Print the visible page
+          (start_index...(start_index + effective_page_size)).each do |idx|
+            ss = sub_skills[idx]
             is_cursor = (idx == cursor_index)
             is_selected = selected_indices.include?(idx)
-
+ 
             cursor_str = is_cursor ? "\e[38;5;220m▸\e[0m" : " "
             checkbox_str = is_selected ? "\e[38;5;46m⬢ [x]\e[0m" : "\e[38;5;240m⬡ [ ]\e[0m"
             
@@ -71,16 +86,19 @@ module Rulepack
             else
               name_str = "\e[37m#{name_str}\e[0m"
             end
-
+ 
             desc = ss['description'] || ss['path'] || ''
             desc_str = desc.empty? ? '' : " \e[90m— #{desc}\e[0m"
-
+ 
             puts "#{cursor_str} #{checkbox_str} #{name_str}#{desc_str}#{cls_line}"
           end
-
+ 
+          # Print pagination footer
+          puts "  \e[36m(Showing #{start_index + 1}-#{start_index + effective_page_size} of #{total} sub-skills, [Space] to toggle, [Enter] to confirm)\e[0m#{cls_line}"
+ 
           # Read character
           char = read_keyboard_char
-
+ 
           case char
           when "\e[A", "k" # Up arrow or 'k'
             cursor_index = (cursor_index - 1) % sub_skills.size
@@ -106,14 +124,14 @@ module Rulepack
             selected_indices = Set.new((0...sub_skills.size).to_a)
             break
           end
-
+ 
           # Move cursor back up
           $stdout.write("\e[#{lines_to_clear}A")
         end
       ensure
         $stdout.write(cursor_show)
       end
-
+ 
       selected = selected_indices.map { |i| sub_skills[i] }
       puts "\n  \e[32m✓ Selected #{selected.size} sub-skill(s) to install.\e[0m\n\n"
       selected

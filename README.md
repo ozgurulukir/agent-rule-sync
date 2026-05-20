@@ -28,9 +28,9 @@ bin/rulepack install --target opencode              # Real install (all built pa
 bin/rulepack install memory --target opencode       # Real install of a single package (exact match)
 bin/rulepack install memory -t opencode --dry-run   # Dry run preview
 
-# Pacman flag shortcut equivalents
-bin/rulepack -S --target opencode                   # Equivalent to install --target opencode
-bin/rulepack -S memory -t opencode                  # Equivalent to install memory -t opencode
+# Pacman flag shortcut equivalents (as options on subcommands)
+bin/rulepack install -S --target opencode            # Equivalent to install --target opencode
+bin/rulepack install -S memory -t opencode           # Equivalent to install memory -t opencode
 
 # Install to a project-level platform (Target and Project are mandatory)
 bin/rulepack install --target cursor --project .    # Install to current project
@@ -41,11 +41,11 @@ bin/rulepack install --target all
 
 # Verify installed packages and integrity (verify or -Qk)
 bin/rulepack verify --target opencode               # Verify all packages on opencode
-bin/rulepack -Qk memory -t opencode                 # Verify single package on opencode
+bin/rulepack verify -Qk memory -t opencode           # Verify single package on opencode
 
 # Repair drift (fix or -F)
 bin/rulepack fix --target opencode                  # Repair any modified/missing files
-bin/rulepack -F memory -t opencode                  # Repair single package
+bin/rulepack fix -F memory -t opencode               # Repair single package
 
 # Audit package descriptors for integrity & platforms coverage
 bin/rulepack audit                                  # Audit all packages (schema, local sources, platforms)
@@ -55,12 +55,11 @@ bin/rulepack audit --format json                    # Machine-readable output
 
 # Uninstall from platforms (uninstall or -R)
 bin/rulepack uninstall --target opencode            # Uninstall all packages from opencode
-bin/rulepack -R memory -t cursor --project .        # Uninstall single package from cursor project
+bin/rulepack uninstall -R memory -t cursor --project . # Uninstall single package from cursor project
 
-# Query database (query or -Q)
-bin/rulepack query memory
-bin/rulepack -Q security
-
+# Query database (query)
+bin/rulepack query show memory                      # Show package details
+bin/rulepack query search security                  # Search packages by tag or term
 ```
 
 ## Project Structure
@@ -68,7 +67,7 @@ bin/rulepack -Q security
 ```
 rulepack/
 ├── bin/rulepack              # CLI entry point
-├── lib/rulepack/             # Library modules (27 .rb files)
+├── lib/rulepack/             # Library modules (28 .rb files)
 │   ├── common.rb             # Constants, Config, basic IO
 │   ├── installer.rb          # Installer orchestrator
 │   ├── cli_parser.rb         # Unified command-line argument parser
@@ -86,8 +85,7 @@ rulepack/
 │   └── ... (logging, cache, backup, version, source,
 │             transform, validation, platform, aggregate,
 │             translate, generate-catalog, install CLI, uninstall CLI)
-├── data/                     # Single Source of Truth
-├── data/                     # Single Source of Truth
+├── data/                     # Single Source of Truth (SSOT)
 │   ├── packages/             # Package definitions (11 packages)
 │   ├── registry/platforms.yaml  # 14 platform configurations
 │   ├── platforms/            # Format profiles (informational)
@@ -95,7 +93,7 @@ rulepack/
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (276 tests: 261 existing + 15 new fix.rb tests)
+├── test/                     # Test suite (277 tests, 810 assertions)
 
 ├── Rakefile
 ├── README.md
@@ -107,19 +105,19 @@ rulepack/
 | Agent | Type | Scope | Config Location | Install Command |
 |-------|------|-------|-----------------|-----------------|
 | [OpenCode](docs/agents/agents/opencode.md) | directory | user | `~/.config/opencode/rules/` | `bin/rulepack install --target opencode` |
-| [Oh My Pi](docs/agents/agents/oh-my-pi.md) | directory | user | `~/.config/oh-my-pi/rules/` | `bin/rulepack install --target oh-my-pi` |
-| [Crush](docs/agents/agents/crush.md) | skill | user | `/usr/local/share/crush/crush.md` | `bin/rulepack install --target crush` |
+| [Oh My Pi](docs/agents/agents/oh-my-pi.md) | directory | user | `~/.omp/agent/rules/` | `bin/rulepack install --target oh-my-pi` |
+| [Crush](docs/agents/agents/crush.md) | skill | user | `~/.config/crush/crush.md` | `bin/rulepack install --target crush` |
 | [Goose](docs/agents/agents/goose.md) | skill | user | `~/.local/share/goose/goose.md` | `bin/rulepack install --target goose` |
-| [Droid](docs/agents/agents/droid.md) | skill | user | `~/.config/droid/droid.md` | `bin/rulepack install --target droid` |
-| [Gemini CLI](docs/agents/agents/gemini-cli.md) | import | user | `~/.config/gemini/GEMINI.md` | `bin/rulepack install --target gemini-cli` |
-| [Qwen Code](docs/agents/agents/qwen-code.md) | import | user | `~/.config/qwen/QWEN.md` | `bin/rulepack install --target qwen-code` |
+| [Droid](docs/agents/agents/droid.md) | skill | user | `~/.factory/AGENTS.md` | `bin/rulepack install --target droid` |
+| [Gemini CLI](docs/agents/agents/gemini-cli.md) | import | user | `~/.config/gemini/cli_config.yaml` | `bin/rulepack install --target gemini-cli` |
+| [Qwen Code](docs/agents/agents/qwen-code.md) | import | user | `~/.config/qwen/config.yaml` | `bin/rulepack install --target qwen-code` |
 | [Cursor](docs/agents/agents/cursor.md) | directory | project | `.cursor/rules/` | `bin/rulepack install --target cursor --project .` |
 | [Windsurf](docs/agents/agents/windsurf.md) | directory | project | `.windsurf/rules/` | `bin/rulepack install --target windsurf --project .` |
 | [GitHub Copilot](docs/agents/agents/github-copilot.md) | import | project | `.github/copilot-instructions.md` | `bin/rulepack install --target github-copilot --project .` |
 | [Claude Code](docs/agents/agents/claude-code.md) | directory | project | `.claude/rules/` | `bin/rulepack install --target claude-code --project .` |
 | [Codex CLI](docs/agents/agents/codex.md) | skill | project | `AGENTS.md` | `bin/rulepack install --target codex --project .` |
-| [Antigravity](docs/agents/agents/antigravity.md) | directory | user | `~/.gemini/antigravity/` | `bin/rulepack install --target antigravity` |
-| [Agents](docs/agents/agents/agents.md) | directory | user | `~/.config/agents/rules/` | `bin/rulepack install --target agents` |
+| [Antigravity](docs/agents/agents/antigravity.md) | directory | user | `~/.gemini/antigravity/GEMINI.md` | `bin/rulepack install --target antigravity` |
+| [Agents](docs/agents/agents/agents.md) | directory | user | `~/.agents/rules/` | `bin/rulepack install --target agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
@@ -189,7 +187,7 @@ Packages use pacman-inspired versioning: `epoch:pkgver-pkgrel`.
 |----------|---------|-------------|
 | `RULEPACK_MAX_REDIRECTS` | `3` | Maximum HTTP redirects for URL source fetches |
 | `RULEPACK_READ_TIMEOUT` | `30` | HTTP read timeout in seconds |
-| `RULEPACK_CACHE_DIR` | `cache` | Cache directory name under `build/` |
+| `RULEPACK_CACHE_DIR` | `cache` | Cache directory name under project root |
 | `RULEPACK_GIT_DEPTH` | `1` | Git shallow clone depth |
 | `RULEPACK_LOG_LEVEL` | `info` | Log level filtering (`error`, `warn`, `info`, `debug`) |
 

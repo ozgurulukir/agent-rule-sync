@@ -321,13 +321,13 @@ module Rulepack
         if ctx.select_list && has_skill_bundle
           ver = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
           Rulepack::Common.log "  🔄 Re-installing #{pkgname} #{ver} (--select specified)"
-          uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id, project_root: ctx.project_root) unless ctx.dry_run
+          uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id, project_root: ctx.project_root, ctx: ctx) unless ctx.dry_run
           true
         elsif !ctx.select_list && has_skill_bundle
           # Reinstall skill-bundle to restore any sub-skills previously removed via --select
           ver = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
           Rulepack::Common.log "  🔄 Restoring #{pkgname} #{ver} all sub-skills"
-          uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id, project_root: ctx.project_root) unless ctx.dry_run
+          uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id, project_root: ctx.project_root, ctx: ctx) unless ctx.dry_run
           true
         else
           unless ctx.quiet
@@ -342,7 +342,7 @@ module Rulepack
           new_v = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
           Rulepack::Common.log "  🔄 Upgrading #{pkgname} #{old_v} → #{new_v}"
         end
-        uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id, project_root: ctx.project_root) unless ctx.dry_run
+        uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id, project_root: ctx.project_root, ctx: ctx) unless ctx.dry_run
         true
       else
         handle_downgrade(pkgname, pkgdata, existing, ctx)
@@ -356,7 +356,7 @@ module Rulepack
           new_v = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
           Rulepack::Common.log_warn "Downgrade forced for #{pkgname}: #{old_v} → #{new_v}"
         end
-        uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id, project_root: ctx.project_root) unless ctx.dry_run
+        uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id, project_root: ctx.project_root, ctx: ctx) unless ctx.dry_run
         true
       else
         unless ctx.quiet
@@ -615,10 +615,11 @@ module Rulepack
 
     # ─── Helpers ────────────────────────────────────────────────────────────────
 
-    def uninstall_single_package_from_index!(index, pkgname, platform_id, project_root: nil)
+    def uninstall_single_package_from_index!(index, pkgname, platform_id, project_root: nil, ctx: nil)
       Rulepack::Common.uninstall_packages(index, platform_id, dry_run: false,
                                                               project_root: project_root,
-                                                              specific_packages: [pkgname]).include?(pkgname)
+                                                              specific_packages: [pkgname],
+                                                              ctx: ctx).include?(pkgname)
     end
 
     def platform_cfg_for(platform_id)

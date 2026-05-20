@@ -208,7 +208,7 @@ module Rulepack
       return unless scope == 'project'
 
       unless project_arg
-        raise StandardError, "Platform '#{platform_cfg[:display_name]}' is project-scoped and does not support global user rules. You must specify a target project path with --project <path>."
+        raise StandardError, "Platform '#{platform_cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>."
       end
 
       Pathname.new(project_arg).expand_path

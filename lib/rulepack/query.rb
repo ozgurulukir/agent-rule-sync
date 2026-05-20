@@ -15,6 +15,8 @@ module Rulepack
     module_function
 
     def run(argv = ARGV)
+      argv = argv.dup
+      argv.shift if argv.first == '-Q'
       command = argv.shift || 'help'
       case command
       when 'list-packages', 'ls'

@@ -90,7 +90,15 @@ module Rulepack
         return false
       end
 
-
+      # ─── Project-scoped platform validation ───────────────────────────────────────
+      targets_to_fix.each do |platform_id|
+        platform_cfg = registry[platform_id.to_sym] || registry[platform_id.to_s]
+        unless platform_cfg
+          msg = "Unknown target platform '#{platform_id}'."
+          exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
+        end
+        Rulepack::Common.project_root_for(platform_cfg, project_arg)
+      end
 
       fixed_anything = false
       targets_to_fix.each do |platform_id|

@@ -1583,3 +1583,106 @@ Total: ~9s of network I/O per test run, plus ~2.5s of file I/O for 305+ sub-skil
 - Aligned codebase with project conventions (Open3 vs backtick)
 - Centralized all schema-driven formatting in SchemaEngine
 - Enabled fast CI testing by default (E2E <30s)
+
+---
+
+## 📋 Priority 14 — True Pacman, Mock Git & Rollbacks
+
+### ⏳ P14.1 True Pacman CLI Routing
+**Status**: ⏳ PLANNED
+**Severity**: CLI Compliance
+**Date**: 2026-05-20
+
+**Slop**: Top-level pacman flags (`-S`, `-R`, `-Qk`, `-F`, `-Q`) are parsed by `lib/rulepack/cli_parser.rb` and the sub-CLI scripts, but they are not routed correctly at the main `bin/rulepack` entry point. Running `rulepack -S <package>` fails with `Unknown command: -S`.
+
+- **Fix**:
+  1. In `bin/rulepack`, detect if the first argument (command) is a pacman-style flag: `-S`, `-R`, `-Qk`, `-F`, or `-Q`.
+  2. Map them as follows:
+     - `-S` ➡️ `install`
+     - `-R` ➡️ `uninstall`
+     - `-Qk` ➡️ `verify`
+     - `-F` ➡️ `fix`
+     - `-Q` ➡️ `query`
+  3. Re-prepend the flag back to the `argv` array passed to the script so that sub-scripts can parse it as expected (e.g. `install.rb` shifts `-S`).
+- **Files**: `bin/rulepack`
+- **Test**: `bin/rulepack -S memory -t opencode --dry-run` runs successfully.
+
+---
+
+### ⏳ P14.2 Query CLI `-Q` Flag Support
+**Status**: ⏳ PLANNED
+**Severity**: CLI Compliance
+**Date**: 2026-05-20
+
+**Slop**: `lib/rulepack/query.rb` parses `ARGV` manually instead of using `CliParser.parse`, and does not support the `-Q` flag, resulting in failure when running `rulepack -Q ls`.
+
+- **Fix**:
+  1. Update `lib/rulepack/query.rb`'s `run` method to check if `argv.first` is `'-Q'`.
+  2. If present, shift it out of the array.
+- **Files**: `lib/rulepack/query.rb`
+- **Test**: `bin/rulepack -Q ls` displays the package list correctly.
+
+---
+
+### ⏳ P14.3 E2E Test Network Isolation (Mock Git Repositories)
+**Status**: ⏳ PLANNED
+**Severity**: Test Reliability & Speed
+**Date**: 2026-05-20
+
+**Slop**: Even though full network E2E tests are gated behind `RULEPACK_RUN_NETWORK_E2E=1`, running `rake test` still executes `build.rb` which clones real remote Git repositories from GitHub during `test_build_creates_local_packages_fast`. If run offline, tests hang or fail due to network timeouts.
+
+- **Fix**:
+  1. Set up mock local Git repositories inside the test's temporary directory for all packages that declare a `git` source.
+  2. Copy/initialize basic structural files in each mock repository and run `git init`, `git config user.name "Test"`, `git config user.email "test@test.com"`, `git add .`, and `git commit` to create a valid HEAD.
+  3. Dynamically rewrite the copy of the `PKGBUILD` files in the temp directory to replace the remote `https://` URLs with local `file://` URLs pointing to the mock repositories.
+  4. This allows the E2E tests to run 100% offline, isolation-safe, and instantly!
+- **Files**: `test/test_end_to_end.rb`
+- **Test**: `rake test` runs completely offline with no network skips or hangs.
+
+---
+
+### ⏳ P14.4 Automatic Transaction Rollbacks on Installation Failure
+**Status**: ⏳ PLANNED
+**Severity**: Correctness & Reliability
+**Date**: 2026-05-20
+
+**Slop**: If an installation of a package fails halfway through (e.g. format validation error, folder permission collision, custom transformer crash), the index might be rolled back but previously created/modified files on disk are left in a dirty, partially-installed state.
+
+- **Fix**:
+  1. The transaction manager in `lib/rulepack/lib/transaction.rb` already implements `rollback_journal` (which processes created/modified files and directories in reverse order).
+  2. Verify and ensure that all file operations (symlinks, file copies, folder creations, appends) consistently record their journal entries via `Rulepack::Transaction.record_journal(ctx, ...)`.
+  3. Wrap the main platform installation loops in robust `rescue` blocks that automatically execute `Rulepack::Transaction.transaction_rollback(e, backup_path, journal)` on failure.
+- **Files**: `lib/rulepack/installer.rb`, `lib/rulepack/lib/transaction.rb`
+- **Test**: Run installation that triggers a collision or mock error mid-way, and verify that all modified/created files are cleanly restored/deleted.
+
+---
+
+### ⏳ P14.5 TUI Selector Pagination (Sliding Window Viewport)
+**Status**: ⏳ PLANNED
+**Severity**: User Experience
+**Date**: 2026-05-20
+
+**Slop**: When using `rulepack install --select`, the TUI selector prints all sub-skills to the screen at once. For packages like `antigravity-skills` (305 sub-skills) or `cc-skills-golang` (42 sub-skills), this scrolls completely off the terminal viewport, corrupting the terminal lines and making navigation impossible.
+
+- **Fix**:
+  1. Implement a sliding window viewport of size 10 in `lib/rulepack/lib/tui_selector.rb`.
+  2. Only render the current 10 items containing the active cursor index.
+  3. Cleanly clear only the 10 printed lines (plus header/footer) during each refresh loop.
+  4. Add a footer showing: `(Showing 1-10 of 42 sub-skills, [Space] to toggle, [Enter] to confirm)`.
+- **Files**: `lib/rulepack/lib/tui_selector.rb`
+- **Test**: Run interactive selection with a large number of options and verify viewport is locked to 10 lines and scrolls smoothly.
+
+---
+
+## 🛠️ Priority 14 Implementation Summary
+
+| # | Item | Severity | Effort | Files | Status |
+|---|------|----------|--------|-------|--------|
+| 1 | P14.1 True Pacman CLI Routing | 🔴 CLI Compliance | 15 min | bin/rulepack | ⏳ PLANNED |
+| 2 | P14.2 Query CLI -Q Support | 🔴 CLI Compliance | 10 min | query.rb | ⏳ PLANNED |
+| 3 | P14.3 Mock Git E2E Isolation | 🟡 Test Hygiene | 60 min | test_end_to_end.rb | ⏳ PLANNED |
+| 4 | P14.4 Transaction Rollbacks | 🟡 Correctness | 30 min | installer.rb | ⏳ PLANNED |
+| 5 | P14.5 TUI Pagination | 🟡 User Experience | 40 min | tui_selector.rb | ⏳ PLANNED |
+
+**Total Estimated Effort**: ~2.5 hours
+

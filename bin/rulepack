@@ -25,6 +25,25 @@ module Rulepack
 
       command = argv.shift || "help"
 
+      # Map pacman-style flags to their respective standard commands
+      case command
+      when '-S'
+        command = 'install'
+        argv.unshift('-S')
+      when '-R'
+        command = 'uninstall'
+        argv.unshift('-R')
+      when '-Qk'
+        command = 'verify'
+        argv.unshift('-Qk')
+      when '-F'
+        command = 'fix'
+        argv.unshift('-F')
+      when '-Q'
+        command = 'query'
+        argv.unshift('-Q')
+      end
+
       if ['-h', '--help', 'help'].include?(command)
         print_help
         return 0

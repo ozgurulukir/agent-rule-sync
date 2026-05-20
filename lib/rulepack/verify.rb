@@ -78,10 +78,6 @@ module Rulepack
         return { ok: 0, drift: 0, orphans: 0 }
       end
 
-
-            raise msg
-          end
-
       total_drifts = 0
       total_orphans = 0
       total_ok = 0

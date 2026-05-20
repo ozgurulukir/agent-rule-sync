@@ -15,6 +15,10 @@ class TestBuildIntegration < Minitest::Test
     @build_root = Pathname.new(@tmpdir)
     FileUtils.cp_r(ROOT.join('lib').to_s, @build_root.join('lib').to_s, preserve: false)
     FileUtils.cp_r(ROOT.join('data').to_s, @build_root.join('data').to_s, preserve: false)
+
+    # Setup 5 local mock git repositories and rewrite target PKGBUILDs to point to them
+    mock_git_packages(@build_root.join('data', 'packages'), Pathname.new(@tmpdir).join('mock-repos'))
+
     @build_dir = @build_root.join('build')
     @build_dir.mkpath
   end
