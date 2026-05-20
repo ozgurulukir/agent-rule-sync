@@ -26,7 +26,8 @@ module Rulepack
         on_collision: nil,
         verbose: false,
         check_mode: false,
-        targets_mode: false
+        targets_mode: false,
+        rules_to: nil
       }
 
       positional = []
@@ -76,6 +77,14 @@ module Rulepack
         when '--check'
           options[:check_mode] = true
           i += 1
+        when '--rules-to'
+          raise 'Missing value for --rules-to' if i + 1 >= args.length
+          val = args[i + 1].downcase
+          unless %w[rules_dir rules_file].include?(val)
+            raise "Invalid --rules-to value: #{val}. Valid: rules_dir, rules_file"
+          end
+          options[:rules_to] = val
+          i += 2
         when '--targets'
           options[:targets_mode] = true
           i += 1

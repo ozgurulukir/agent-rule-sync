@@ -108,7 +108,7 @@ module Rulepack
       if target_dir
         target_subdir = expand_user_path(target_dir)
         # If rules_file override (single-file platforms like antigravity)
-        if !%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file]
+        if !%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file] && platform_cfg[:rule_install]&.[](:type) == 'append'
           Pathname.new(base).join(platform_cfg[:rules_file])
         else
           # skill/skill-bundle vs directory
@@ -124,12 +124,12 @@ module Rulepack
                        Pathname.new(base).join(dir, target_subdir)
                      end
           # Append output unless skill-bundle or rules_file override
-          resolved = resolved.join(target_cfg[:output]) unless target_cfg[:format] == 'skill-bundle' || (!%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file])
+          resolved = resolved.join(target_cfg[:output]) unless target_cfg[:format] == 'skill-bundle' || (!%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file] && platform_cfg[:rule_install]&.[](:type) == 'append')
           resolved
         end
       else
         # No target_dir specified
-        if !%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file]
+        if !%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file] && platform_cfg[:rule_install]&.[](:type) == 'append'
           Pathname.new(base).join(platform_cfg[:rules_file])
         else
           dir = if target_cfg[:format] == 'skill'

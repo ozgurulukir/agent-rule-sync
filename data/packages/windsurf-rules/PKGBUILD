@@ -17,11 +17,6 @@ targets:
   output: .windsurfrules
   install:
     type: copy
-- platform: opencode
-  format: directory
-  output: .windsurfrules.md
-  install:
-    type: symlink
 - platform: cursor
   format: directory
   output: .windsurfrules.md

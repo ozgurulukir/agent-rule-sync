@@ -7,6 +7,7 @@ opencode:
   rules_dir: rules/
   skills_dir: skills/
   docs_dir: docs/
+  rules_file: AGENTS.md
   rule_install:
     type: symlink
   skill_install:

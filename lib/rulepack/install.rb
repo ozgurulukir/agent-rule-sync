@@ -38,6 +38,7 @@ needed_mode    = _opts[:needed]
 select_list    = _opts[:select]
 targets_mode   = _opts[:targets_mode]
 collision_strategy = _opts[:on_collision] || "stop"
+rules_to           = _opts[:rules_to]
 
 # Check positional count
 if _opts[:positional]&.size.to_i > 1
@@ -150,6 +151,8 @@ if check_mode
   exit 0
 end
 
+
+
 # ─── Dispatch ──────────────────────────────────────────────────────────────────
 
 # If target_arg is 'all' and no target_package was specified, we run install_all
@@ -161,7 +164,8 @@ if target_arg.downcase == 'all' && !target_package
     verbose_mode: verbose_mode,
     select_list: select_list,
     project_arg: project_arg,
-    collision_strategy: collision_strategy
+    collision_strategy: collision_strategy,
+    rules_to: rules_to
   )
   exit 0
 end
@@ -181,6 +185,6 @@ targets_to_install.each do |pkg_platform|
                         needed_mode: needed_mode,
                         verbose_mode: verbose_mode, select_list: select_list,
                         project_arg: project_arg, specific_package: target_package,
+                        rules_to: rules_to,
                         collision_strategy: collision_strategy)
 end
-

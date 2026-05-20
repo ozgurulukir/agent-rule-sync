@@ -23,7 +23,7 @@ module Rulepack
     # Context object to hold installation state and reduce argument counts
     InstallContext = Struct.new(
       :index, :build_index, :platform_id, :platform_cfg, :base_path, :project_root,
-      :dry_run, :force_mode, :needed_mode, :collision_strategy, :quiet,
+      :dry_run, :force_mode, :needed_mode, :collision_strategy, :rules_to, :quiet,
       :select_list, :installed_this_run, :journal,
       keyword_init: true
     )
@@ -40,6 +40,7 @@ module Rulepack
       project_arg = options.fetch(:project_arg, nil)
       specific_package = options.fetch(:specific_package, nil)
       collision_strategy = options.fetch(:collision_strategy, 'stop')
+      rules_to = options.fetch(:rules_to, nil)
 
       Rulepack::Common.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
 
@@ -73,7 +74,7 @@ module Rulepack
         ctx = InstallContext.new(
           index: index, build_index: build_index, platform_id: platform_id,
           dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
-          collision_strategy: collision_strategy, select_list: select_list,
+          collision_strategy: collision_strategy, rules_to: rules_to, select_list: select_list,
           project_root: project_arg ? Pathname.new(project_arg).expand_path : nil,
           installed_this_run: [],
           journal: []
@@ -192,7 +193,7 @@ module Rulepack
       ctx = InstallContext.new(
         index: index, build_index: build_index, platform_id: platform_id,
         dry_run: options.fetch(:dry_run, false), force_mode: options.fetch(:force_mode, false),
-        needed_mode: options.fetch(:needed_mode, false), collision_strategy: options.fetch(:collision_strategy, 'stop'),
+        needed_mode: options.fetch(:needed_mode, false), collision_strategy: options.fetch(:collision_strategy, 'stop'), rules_to: options[:rules_to],
         select_list: options.fetch(:select_list, nil), quiet: true,
         project_root: options[:project_arg] ? Pathname.new(options[:project_arg]).expand_path : nil,
         installed_this_run: [],
@@ -519,8 +520,14 @@ module Rulepack
                             else
                               platform_cfg[:rule_install]
                             end
-      install_type = install_cfg[:type] || default_install_cfg&.[](:type) || 'copy'
-      install_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
+      # --rules-to rules_file: redirect rules to platform's rules_file via append
+      if ctx.rules_to == 'rules_file' && !%w[skill skill-bundle].include?(format) && platform_cfg[:rules_file]
+        install_type = 'append'
+        install_path = base_path.join(platform_cfg[:rules_file])
+      else
+        install_type = install_cfg[:type] || default_install_cfg&.[](:type) || 'copy'
+        install_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
+      end
 
       install_path.parent.mkpath unless dry_run
 
