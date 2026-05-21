@@ -93,7 +93,7 @@ rulepack/
 │   ├── packages/             # Package definitions (11 packages)
 │   ├── registry/platforms.yaml  # 14 platform configurations
 │   ├── platforms/            # Format profiles (informational)
-│   ├── translators/          # Custom translation layers
+│   ├── translators/          # Custom translation layers (6 translators)
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database
 ├── build/                    # Build artifacts (generated)
@@ -124,6 +124,26 @@ rulepack/
 | [Agents](docs/agents/agents/agents.md) | directory | user | `~/.agents/rules/` | `bin/rulepack install --target agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
+
+**Agent support**: 5 platforms support `format: agent` packages via their `agents_dir` — OpenCode, Oh My Pi, Cursor, Windsurf, Claude Code. See [AGENTS.md](AGENTS.md#agent-format) for details.
+
+## Agent Packages
+
+Agent packages (`pkg_type: agent`) install custom agent definitions to platform-specific agent directories. The build pipeline automatically translates agent files to each platform's expected format:
+
+- **OpenCode**: YAML frontmatter injected via `agent_to_opencode.rb`
+- **Cursor**: `agent.json` manifest generated from PKGBUILD `agent_config` field via `agent_to_cursor.rb`
+- **Claude Code**: Section schema added via `agent_to_claude_code.rb`
+- **Oh My Pi / Windsurf**: Plain markdown copied as-is (auto-discovered)
+
+Example — install the Ruby type signature agent:
+
+```bash
+bin/rulepack build
+bin/rulepack install ruby-update-signatures --target oh-my-pi
+bin/rulepack install ruby-update-signatures --target opencode
+bin/rulepack install ruby-update-signatures --target cursor --project /path/to/project
+```
 
 ## Interactive Sub-skill Selection
 
@@ -156,11 +176,19 @@ bin/rulepack install antigravity-skills --select llm-evaluation,prompt-engineer
 ## Query Tool
 
 ```bash
+# Top-level shortcuts
 bin/rulepack list              # List all packages
 bin/rulepack show <pkgname>    # Show package details
 bin/rulepack search <tag>      # Search packages by tag
-bin/rulepack installed --platform opencode  # List installed for a platform
 bin/rulepack platforms         # List available platforms
+
+# Canonical query subcommand (full feature set)
+bin/rulepack query list-packages              # List all packages with metadata
+bin/rulepack query show <pkgname>             # Show detailed package info
+bin/rulepack query search <keyword>           # Search packages by name/description/tags
+bin/rulepack query installed --platform crush # Show installed packages for a platform
+bin/rulepack query orphans                    # List orphaned packages
+bin/rulepack query provides <capability>      # Show packages providing a capability
 ```
 
 ## Validation & Auditing
@@ -182,7 +210,7 @@ Packages use pacman-inspired versioning: `epoch:pkgver-pkgrel`.
 - **pkgver** (string): Upstream version
 - **pkgrel** (default 1): Package release increment
 
-**Upgrade**: Automatic on re-install if newer version detected.  
+**Upgrade**: Automatic on re-install if newer version detected.
 **Downgrade**: Blocked by default; use `--force` to allow.
 
 ## Environment Variables

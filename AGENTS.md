@@ -6,7 +6,7 @@
 
 ## 📖 Project Overview
 
-This repository implements a **Single Source of Truth (SSOT)** management system for agent rules, skills, and documentation using a **declarative, package-based architecture** inspired by Arch Linux's `pacman` and `makepkg` package ecosystem. 
+This repository implements a **Single Source of Truth (SSOT)** management system for agent rules, skills, and documentation using a **declarative, package-based architecture** inspired by Arch Linux's `pacman` and `makepkg` package ecosystem.
 
 Each rule or skill exists as a package with a declarative descriptor (`PKGBUILD`). The system downloads, validates, translates, transforms, and installs files into target agent platforms using a robust transaction, drift-verification, and repair pipeline.
 
@@ -87,7 +87,7 @@ All procedural pipeline components (`build.rb`, `verify.rb`, `fix.rb`, `aggregat
 
 ## 🛠️ Pacman & makepkg Mimicry: Assessment of Success
 
-Our core architectural blueprint is to **mimic the declarative simplicity and extreme robustness of Arch Linux's packaging ecosystem (`pacman` and `makepkg`)**. 
+Our core architectural blueprint is to **mimic the declarative simplicity and extreme robustness of Arch Linux's packaging ecosystem (`pacman` and `makepkg`)**.
 
 Below is an objective assessment of our mimicry model, highlighting exact parallels, successes, and future opportunities:
 
@@ -119,7 +119,7 @@ bin/rulepack build --timing                         # Compiles with execution st
 
 # Platform Deployment (Install / pacman -S option)
 bin/rulepack install [pkg] --target <plat|all>     # Installs package(s) to target platform(s)
-bin/rulepack install [pkg] -t <plat|all> --select   # Prompts interactive TUI sub-skill selection menu
+bin/rulepack install [pkg] -t <plat|all> --select <names> # Non-interactive: install specific sub-skills
 bin/rulepack install [pkg] -t <plat|all> --dry-run  # Previews file and symlink actions
 bin/rulepack install [pkg] -t <plat|all> --force    # Overrides collision and install checks
 bin/rulepack install -S [pkg] -t <plat|all>         # pacman -S flag option equivalent
@@ -142,6 +142,7 @@ bin/rulepack fix [pkg] --target <plat|all> [--auto] # Automatically repairs and 
 bin/rulepack fix -F [pkg] -t <plat|all> [--auto]    # pacman -F flag option equivalent
 
 bin/rulepack audit [--strict] [--target PLAT]       # Audits declarative package descriptors & validation schemas
+bin/rulepack audit --format json                    # Machine-readable JSON output
 
 # De-registration (Uninstall / pacman -R)
 bin/rulepack uninstall [pkg] --target <plat|all>    # Surgically removes rule fragments and restores state
@@ -264,24 +265,58 @@ license: MIT
 
 ### Agent Format
 
-Agent packages use `format: agent` to install custom agent definitions to the platform's `agents_dir`:
+Agent packages use `format: agent` to install custom agent definitions to the platform's `agents_dir`. Files are copied (not symlinked) because platforms read agent files directly.
 
-| Platform | Install Path |
-|---|---|
-| OpenCode | `~/.config/opencode/agents/<pkgname>/` |
-| Oh My Pi | `~/.omp/agents/<pkgname>/` |
-| Cursor | `.cursor/agents/<pkgname>/` |
-| Windsurf | `.windsurf/agents/<pkgname>/` |
-| Claude Code | `.claude/agents/<pkgname>/` |
+| Platform | Scope | Install Path | Format Notes |
+|---|---|---|---|
+| OpenCode | user | `~/.config/opencode/agents/<pkgname>/` | Requires YAML frontmatter (use translator) |
+| Oh My Pi | user | `~/.omp/agents/<pkgname>/` | Plain markdown — auto-discovered |
+| Cursor | project | `.cursor/agents/<pkgname>/` | Requires `agent.json` manifest (use translator + `agent_config`) |
+| Windsurf | project | `.windsurf/agents/<pkgname>/` | Plain markdown — auto-discovered |
+| Claude Code | project | `.claude/agents/<pkgname>/` | Requires section schema (use translator) |
 
 Platforms without `agents_dir` in their registry config will skip `format: agent` targets automatically.
 
 ```yaml
 pkg_type: agent
 
-targets:\  - platform: opencode\    format: agent\    output: .\    install:\      type: copy\      target_dir: my-agent/
-  - platform: crush\    format: skill-bundle  # fallback: install as skill on non-agent platforms
+targets:
+  - platform: opencode
+    format: agent
+    output: .
+    translate: custom:data/translators/agent_to_opencode.rb
+    install:
+      type: copy
+      target_dir: my-agent/
+  - platform: cursor
+    format: agent
+    output: .
+    translate: custom:data/translators/agent_to_cursor.rb
+    agent_config:
+      model: claude-3.5-sonnet
+      temperature: 0.3
+      triggers:
+        file_patterns: ["*.rb", "*.rbs"]
+    install:
+      type: copy
+      target_dir: my-agent/
+  - platform: crush
+    format: skill-bundle  # fallback: install as skill on non-agent platforms
 ```
+
+#### Agent Translators
+
+The build pipeline applies platform-specific translators to agent markdown files during the build stage:
+
+| Translator | Platform | Transformation |
+|---|---|---|
+| `agent_to_opencode.rb` | OpenCode | Wraps prompt in YAML frontmatter (name, description, tags) |
+| `agent_to_cursor.rb` | Cursor | Passes markdown through; `agent.json` manifest generated from `agent_config` |
+| `agent_to_claude_code.rb` | Claude Code | Adds `## Metadata` and `## System Prompt` sections |
+
+Oh My Pi and Windsurf need no translator — plain markdown is auto-discovered by these platforms.
+
+The `agent_config` field in PKGBUILD targets generates the `agent.json` manifest for Cursor. Supported keys: `model`, `temperature`, `triggers` (with `file_patterns`).
 
 ---
 
@@ -296,4 +331,4 @@ All contributions must pass the absolute quality threshold before integration:
   ```bash
   rake test
   ```
-  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (277 tests, 855 assertions, 0 errors, 0 failures, 7 network skips by default).
+  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (277 tests, 855 assertions, 0 errors, 0 failures, 6 network skips by default).
