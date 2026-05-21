@@ -5,6 +5,7 @@ pkgrel: 1
 epoch: 0
 pkgdesc: Non-Interactive Shell Strategy rule
 arch: any
+pkg_type: rule
 order: 1
 source:
 - type: local

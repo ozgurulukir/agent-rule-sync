@@ -5,6 +5,7 @@ pkgrel: 1
 epoch: 0
 pkgdesc: Security skill for vibe coding (upstream)
 arch: any
+pkg_type: skill
 order: 2
 source:
 - type: git

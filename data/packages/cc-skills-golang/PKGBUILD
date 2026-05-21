@@ -5,6 +5,7 @@ pkgrel: 1
 epoch: 0
 pkgdesc: Claude Code skills for production-ready Go development — 40+ skills covering security, performance, testing, concurrency, database, and more
 arch: any
+pkg_type: skill
 order: 10
 
 source:

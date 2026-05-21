@@ -5,6 +5,7 @@ pkgrel: 1
 epoch: 0
 pkgdesc: Windsurf-specific rules configuration (.windsurfrules)
 arch: any
+pkg_type: rule
 order: 20
 
 source:

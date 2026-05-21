@@ -5,6 +5,7 @@ pkgrel: 1
 epoch: 0
 pkgdesc: Antigravity Skills Vault — 300+ skills ported from Claude Code Agents, installable on any coding agent platform
 arch: any
+pkg_type: skill
 order: 10
 
 source:

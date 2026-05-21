@@ -7,6 +7,7 @@ pkgdesc: >
   Agent that auto-detects Ruby type-signature system (RBS vs Sorbet) and
   style (inline vs separate) and updates signatures for changed files.
 arch: any
+pkg_type: skill
 order: 5
 
 source:

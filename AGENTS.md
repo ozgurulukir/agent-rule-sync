@@ -177,6 +177,35 @@ Installation paths resolve dynamically based on **Scope** (defined in `data/regi
 
 Create `data/packages/<pkgname>/PKGBUILD` (YAML). Below is the complete, canonical schema.
 
+### Package Type (`pkg_type`)
+
+Every package must declare its type:
+
+| `pkg_type` | Description | Examples |
+|---|---|---|
+| `rule` | Pure rule file(s) — agent instructions, constraints, conventions | memory, shell, ast-grep |
+| `skill` | Pure skill file(s) — tool-like capabilities with SKILL.md manifest | vibe-security, antigravity-skills |
+| `hybrid` | Contains both rule and skill content — use multiple targets per platform | (future use) |
+
+For **hybrid** packages, declare two targets for the same platform with different `format` values. The build pipeline already supports multiple targets per platform:
+
+```yaml
+pkg_type: hybrid
+
+targets:
+  - platform: opencode
+    format: skill           # → skills/my-skill/SKILL.md (copy)
+    output: SKILL.md
+    install:
+      type: copy
+      target_dir: my-skill/
+  - platform: opencode
+    format: directory       # → rules/my-rule.md or AGENTS.md (symlink/append)
+    output: my-skill-rule.md
+    install:
+      type: symlink
+```
+
 > [!IMPORTANT]
 > **🤖 LLM / AI AGENT INSTRUCTION**: When asked to create a PKGBUILD:
 > 1. You **MUST** include targets for **ALL** 14 supported platforms (`opencode`, `cursor`, `windsurf`, `claude-code`, `antigravity`, `oh-my-pi`, `crush`, `goose`, `droid`, `gemini-cli`, `qwen-code`, `codex`, `github-copilot`, `agents`).
@@ -191,6 +220,7 @@ pkgrel: 1
 epoch: 0
 pkgdesc: Authoritative system rule governing coding agent memory retention and updates
 arch: any
+pkg_type: rule
 order: 10
 
 source:

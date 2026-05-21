@@ -5,6 +5,7 @@ pkgrel: 1
 epoch: 0
 pkgdesc: Structural code search rule for OpenCode — prefers ast-grep over text grep
 arch: any
+pkg_type: rule
 order: 10
 
 source:

@@ -5,6 +5,7 @@ pkgrel: 1
 epoch: 0
 pkgdesc: Detects unintentional line/block repetitions produced by AI agents during code generation
 arch: any
+pkg_type: skill
 order: 11
 
 source:

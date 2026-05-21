@@ -109,7 +109,7 @@ rulepack/
 | Agent | Type | Scope | Config Location | Install Command |
 |-------|------|-------|-----------------|-----------------|
 | [OpenCode](docs/agents/agents/opencode.md) | directory | user | `~/.config/opencode/rules/` or `AGENTS.md` | `bin/rulepack install --target opencode` |
-| [Oh My Pi](docs/agents/agents/oh-my-pi.md) | directory | user | `~/.omp/agent/rules/` | `bin/rulepack install --target oh-my-pi` |
+| [Oh My Pi](docs/agents/agents/oh-my-pi.md) | directory | user | `~/.omp/agent/rules/` or `AGENTS.md` | `bin/rulepack install --target oh-my-pi` |
 | [Crush](docs/agents/agents/crush.md) | skill | user | `~/.config/crush/crush.md` | `bin/rulepack install --target crush` |
 | [Goose](docs/agents/agents/goose.md) | skill | user | `~/.local/share/goose/goose.md` | `bin/rulepack install --target goose` |
 | [Droid](docs/agents/agents/droid.md) | skill | user | `~/.factory/AGENTS.md` | `bin/rulepack install --target droid` |

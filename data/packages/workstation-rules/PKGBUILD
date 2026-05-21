@@ -5,6 +5,7 @@ pkgrel: 1
 epoch: 0
 pkgdesc: Combined workstation memory and shell strategy rules (memory + shell + security)
 arch: any
+pkg_type: rule
 order: 0
 
 source:
