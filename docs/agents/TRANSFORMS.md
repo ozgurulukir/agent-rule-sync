@@ -1,21 +1,24 @@
-# Transforms — Translate + Transform System
+# Transforms — Translate + Schema Engine + Transform System
 
-The content processing pipeline has two sequential steps:
+The content processing pipeline has three sequential steps:
 
 ```
 Source File (src/)
     ↓
-TRANSLATE  — content format conversion (format family change)
+TRANSLATE     — content format conversion (format family change)
     ↓
-TRANSFORM  — structural/format changes
+SCHEMA ENGINE — centralized formatting (frontmatter, emoji, bullets, headings)
+    ↓
+TRANSFORM     — structural/format changes
     ↓
 Built Artifact (build/<platform>/)
 ```
 
-**Translate** converts between format families (e.g., flat rule → skill, markdown → import).
+**Translate** converts between format families (e.g., flat rule → skill, agent → platform-specific format).
+**Schema Engine** applies centralized formatting rules from `data/platforms/<agent>.yaml` profiles.
 **Transform** applies structural changes (copy, strip-frontmatter, add-header, etc.).
 
-Both steps are specified per-target in the PKGBUILD. Translate runs first, then transform.
+Both translate and transform are specified per-target in the PKGBUILD. Translate runs first, then schema engine, then transform.
 
 ---
 
@@ -41,8 +44,6 @@ transformer: strip-frontmatter
 - Strips `---\n<yaml>\n---` block if present at file start
 - Preserves all content after frontmatter
 - No-op if no frontmatter found
-
-**Use case**: Upstream sources (e.g., TCI AGENTS.md) that include frontmatter for their own system.
 
 ---
 
@@ -83,76 +84,131 @@ targets:
     transformer: custom:transformers/example.rb
 ```
 
-**Path resolution**:
-- Relative to repository root (`RULEPACK_ROOT`)
-- Supports `~` expansion: `custom:~/my-transformers/foo.rb`
-- Must resolve within repo (symlink attack prevention via `realpath`)
+### Available Custom Transformers
 
-### Example Transformers
+| Transformer | Purpose |
+|---|---|
+| `add-header.rb` | Prepends a title header extracted from YAML frontmatter |
+| `strip-comments.rb` | Removes HTML comments and normalizes whitespace |
+| `format-code.rb` | Auto-detects code block language and adds explicit language tags |
 
-#### add-header.rb
+---
 
-Prepends a title header from YAML frontmatter.
+## Schema Engine
+
+`lib/rulepack/schema_engine.rb` — Centralized Dynamic Schema Engine that normalizes document structure based on platform profiles in `data/platforms/<agent>.yaml`.
+
+### What It Does
+
+- **Frontmatter**: Strips or preserves YAML frontmatter per platform policy
+- **Emoji policy**: Strips or preserves emoji characters
+- **Heading style**: Normalizes ATX heading levels
+- **Bullet style**: Normalizes to dash bullets
+
+### Platform Profiles
+
+Each platform has a profile in `data/platforms/<agent>.yaml` that declares formatting preferences. The Schema Engine reads these during the build pipeline's `:schema_engine` stage.
+
+Example: `data/platforms/crush.yaml`
+```yaml
+skills:
+  format: single_file
+  file_name: "crush.md"
+  frontmatter: strip
+  bullet_style: dash
+  code_block: fenced
+  emoji_policy: strip
+```
+
+Available profiles: `opencode`, `crush`, `goose`, `gemini-cli`, `codex`, `cursor`, `windsurf`, `claude-code`, `oh-my-pi`, `qwen-code`, `github-copilot`, `droid`, `antigravity`, `agents`
+
+---
+
+## Translator System
+
+The **translate step** runs before the schema engine and transform steps. It converts content from one format family to another.
+
+### When to Use `translate`
+
+Use `translate` when the target platform needs a fundamentally different content structure:
+
+| Scenario | Translate Needed? |
+|----------|-----------------|
+| OpenCode rule → Crush skill (flat file → aggregated skill) | Yes: `rule_to_skill` |
+| Markdown → Gemini CLI import file | Yes: `rule_to_import` |
+| Agent → OpenCode YAML frontmatter format | Yes: `agent_to_opencode` |
+| Agent → Cursor manifest + prompt | Yes: `agent_to_cursor` |
+| Agent → Claude Code section schema | Yes: `agent_to_claude_code` |
+| Raw upstream format → local normalized format | Yes: `normalize_markdown` |
+| Just strip frontmatter | No: use `strip-frontmatter` transformer |
+| Just copy as-is | No: omit `translate` (default: no-op) |
+
+### Custom Translators
+
+Create a Ruby script in `data/translators/`:
 
 ```ruby
-class Transform
-  def initialize(content:, pkgname:)
-    @content = content
-    @pkgname = pkgname
-  end
-
-  def transform
-    # Extract title from frontmatter if present
-    if @content.start_with?('---')
-      lines = @content.lines
-      end_frontmatter = lines.index { |l| l.strip == '---' } || 0
-      frontmatter = lines[1...end_frontmatter].join
-      metadata = YAML.safe_load(frontmatter, permitted_classes: [Symbol])
-      title = metadata['title'] || 'Agent Rule'
-
-      # Insert header after frontmatter block
-      after_frontmatter = lines[(end_frontmatter + 1)..-1].join
-      header = "#{title}\n#{'=' * title.length}\n\n"
-      header + after_frontmatter
-    else
-      @content
-    end
+# data/translators/example.rb
+class Translator
+  def self.translate(content, args: {})
+    pkgname = args[:pkgname]
+    extra_args = args[:extra_args] || {}
+    # Transform content
+    content
   end
 end
 ```
 
-#### strip-comments.rb
+**Requirements**:
+- Class name must be `Translator`
+- `.translate(content, args: {})` returns transformed content as string
+- `args[:pkgname]` provides the package name for context
+- `args[:extra_args]` provides additional metadata (pkgdesc, tags, agent_config)
 
-Removes HTML comments and normalizes whitespace.
+### Available Translators
 
-```ruby
-class Transform
-  def transform
-    # Remove HTML comments <!-- ... -->
-    content = @content.gsub(/<!--.*?--/m, '')
-    # Normalize multiple blank lines to max 2
-    content.gsub(/\n{3,}/, "\n\n").strip
-  end
-end
+#### Content Translators
+
+| Translator | Purpose |
+|---|---|
+| `rule_to_skill.rb` | Converts flat rule files into skill format for aggregation |
+| `rule_to_import.rb` | Converts rules into import-ready format |
+| `normalize_markdown.rb` | Normalizes markdown formatting |
+
+#### Agent Translators
+
+Agent translators convert agent definitions to platform-specific formats. They are used in PKGBUILD targets with `format: agent`:
+
+| Translator | Target Platform | Transformation |
+|---|---|---|
+| `agent_to_opencode.rb` | OpenCode | Wraps prompt in YAML frontmatter (name, description, model, tools) |
+| `agent_to_cursor.rb` | Cursor | Markdown passthrough; generates `agent.json` manifest from `agent_config` |
+| `agent_to_claude_code.rb` | Claude Code | Adds `## Metadata`, `## System Prompt`, `## Capabilities` sections |
+
+**Platforms not needing translators**: Oh My Pi and Windsurf auto-discover plain markdown — no format conversion required.
+
+### Usage in PKGBUILD
+
+```yaml
+targets:
+  - platform: crush
+    format: skill
+    output: SKILL.md
+    translate: custom:data/translators/rule_to_skill.rb  # runs first
+    transformer: strip-frontmatter                        # runs after schema engine
 ```
 
-#### format-code.rb
-
-Auto-detects code block language and adds explicit language tags.
-
-```ruby
-class Transform
-  def transform
-    # Detect Ruby code blocks and tag them if untagged
-    @content.gsub(/```(\n.*?```m) do |block|
-      if block.start_with?("```\n") && block.lines[1].strip =~ /^(def|class|module|if|while|until|for|begin)/
-        "```ruby\n#{block[4..-4]}\n```"
-      else
-        block
-      end
-    end
-  end
-end
+```yaml
+targets:
+  - platform: cursor
+    format: agent
+    output: .
+    translate: custom:data/translators/agent_to_cursor.rb
+    agent_config:
+      model: claude-3.5-sonnet
+      temperature: 0.3
+    install:
+      type: copy
 ```
 
 ---
@@ -161,35 +217,25 @@ end
 
 During build (`lib/rulepack/build.rb`), for each target:
 
-1. **Check target-level override**: If target specifies `transformer`, use it.
-2. **Check source default**: Otherwise use `source.default_transformer` from registry (not currently in PKGBUILD model; future).
-3. **Default**: If none specified, `copy` is assumed.
-
-**Execution**:
-- Built-in (`copy`, `strip-frontmatter`) → inline apply
-- Custom (`custom:<path>`) → `require_relative` script, instantiate `Transform`, call `#transform`
+1. **Fetch source**: read local file, fetch URL, or clone git repo
+2. **Translate**: if `translate` specified, apply custom translator
+3. **Schema Engine**: apply centralized formatting from platform profile
+4. **Transform**: if `transformer` specified, apply (built-in or custom)
+5. **Write artifact**: output to `build/<platform>/<output>`
 
 ---
 
 ## Debugging Transformers
 
-**Verbose build**:
-```bash
-bin/rulepack build --verbose   # future flag
-```
+**Log inspection**: Check `build/build.log` for transformer application errors.
 
 **Manual test**:
 ```ruby
 # From repo root
 require_relative 'lib/rulepack/common'
 content = File.read('data/packages/my-pkg/src/file.md')
-transformer = Rulepack::Common.load_transformer('custom:transformers/example.rb')
-result = transformer.transform(content, pkgname: :my-pkg)
-puts result
+# Test transformer manually
 ```
-
-**Log inspection**:
-Check `build/build.log` for transformer application errors.
 
 ---
 
@@ -200,33 +246,13 @@ Check `build/build.log` for transformer application errors.
 3. **Deterministic**: Same input → same output every time
 4. **Idempotent**: Running twice should produce identical output
 5. **Error handling**: Raise exceptions on failure; `build.rb` will abort with error message
-6. **Encoding**: Assume UTF-8 input/output
-7. **Line endings**: Preserve `\n` (do not convert to `\r\n`)
 
 ---
 
 ## Security
 
-- **Path validation**: Custom transformer paths are validated with `realpath` to ensure they reside within repository root
-- **No code execution outside transformer**: Only the specified script is `require`d; no eval/instance_eval on user content
-- **Sandbox**: Transformers run in main Ruby process (no separate sandbox). Trust transformer code.
-
----
-
-## Future: LLM-Based Transformers
-
-Planned: `transformer: llm-prompt:<prompt-file>` type.
-
-```yaml
-transformer: llm-prompt:prompts/opencode-to-claude.md
-```
-
-The transformer would:
-1. Read prompt file (instructions for LLM)
-2. Send source content + prompt to configured LLM API
-3. Return LLM's transformed response
-
-This enables intelligent format conversion without hand-written Ruby.
+- **Path validation**: Custom transformer/translator paths are validated with `realpath` to ensure they reside within repository root
+- **No code execution outside script**: Only the specified script is `require`d; no eval/instance_eval on user content
 
 ---
 

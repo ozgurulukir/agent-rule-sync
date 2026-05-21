@@ -2,25 +2,12 @@
 
 How to use the Rulepack system: installation, workflows, commands, and common tasks.
 
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Installation](#installation)
-  - [User-Level Platforms](#user-level-platforms)
-  - [Project-Level Platforms](#project-level-platforms)
-- [Workflows](#workflows)
-- [Commands](#commands)
-- [Uninstall](#uninstall)
-- [Verification](#verification)
-- [Adding a New Package](#adding-a-new-package)
-- [Troubleshooting](#troubleshooting)
-
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Build all packages (fetch + transform)
+# 1. Build all packages (fetch + translate + schema engine + transform)
 bin/rulepack build
 
 # 2. Install to a platform
@@ -28,7 +15,7 @@ bin/rulepack install opencode              # user-level
 bin/rulepack install cursor --project .    # project-level (from project root)
 
 # 3. Verify
-bin/rulepack check opencode
+bin/rulepack verify opencode
 ```
 
 ---
@@ -55,7 +42,10 @@ bin/rulepack install droid
 bin/rulepack install gemini-cli
 bin/rulepack install qwen-code
 
-# Community agents
+# Antigravity (skill-bundle)
+bin/rulepack install antigravity
+
+# Agents
 bin/rulepack install agents
 ```
 
@@ -72,7 +62,6 @@ bin/rulepack install windsurf
 bin/rulepack install github-copilot
 bin/rulepack install claude-code
 bin/rulepack install codex
-bin/rulepack install antigravity
 
 # Or specify explicit project path
 bin/rulepack install cursor --project /path/to/project
@@ -108,21 +97,16 @@ bin/rulepack install cursor --project .
 
 # 4. Verify
 bin/rulepack show memory
-bin/rulepack check opencode
+bin/rulepack verify opencode
 ```
 
 ### Multi-Platform Install
 
 ```bash
 # Install to all user-level platforms
-for p in opencode oh-my-pi crush goose droid gemini-cli qwen-code agents; do
+for p in opencode oh-my-pi crush goose droid gemini-cli qwen-code antigravity agents; do
   bin/rulepack install $p
 done
-
-# Install to project from multiple terminals or script
-bin/rulepack install cursor --project /my/project &
-bin/rulepack install claude-code --project /my/project &
-wait
 ```
 
 ### Dry-Run Preview
@@ -132,6 +116,45 @@ Always preview changes before installing:
 ```bash
 bin/rulepack install opencode --dry-run
 bin/rulepack uninstall cursor --project . --dry-run
+```
+
+### Install with --rules-to
+
+Redirect rules to a single file instead of the `rules_dir`:
+
+```bash
+# Append rules to AGENTS.md instead of creating individual symlinks
+bin/rulepack install oh-my-pi --rules-to AGENTS.md
+```
+
+### Install with --select
+
+For skill-bundle packages, select specific sub-skills:
+
+```bash
+# Interactive selection (TUI)
+bin/rulepack install opencode --select
+
+# Non-interactive: specify sub-skills by name
+bin/rulepack install opencode --select auth,sql
+```
+
+### Install with --on-collision
+
+Control what happens when a file already exists:
+
+```bash
+# Default: stop and report
+bin/rulepack install opencode --on-collision stop
+
+# Skip conflicting files and continue
+bin/rulepack install opencode --on-collision ignore
+
+# Replace files, generating a surgical backup
+bin/rulepack install opencode --on-collision overwrite
+
+# Append rules using marker boundary blocks
+bin/rulepack install opencode --on-collision append
 ```
 
 ---
@@ -144,21 +167,10 @@ Build all packages from source.
 
 ```bash
 bin/rulepack build              # Build all
-bin/rulepack build && bin/rulepack install opencode  # Build and install
+bin/rulepack build --timing     # Build with timing output
 ```
 
-**Output**: `build/<platform>/` artifacts, `build/index.yaml`, `data/index.json`
-
-### aggregate
-
-Generate vendor skill files for skill-based agents.
-
-```bash
-bin/rulepack aggregate          # All skill agents
-# or: ruby lib/rulepack/aggregate.rb
-```
-
-**Output**: `build/<agent>/skills/vendor/<agent>.md`
+**Output**: `build/<platform>/` artifacts, `build/index.yaml`, `build/catalog.json`
 
 ### install
 
@@ -168,11 +180,14 @@ Install packages to a target platform.
 bin/rulepack install <platform> [options]
 
 Options:
-  --dry-run        Show what would be installed (no changes)
-  --check          Verify installed state matches index (exit 0 if OK)
-  --project PATH   Project root for project-level platforms (default: current dir)
-  --force          Allow downgrades (overrides version check)
-  --select SKILLS  Comma-separated sub-skill names for skill-bundle (e.g. --select auth,sql)
+  --dry-run                Show what would be installed (no changes)
+  --check                  Verify installed state matches index (exit 0 if OK)
+  --project PATH           Project root for project-level platforms
+  --force                  Allow downgrades (overrides version check)
+  --needed                 Skip already-installed packages
+  --select <names>         Comma-separated sub-skill names for skill-bundle
+  --on-collision <mode>    Collision handling: stop|ignore|overwrite|append
+  --rules-to <path>        Redirect rules to single file (e.g., AGENTS.md)
 ```
 
 **Examples**:
@@ -187,30 +202,16 @@ bin/rulepack install cursor --project .
 bin/rulepack install opencode --dry-run
 
 # Install only specific sub-skills from a skill-bundle
-bin/rulepack install golang-security --select auth,sql
+bin/rulepack install opencode --select auth,sql
 
 # Force downgrade
 bin/rulepack install opencode --force
 ```
 
-**Examples**:
-```bash
-bin/rulepack install opencode --dry-run
-bin/rulepack install cursor --project /my/app
-bin/rulepack check opencode
-```
-
-**Platform Prerequisites**:
-Before install, Rulepack checks platform prerequisites (system tools) and warns if missing. This is informational only — install continues regardless. See [Platforms](PLATFORMS.md) for required tools per platform.
-
 **Upgrades & Downgrades**:
 - Re-installing automatically upgrades if the candidate version is newer (higher epoch → pkgver → pkgrel).
 - Downgrades are blocked by default to prevent accidental rollbacks.
-- Use `--force` to allow a downgrade (e.g., to roll back to an older package version).
-
-```bash
-bin/rulepack install opencode --force   # Force even if candidate is older
-```
+- Use `--force` to allow a downgrade.
 
 ### uninstall
 
@@ -224,10 +225,14 @@ Options:
   --project PATH   Project root for project-level platforms
 ```
 
-**Examples**:
+### Pacman-Style Shortcuts
+
 ```bash
-bin/rulepack uninstall opencode --dry-run
-bin/rulepack uninstall cursor --project /my/app
+bin/rulepack -S opencode            # Install (same as: install)
+bin/rulepack -R opencode            # Uninstall (same as: uninstall)
+bin/rulepack -Qk opencode           # Verify (same as: verify)
+bin/rulepack -F opencode            # Fix (same as: fix)
+bin/rulepack -Q ls                  # Query (same as: query ls)
 ```
 
 ### query / list / show / search
@@ -237,20 +242,52 @@ Inspect the package database.
 ```bash
 # List all packages
 bin/rulepack list
+bin/rulepack -Q ls
 
 # Show package details
 bin/rulepack show memory
-bin/rulepack show vibe-security
 
 # Search by tag
-bin/rulepack search constraints
 bin/rulepack search security
 
 # List installed packages on a platform
-bin/rulepack installed --platform opencode
+bin/rulepack -Q installed opencode
 
 # List available platforms
 bin/rulepack platforms
+```
+
+### verify
+
+Comprehensive index-disk reconciliation:
+
+```bash
+bin/rulepack verify opencode
+bin/rulepack -Qk opencode
+```
+
+Detects drift between index and actual disk state, reports orphans and mismatches.
+
+### fix
+
+Automated repair of drift:
+
+```bash
+bin/rulepack fix opencode
+bin/rulepack -F opencode
+bin/rulepack fix opencode --auto    # Non-interactive
+```
+
+Clears broken records, reinstalls missing packages, removes orphans.
+
+### audit
+
+Audit PKGBUILD descriptors for schema compliance:
+
+```bash
+bin/rulepack audit               # Basic audit
+bin/rulepack audit --strict       # Strict mode
+bin/rulepack audit --format json  # Machine-readable output
 ```
 
 ---
@@ -273,50 +310,9 @@ bin/rulepack uninstall cursor --project .
 - **directory**: symlinks/files from `rules_dir`/`skills_dir`
 - **import**: `@import` lines are NOT automatically removed (manual edit required — future enhancement)
 - **skill**: vendor skill file deleted; index cleaned
-
-**Skill agent special handling**: For skill-based agents (crush, goose, droid, codex), uninstall re-aggregates the vendor skill file to exclude the removed package's contributions.
+- **agent**: agent directory removed; index cleaned
 
 **Idempotent**: Safe to run multiple times; missing artifacts are ignored.
-
----
-
-## Verification
-
-### Check Mode
-
-Verify that installed state matches index:
-
-```bash
-bin/rulepack check opencode
-bin/rulepack check cursor --project /my/app
-```
-
-Exit code: `0` = all valid, non-zero = mismatches found.
-
-**What it checks:**
-- All expected files exist at computed paths
-- File checksums match index records
-- For skill agents: vendor skill file present
-
-### Verify Mode
-
-Comprehensive index-disk reconciliation:
-
-```bash
-bin/rulepack verify opencode
-```
-
-Detects drift between index and actual disk state, reports orphans and mismatches.
-
-### Fix Mode
-
-Automated repair of drift:
-
-```bash
-bin/rulepack fix opencode
-```
-
-Clears broken records, reinstalls missing packages, removes orphans.
 
 ---
 
@@ -346,6 +342,7 @@ pkgname: my-rule
 pkgver: '1.0.0'
 pkgdesc: My custom rule
 arch: any
+pkg_type: rule
 order: 0
 
 source:
@@ -356,14 +353,11 @@ targets:
   - platform: opencode
     format: directory
     output: 00-my-rule.md
-    transformer: copy
     install:
       type: symlink
-
-checksums:
-  source: null
-  built: {}
 ```
+
+> **Note**: Include targets for all 14 supported platforms. See [Reference](REFERENCE.md) for the full target schema.
 
 ### 4. Build
 
@@ -381,15 +375,8 @@ bin/rulepack install opencode
 
 ```bash
 bin/rulepack show my-rule
-bin/rulepack check opencode
+bin/rulepack verify opencode
 ```
-
-### Adding a New Platform
-
-1. Add to `data/registry/platforms.yaml` (see [Platforms](PLATFORMS.md) for schema)
-2. Create platform-specific PKGBUILD packages if needed (wrapper/meta-packages)
-3. Update any platform-specific logic in `lib/rulepack/install.rb`/`lib/rulepack/uninstaller.rb` if non-standard paths
-4. Test install/uninstall/check cycle
 
 ---
 
@@ -398,14 +385,12 @@ bin/rulepack check opencode
 ### "No build index found"
 
 ```bash
-# Build packages first
 bin/rulepack build
 ```
 
 ### "Platform not found"
 
 ```bash
-# List available platforms
 bin/rulepack platforms
 ```
 
@@ -417,28 +402,27 @@ Check that `data/packages/<name>/PKGBUILD` exists. Run `bin/rulepack build` from
 
 ### "Path traversal not allowed"
 
-Custom transformer or source paths must resolve within the repository root. Ensure paths don't contain `..` or absolute paths outside the repo.
+Custom transformer or source paths must resolve within the repository root.
 
 ### "Checksum mismatch"
 
-Source or built artifact has changed since last build. Run `bin/rulepack build` to rebuild.
+Run `bin/rulepack build` to rebuild.
 
 ### "No target for platform, skipping"
 
 The package has no target defined for the requested platform. Check the PKGBUILD `targets:` section.
 
-### Custom transformer errors
-
-Ensure `data/transformers/<name>.rb` exists and defines a `Transform` class with a `#transform` method.
-
 ---
 
 ## Logs
 
-All operations log to:
+All operations log to `build/build.log`. Check logs for detailed error messages.
 
-- **Build log**: `build/build.log`
-- **Install log**: `build/install.log`
-- **Uninstall log**: `build/uninstall.log`
+---
 
-Check logs for detailed error messages.
+## See Also
+
+- [Architecture](ARCHITECTURE.md) — System design
+- [Platforms](PLATFORMS.md) — Platform reference
+- [Reference](REFERENCE.md) — PKGBUILD schema, index format
+- [Transforms](TRANSFORMS.md) — Transformer/translator docs

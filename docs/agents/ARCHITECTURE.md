@@ -18,20 +18,18 @@ The Rulepack system uses a **package-based architecture** inspired by Arch Linux
 ```
 your-project/
 ├── data/
-│   ├── packages/                     # Package definitions (each = PKGBUILD + src/)
-│   │   ├── memory/PKGBUILD
-│   │   │   └── src/00-memory.md
-│   │   ├── shell/PKGBUILD
-│   │   │   └── src/01-shell.md
-│   │   ├── vibe-security/PKGBUILD
-│   │   │   └── src/SKILL.md
-│   │   ├── cursor-compat/PKGBUILD      # Cursor IDE compatibility rules
-│   │   │   └── src/AGENTS.md
-│   │   └── ...
+│   ├── packages/              # Package definitions (each = PKGBUILD + src/)
+│   │   ├── <pkgname>/PKGBUILD
+│   │   └── src/<source-files>
 │   ├── registry/
 │   │   └── platforms.yaml           # Platform definitions (type, paths, install methods)
 │   ├── translators/                 # Custom translator scripts
-│   │   └── rule_to_skill.rb
+│   │   ├── rule_to_skill.rb         # Rule → skill format
+│   │   ├── rule_to_import.rb         # Rule → import format
+│   │   ├── normalize_markdown.rb     # Markdown normalization
+│   │   ├── agent_to_opencode.rb     # Agent → OpenCode frontmatter
+│   │   ├── agent_to_cursor.rb       # Agent → Cursor manifest
+│   │   └── agent_to_claude_code.rb  # Agent → Claude Code sections
 │   ├── transformers/                # Custom transformer scripts
 │   │   ├── add-header.rb
 │   │   ├── strip-comments.rb
@@ -39,25 +37,42 @@ your-project/
 │   ├── platforms/                   # Platform format profiles (informational)
 │   │   ├── opencode.yaml, crush.yaml, goose.yaml ...
 │   ├── index.yaml                   # Master package DB (installed state + metadata)
-│   ├── index.json                   # Machine-readable index (auto-generated)
 │   └── build/                       # Build artifacts (generated)
 │       ├── index.yaml               # Build metadata (intermediate)
-│       ├── opencode/                # Built artifacts per platform
-│       │   ├── 00-memory.md
+│       ├── catalog.json             # Package catalog (auto-generated)
+│       ├── <platform>/              # Built artifacts per platform
 │       │   └── ...
-│       ├── crush/
-│       │   └── skills/vendor/crush.md
-│       └── ...
 ├── lib/
 │   └── rulepack/                    # Library modules
-│       ├── common.rb                # Constants, Config, basic IO
-│       ├── logging.rb, cache.rb, backup.rb, version.rb
-│       ├── source.rb, transform.rb, validation.rb
-│       ├── platform.rb, uninstall.rb, install.rb
+│       ├── common.rb                # Constants, Config, basic IO, shared validation
+│       ├── cli_parser.rb            # Unified CLI argument parsing
+│       ├── logging.rb               # Centralized logging
+│       ├── cache.rb                 # HTTP/Git caching
+│       ├── backup.rb                # Backup/rollback support
+│       ├── version.rb               # Version comparison (pacman vercmp)
+│       ├── source.rb                # Source fetching (local, url, git)
+│       ├── translate.rb             # Translator loading/dispatch
+│       ├── transform.rb             # Transformer loading/dispatch
+│       ├── schema_engine.rb         # Centralized Dynamic Schema Engine
+│       ├── build_pipeline.rb        # 4-stage build pipeline orchestrator
+│       ├── validation.rb            # PKGBUILD schema validation
+│       ├── platform.rb              # Platform registry + path resolution
+│       ├── install.rb               # Install dispatch
+│       ├── installer.rb             # Installation engine (symlink/copy/inject/append)
+│       ├── uninstall.rb             # Uninstall dispatch
+│       ├── uninstaller.rb           # Uninstallation engine
 │       ├── build.rb                 # Build orchestrator
 │       ├── aggregate.rb             # Vendor skill aggregation
 │       ├── query.rb                 # Package database queries
-│       └── ...
+│       ├── verify.rb                # Installation verification
+│       ├── fix.rb                   # Drift repair
+│       ├── audit.rb                 # PKGBUILD descriptor auditing
+│       ├── generate-catalog.rb     # Catalog JSON generation
+│       └── lib/                     # Sub-modules
+│           ├── transaction.rb       # Atomic transaction logs & rollback
+│           ├── install_handlers.rb  # Low-level copy/symlink/inject routines
+│           ├── skill_bundle.rb      # Skill-bundle resolution
+│           └── tui_selector.rb      # Interactive terminal selection
 ├── bin/
 │   └── rulepack                     # CLI entry point
 ├── docs/
@@ -95,8 +110,9 @@ Global configuration stored in the user's home directory, applies across all pro
 | Crush | skill | `~/.config/crush/` | Single skill file |
 | Goose | skill | `~/.local/share/goose/` | Single skill file (guardrails.md) |
 | Droid | skill | `~/.factory/` | Single skill file (AGENTS.md) |
-| Gemini CLI | import | `~/.config/gemini/` | `@import` lines in GEMINI.md |
-| Qwen Code | import | `~/.config/qwen/` | `@import` lines in QWEN.md |
+| Gemini CLI | import | `~/.config/gemini/` | `@import` lines in `cli_config.yaml` |
+| Qwen Code | import | `~/.config/qwen/` | `@import` lines in `config.yaml` |
+| Antigravity | directory | `~/.gemini/antigravity/` | Skill-bundle directory |
 | Agents | directory | `~/.agents/` | Symlinked rule files |
 
 ### Project-Level Platforms
@@ -110,7 +126,6 @@ Configuration stored in the project repository, version-controlled alongside cod
 | GitHub Copilot | import | `.` → `.github/` | Separate instruction file |
 | Claude Code | directory | `.` → `.claude/rules/` | Symlinked rule files |
 | Codex CLI | skill | `.` → `AGENTS.md` | Single skill file |
-| Antigravity | directory | `.` → `.agent/skills/` | Skill-bundle directory |
 
 > **Key difference**: User-level platforms install to fixed paths in `$HOME`. Project-level platforms require `--project PATH` flag during install/uninstall, and paths are resolved relative to the project root.
 
@@ -126,11 +141,13 @@ Configuration stored in the project repository, version-controlled alongside cod
        ▼
 ┌─────────────────────┐
 │   Build Phase       │  bin/rulepack build
-│   - Load PKGBUILDs  │  • Validate schema
-│   - Fetch sources   │  • Read local/URL (SHA256 verify)
-│   - Transform       │  • Apply transformer (copy/strip/custom)
+│   4-stage pipeline: │
+│   1. Fetch sources  │  • Read local/URL/git (SHA256 verify)
+│   2. Translate      │  • Platform-specific format conversion
+│   3. Schema Engine  │  • Centralized formatting (frontmatter, emoji, bullets)
+│   4. Transform      │  • Structural changes (copy/strip-frontmatter/custom)
 │   - Write artifacts │  • Output → build/<platform>/
-│   - Update index    │  • Write build/index.yaml + index.json
+│   - Update index    │  • Write build/index.yaml + catalog.json
 └─────────┬───────────┘
           │
           ▼
@@ -147,7 +164,7 @@ Configuration stored in the project repository, version-controlled alongside cod
 ┌─────────────────────┐
 │   Install Phase     │  bin/rulepack install <platform> [--project PATH]
 │   - Resolve paths   │  • Lookup platform config (registry)
-│   - Create dirs     │  • Compute install paths
+│   - Create dirs     │  • Compute install paths (rules, skills, agents)
 │   - Symlink/copy    │  • Perform install (symlink/copy/inject/append)
 │   - Update index    │  • Write installed records to data/index.yaml
 │   - Vendor copy     │  • For skill agents: copy vendor file to agent location
@@ -155,8 +172,8 @@ Configuration stored in the project repository, version-controlled alongside cod
           │
           ▼
 ┌─────────────────────┐
-│   Query / Verify    │  bin/rulepack query, bin/rulepack check <platform>
-│   - List packages   │  • Inspect data/index.yaml / data/index.json
+│   Query / Verify    │  bin/rulepack query, bin/rulepack verify <platform>
+│   - List packages   │  • Inspect data/index.yaml
 │   - Show details    │  • Verify installed checksums
 │   - Search          │  • Validate sync state
 │   - Check           │
@@ -169,14 +186,18 @@ Configuration stored in the project repository, version-controlled alongside cod
 
 **Build** (`lib/rulepack/build.rb`):
 1. Load all `PKGBUILD` files from `data/packages/*/`
-2. For each source entry: read local file or fetch URL (with SHA256 verification)
-3. Apply transformer per target (built-in or custom Ruby script)
+2. For each source entry: read local file or fetch URL/git (with SHA256 verification)
+3. 4-stage pipeline per target:
+   - **Fetch**: read/cached source
+   - **Translate**: platform-specific format conversion (e.g., rule → skill, agent → platform format)
+   - **Schema Engine**: centralized formatting (frontmatter strip/inject, emoji policy, heading style, bullet style)
+   - **Transform**: structural changes (copy, strip-frontmatter, custom Ruby)
 4. Write built artifact to `build/<platform>/<output>`
 5. Record checksums in `build/index.yaml`
-6. Generate `index.json` (machine-readable)
+6. Generate `catalog.json`
 
 **Aggregate** (`lib/rulepack/aggregate.rb`):
-1. Load `data/index.yaml` to find packages with `format: skill` targets
+1. Load `build/index.yaml` to find packages with `format: skill` targets
 2. For each skill agent (crush, goose, droid, codex):
    - Read agent-specific header (if any)
    - Collect all rule fragments in `order` sequence
@@ -188,10 +209,11 @@ Configuration stored in the project repository, version-controlled alongside cod
 1. Load `build/index.yaml` and platform registry
 2. For project-level platforms, resolve `--project` dir (default: `Dir.pwd`)
 3. For each package with target matching platform:
-   - Resolve install path (directory: `rules_dir`/`skills_dir`, import: `config_file`, skill: `skill_file`)
+   - Resolve install path (directory: `rules_dir`/`skills_dir`/`agents_dir`, import: `config_file`, skill: `skill_file`)
+   - `--rules-to <file>` can redirect rules to a single file (e.g., `AGENTS.md`) instead of `rules_dir`
    - Perform install:
      - `symlink`: create relative symlink (replace if stale)
-     - `copy`: copy if checksum differs
+     - `copy`: copy if checksum differs (agents always use copy)
      - `inject`: prepend `@import` line to config (deduplicate)
      - `append`: append content (vendor skill aggregation)
    - Record installation in `data/index.yaml` (platform, output, checksum, timestamp)
@@ -205,8 +227,8 @@ Configuration stored in the project repository, version-controlled alongside cod
 5. Write index atomically
 
 **Query** (`lib/rulepack/query.rb`):
-- Commands: `list-packages`, `list-platforms`, `installed --platform <p>`, `show <pkg>`, `search <tag>`, `check`
-- Prefers `data/index.yaml`, falls back to `data/index.json`
+- Commands: `list-packages`, `list-platforms`, `installed <platform>`, `show <pkg>`, `search <tag>`, `check`
+- Sources data from `data/index.yaml` and `build/index.yaml`
 
 ---
 
@@ -220,16 +242,15 @@ generated: '2026-05-14T...'
 packages:
   memory:
     pkgver: 1.0.0
+    pkgrel: 1
+    epoch: 0
     pkgdesc: Workstation Memory Constraints rule
     order: 0
+    pkg_type: rule
     status: stable
     installed:
       - platform: opencode
         output: 00-memory.md
-        checksum: <sha256>
-        installed_at: '2026-05-14T...'
-      - platform: cursor
-        output: workstation-memory.md
         checksum: <sha256>
         installed_at: '2026-05-14T...'
     available_targets: [opencode, cursor, windsurf, ...]
@@ -241,16 +262,13 @@ packages:
       source: <sha256>
       built:
         opencode: <sha256>
-        cursor: <sha256>
     targets:
       - platform: opencode
         format: directory
         output: 00-memory.md
-        transformer: copy
       - platform: cursor
         format: directory
         output: workstation-memory.md
-        transformer: copy
 ```
 
 Key fields:
@@ -258,8 +276,7 @@ Key fields:
 - `checksums.built[<platform>]` — artifact checksum after transformation
 - `available_targets` — list of platforms this package can deploy to
 - `targets[]` — raw target definitions from PKGBUILD
-
-`data/index.json` is auto-generated from `index.yaml` for programmatic access.
+- `pkg_type` — package type: `rule`, `skill`, `agent`, or `hybrid`
 
 ---
 
@@ -274,6 +291,7 @@ pkgname: my-rule
 pkgver: '1.0.0'
 pkgdesc: My custom rule
 arch: any
+pkg_type: rule
 order: 0
 
 source:
@@ -284,13 +302,8 @@ targets:
   - platform: opencode
     format: directory
     output: 00-my-rule.md
-    transformer: copy
     install:
       type: symlink
-
-checksums:
-  source: null   # auto-filled by build
-  built: {}
 ```
 
 ---
@@ -298,6 +311,7 @@ checksums:
 ## Transformer System
 
 Built-in transformers:
+
 - `copy` — identity (no transformation)
 - `strip-frontmatter` — remove YAML frontmatter block (`---` delimited)
 
@@ -322,7 +336,7 @@ end
 
 ## Translator System
 
-The **translate step** runs *before* the transform step. It converts content from one format family to another — e.g., flat rule → skill, markdown → import.
+The **translate step** runs *before* the transform step. It converts content from one format family to another — e.g., flat rule → skill, agent → platform-specific format.
 
 Custom translators: Ruby scripts in `data/translators/` defining a `Translator` class:
 
@@ -336,6 +350,14 @@ class Translator
   end
 end
 ```
+
+**Agent translators** convert agent definitions to platform-specific formats:
+
+| Translator | Target Platform | Transformation |
+|---|---|---|
+| `agent_to_opencode.rb` | OpenCode | Wraps prompt in YAML frontmatter (name, model, tools) |
+| `agent_to_cursor.rb` | Cursor | Passes markdown through; generates `agent.json` manifest from `agent_config` |
+| `agent_to_claude_code.rb` | Claude Code | Adds `## Metadata`, `## System Prompt`, `## Capabilities` sections |
 
 ---
 

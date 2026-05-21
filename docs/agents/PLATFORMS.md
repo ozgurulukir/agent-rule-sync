@@ -16,9 +16,9 @@ Complete reference for all supported agent platforms, their configuration locati
 | [Cursor](#cursor) | project | directory | `.cursor/rules/` | `bin/rulepack install cursor --project .` |
 | [Windsurf](#windsurf) | project | directory | `.windsurf/rules/` | `bin/rulepack install windsurf --project .` |
 | [GitHub Copilot](#github-copilot) | project | import | `.github/copilot-instructions.md` | `bin/rulepack install github-copilot --project .` |
-| [Claude Code](#claude-code) | project | directory | `.claude/rules/` + `CLAUDE.md` | `bin/rulepack install claude-code --project .` |
+| [Claude Code](#claude-code) | project | directory | `.claude/rules/` | `bin/rulepack install claude-code --project .` |
 | [Codex CLI](#codex-cli) | project | skill | `AGENTS.md` | `bin/rulepack install codex --project .` |
-| [Antigravity](#antigravity) | project | directory | `.agent/skills/` | `bin/rulepack install antigravity --project .` |
+| [Antigravity](#antigravity) | user | directory | `~/.gemini/antigravity/.agent/skills/` | `bin/rulepack install antigravity` |
 | [Agents](#agents) | user | directory | `~/.agents/rules/` | `bin/rulepack install agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
@@ -34,7 +34,9 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Base path**: `~/.config/opencode/`
 - **Rules dir**: `rules/`
 - **Skills dir**: `skills/`
-- **Install method**: symlink for rules, copy for skills
+- **Agents dir**: `agents/`
+- **Install method**: symlink for rules, copy for skills/agents
+- **Rules file**: `AGENTS.md` (rules can be appended via `--rules-to AGENTS.md`)
 - **Config file**: `~/.config/opencode/opencode.jsonc`
 - **Rules loading**: All `rules/*.md` files injected at session start via `AGENTS.md`
 - **Update**: `opencode upgrade` (self-updater, multiple backends)
@@ -49,9 +51,11 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Scope**: user
 - **Base path**: `~/.omp/agent/`
 - **Rules dir**: `rules/`
-- **Install method**: symlink
+- **Skills dir**: `skills/`
+- **Agents dir**: `agents/`
+- **Rules file**: `AGENTS.md` (rules can be appended via `--rules-to AGENTS.md`)
+- **Install method**: symlink for rules, copy for skills/agents
 - **Config file**: `~/.omp/agent/config.yml`
-- **Skills**: Built-in coderlm, line-repetition-control
 - **Features**: Hash-anchored edits, TTSR rules (zero context until triggered), IPython kernel
 - **Update**: `omp update` (bun-installed self-updater)
 
@@ -67,7 +71,6 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Skill file**: `crush.md`
 - **Install method**: copy (single vendor skill file)
 - **Provider**: ZAI (api.z.ai)
-- **MCP**: zai-mcp-server (stdio), web-search-prime, web-reader
 - **Features**: Session-based, LSP-enhanced, mid-session model switching
 - **Update**: `sudo apt update && sudo apt install crush` (Debian repo)
 
@@ -82,8 +85,6 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Base path**: `~/.local/share/goose/`
 - **Skill file**: `goose.md` (guardrails)
 - **Install method**: copy (vendor skill file)
-- **Provider**: custom z.ai coding plan (Anthropic-compatible)
-- **Model**: glm-5.1 (128K context)
 - **Persistent instructions**: `GOOSE_MOIM_MESSAGE_FILE` env var → `~/.config/goose/guardrails.md` (re-read every turn, 64KB limit)
 - **Update**: `goose update` (npm)
 
@@ -96,9 +97,8 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Type**: skill
 - **Scope**: user
 - **Base path**: `~/.factory/`
-- **Skill file**: `droid.md`
+- **Skill file**: `droid.md` (installed as `AGENTS.md`)
 - **Install method**: copy
-- **Config**: No persistent file; uses `--settings` flag at runtime
 - **Rules loading**: `AGENTS.md` hierarchy (project → parents → `~/.factory/AGENTS.md`)
 - **Update**: `droid update` (if available)
 
@@ -114,7 +114,6 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Config file**: `cli_config.yaml`
 - **Install method**: inject `@import` lines
 - **Auth**: OAuth personal
-- **Extensions**: `gemini extensions install` (stored in `~/.gemini/extensions/`)
 - **Update**: `gemini extensions update --all` (CLI via npm; extensions separate)
 
 **Rulepack integration**: `bin/rulepack install gemini-cli` → injects `@import` lines into `~/.config/gemini/cli_config.yaml`
@@ -129,9 +128,6 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Config file**: `config.yaml`
 - **Install method**: inject `@import` lines
 - **Auth**: Qwen OAuth
-- **MCP**: context7
-- **Skills**: ast-grep
-- **Permissions**: fine-grained allow/ask/deny per tool pattern
 - **Features**: auto-update, git co-author, chat compression at 70% threshold
 
 **Rulepack integration**: `bin/rulepack install qwen-code` → injects `@import` lines into `~/.config/qwen/config.yaml`
@@ -145,9 +141,8 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Base path**: project root (`.`)
 - **Rules dir**: `.cursor/rules/`
 - **Skills dir**: `.cursor/skills/`
-- **Install method**: symlink
-- **Config**: Project-level rules, version-controlled
-- **MCP**: `~/.cursor/mcp.json` (global) and `.cursor/mcp.json` (project)
+- **Agents dir**: `.cursor/agents/`
+- **Install method**: symlink for rules, copy for skills/agents
 - **Features**: AI-first IDE (VS Code fork), team rules via dashboard, `.mdc` frontmatter support
 - **Update**: Built-in updater (menu → Help → Check for Updates)
 
@@ -161,9 +156,10 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Scope**: project
 - **Base path**: project root (`.`)
 - **Rules dir**: `.windsurf/rules/`
+- **Agents dir**: `.windsurf/agents/`
 - **Rules file (root)**: `.windsurfrules` (optional)
 - **Install method**: symlink
-- **Features**: Codeium's agentic IDE (Cascade), GUI rule editor with always-active / context-specific rules, `.mdc` frontmatter support
+- **Features**: Codeium's agentic IDE (Cascade), GUI rule editor, `.mdc` frontmatter support
 - **Update**: Built-in updater
 
 **Rulepack integration**: `bin/rulepack install windsurf --project .` → symlinks to `.windsurf/rules/`
@@ -190,9 +186,10 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Scope**: project
 - **Base path**: project root (`.`)
 - **Rules dir**: `.claude/rules/`
-- **Install method**: symlink
+- **Skills dir**: `.claude/skills/`
+- **Agents dir**: `.claude/agents/`
+- **Install method**: symlink for rules, copy for skills/agents
 - **Config**: `CLAUDE.md` in project root (loaded automatically), plus per-directory rules in `.claude/rules/`
-- **Provider**: Anthropic Claude 4 (Sonnet 4, Opus 4)
 - **Update**: `claude update` (if installed via npm)
 
 **Rulepack integration**: `bin/rulepack install claude-code --project .` → symlinks to `.claude/rules/`
@@ -206,9 +203,8 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Base path**: project root (`.`)
 - **Skill file**: `AGENTS.md`
 - **Install method**: copy (vendor skill aggregation)
-- **Provider**: OpenAI (Codex models)
-- **Rules loading**: Searches up directory tree for `AGENTS.md`; supports `AGENTS.override.md` and `project_doc_fallback_filenames` config; truncates at 32 KiB by default
-- **Features**: Terminal agent, project-aware, supports subagents (general, Explore, code-reviewer)
+- **Rules loading**: Searches up directory tree for `AGENTS.md`; supports `AGENTS.override.md`
+- **Features**: Terminal agent, project-aware, supports subagents
 - **Update**: `codex update` (npm)
 
 **Rulepack integration**: `bin/rulepack install codex --project .` → generates vendor skill and writes to `AGENTS.md`
@@ -218,13 +214,14 @@ Complete reference for all supported agent platforms, their configuration locati
 ### Antigravity
 
 - **Type**: directory
-- **Scope**: project
-- **Base path**: project root (`.`)
+- **Scope**: user
+- **Base path**: `~/.gemini/antigravity/`
 - **Skills dir**: `.agent/skills/`
-- **Install method**: copy (skill-bundle)
-- **Skills**: antigravity-skills (306 sub-skills from `github.com/rmyndharis/antigravity-skills`)
+- **Rules file**: `GEMINI.md`
+- **Install method**: copy (skill-bundle), append (rules)
+- **Skills**: antigravity-skills (300+ sub-skills from upstream)
 
-**Rulepack integration**: `bin/rulepack install antigravity --project .` → copies skill-bundle to `.agent/skills/antigravity-skills/`
+**Rulepack integration**: `bin/rulepack install antigravity` → copies skill-bundle to `~/.gemini/antigravity/.agent/skills/`
 
 ---
 
@@ -256,8 +253,10 @@ Platforms are defined in `data/registry/platforms.yaml`:
   rules_dir: <relative-path>        # Required (type=directory)
   skills_dir: <relative-path>       # Optional (type=directory)
   docs_dir: <relative-path>         # Optional (type=directory)
+  agents_dir: <relative-path>       # Optional: agent installation directory
+  rules_file: <filename>            # Optional: single file for rule append (--rules-to)
   rule_install:
-    type: symlink|copy              # Required (type=directory)
+    type: symlink|copy|append       # Required (type=directory)
   skill_install:
     type: copy|append               # Optional (type=directory)
 
@@ -274,6 +273,10 @@ Platforms are defined in `data/registry/platforms.yaml`:
   rule_install: null                # Not used for skill platforms
   skill_install:
     type: copy|append               # Required (type=skill)
+
+  # Optional:
+  prerequisites:                    # Informational tool requirements
+    tools: [<tool-name>, ...]
 ```
 
 **Validation**:
@@ -284,6 +287,7 @@ Platforms are defined in `data/registry/platforms.yaml`:
   - `import`: `config_file`, `rule_install.type`
   - `skill`: `skill_file`, `skill_install.type`
 - `base_path` must be tilde-expandable absolute path (user-level) or `.` (project-level)
+- `agents_dir` enables `format: agent` target support (currently: opencode, oh-my-pi, cursor, windsurf, claude-code)
 
 ---
 
@@ -295,8 +299,10 @@ Install to fixed locations in home directory or system paths:
 
 ```bash
 bin/rulepack install opencode    # → ~/.config/opencode/rules/
+bin/rulepack install oh-my-pi    # → ~/.omp/agent/rules/
 bin/rulepack install crush       # → ~/.config/crush/crush.md
 bin/rulepack install goose       # → ~/.local/share/goose/goose.md
+bin/rulepack install antigravity # → ~/.gemini/antigravity/.agent/skills/
 ```
 
 No `--project` flag needed. `base_path` is absolute (tilde-expanded).
@@ -314,7 +320,6 @@ bin/rulepack install windsurf
 bin/rulepack install github-copilot
 bin/rulepack install claude-code
 bin/rulepack install codex
-bin/rulepack install antigravity
 
 # Or specify explicit project path
 bin/rulepack install cursor --project /path/to/project
@@ -337,7 +342,7 @@ Creates a relative symbolic link from the platform's rules directory to the buil
 
 Copies the built artifact to the target location. Only copies if checksum differs.
 
-- Used by: Crush, Goose, Droid, GitHub Copilot, Antigravity (skill-bundle)
+- Used by: Crush, Goose, Droid, GitHub Copilot, Antigravity (skill-bundle), agents
 - Preserves existing files if unchanged
 
 ### Inject (`inject`)
@@ -349,9 +354,9 @@ Prepends an `@import` directive line to the platform's config file. Deduplicates
 
 ### Append (`append`)
 
-Appends content to the target file. Used for vendor skill aggregation.
+Appends content to the target file. Used for vendor skill aggregation or rules-file injection.
 
-- Used by: Codex CLI (vendor skill file)
+- Used by: Codex CLI (vendor skill file), Antigravity (GEMINI.md)
 - Concatenates with `---\n\n` separator
 
 ---
@@ -383,8 +388,17 @@ Config file with `@import` directives. The SSoT system injects import lines poin
 
 Entire directory tree of skills copied as-is. Used for large skill collections with sub-skill selection.
 
-- Examples: Antigravity (306 sub-skills)
+- Examples: Antigravity (300+ sub-skills)
 - Output: entire directory copied to target
+
+### `agent`
+
+Custom agent definition installed to the platform's `agents_dir`. Always uses copy (not symlink).
+
+- Examples: `ruby-update-signatures` (pkg_type: agent)
+- Output: directory copied to `agents_dir`
+- Requires: `agents_dir` defined in platform registry
+- Platforms without `agents_dir` skip `format: agent` targets
 
 ---
 
