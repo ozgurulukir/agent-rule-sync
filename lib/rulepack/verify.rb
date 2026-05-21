@@ -72,6 +72,8 @@ module Rulepack
 
           result = if format_type == 'skill' && platform_cfg[:type] == 'skill'
                      verify_skill_build_artifact(platform_id, pkgname, inst[:output], inst[:checksum])
+                   elsif format_type == 'agent'
+                     verify_agent_on_disk(platform_cfg, target, base_path, pkgname)
                    else
                      installed_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
                      if format_type == 'skill-bundle'
@@ -176,6 +178,23 @@ module Rulepack
         return :ok
       end
       :drift
+    end
+
+    def verify_agent_on_disk(platform_cfg, target_cfg, base_path, pkgname)
+      agents_dir = platform_cfg[:agents_dir]
+      unless agents_dir
+        @out.puts "  ⊘ #{pkgname}: no agent support, skipping verify"
+        return :ok
+      end
+      install_cfg = target_cfg[:install] || {}
+      target_dir = install_cfg[:target_dir] || target_cfg[:output] || pkgname.to_s
+      agent_path = base_path.join(agents_dir, target_dir)
+      unless agent_path.exist?
+        @out.puts "  ⚠ MISSING: #{pkgname} (agent) at #{agent_path}"
+        return :drift
+      end
+      @out.puts "  ✓ #{pkgname} (agent)"
+      :ok
     end
 
     def scan_orphans(platform_id, platform_cfg, base_path, packages)

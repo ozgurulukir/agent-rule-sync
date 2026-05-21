@@ -391,7 +391,7 @@ module Rulepack
       expected_output = inst[:output]
       expected_checksum = inst[:checksum]
       target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
-      format_type = target ? target[:format] : 'directory'
+      format_type = inst[:format] || (target ? target[:format] : 'directory')
 
       # For skill-format packages on skill-type platforms: check build artifact
       if format_type == 'skill' && platform_cfg[:type] == 'skill'
@@ -402,6 +402,14 @@ module Rulepack
         return nil if actual_sha == expected_checksum
 
         return "Build artifact checksum mismatch: #{pkgname}"
+      elsif format_type == 'agent'
+        agents_dir = platform_cfg[:agents_dir]
+        return nil unless agents_dir
+        target_dir = (target[:install] && target[:install][:target_dir]) || expected_output || pkgname.to_s
+        agent_path = base_path.join(agents_dir, target_dir)
+        return "Missing agent: #{pkgname} at #{agent_path}" unless agent_path.exist?
+        Rulepack::Common.log "  ✓ #{pkgname} (agent)"
+        return nil
       end
 
       installed_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
@@ -502,12 +510,18 @@ module Rulepack
         return
       end
 
-      content = built_path.read
-      content_sha256 = Digest::SHA256.hexdigest(content)
+      # Agent format: built_path is a directory, compute sha256 from manifest or skip
+      if built_path.directory?
+        content = nil
+        content_sha256 = Digest::SHA256.hexdigest(built_path.to_s)
+      else
+        content = built_path.read
+        content_sha256 = Digest::SHA256.hexdigest(content)
+      end
 
       # Skill-type platforms: record only, aggregation handles file install
       if platform_cfg[:type] == 'skill'
-        record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256) unless dry_run
+        record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, format: 'skill') unless dry_run
         Rulepack::Common.log "  ✓ Installed: #{pkgname}" unless quiet
         installed_this_run << pkgname
         return
@@ -515,6 +529,27 @@ module Rulepack
 
       install_cfg = target[:install] || {}
       format = target[:format]
+
+      # format: agent → install to agents_dir (skip if platform doesn't support agents)
+      if format == 'agent'
+        agents_dir = platform_cfg[:agents_dir]
+        if agents_dir.nil?
+          Rulepack::Common.log "  ⊘ package '#{pkgname}': no agent support on #{platform_id}, skipping" unless quiet
+          return
+        end
+        target_dir = install_cfg&.[](:target_dir) || pkgname.to_s
+        install_path = base_path.join(agents_dir, target_dir)
+        unless dry_run
+          install_path.mkpath
+          FileUtils.cp_r(built_path.to_s + '/.', install_path.to_s, preserve: false)
+        end
+        Rulepack::Common.log "  ⤷ #{pkgname} (agent) → #{install_path} [copy]" unless quiet
+        record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, format: 'agent') unless dry_run
+        Rulepack::Common.log "  ✓ Installed agent: #{pkgname}" unless quiet
+        installed_this_run << pkgname
+        return
+      end
+
       default_install_cfg = if %w[skill skill-bundle].include?(format)
                               platform_cfg[:skill_install]
                             else
@@ -535,14 +570,14 @@ module Rulepack
       Rulepack::InstallHandlers.perform_file_install(built_path, install_path, content, content_sha256, install_type, platform_cfg, output,
                                                      pkgname, ctx)
 
-      record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256) unless dry_run
+      record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, format: format) unless dry_run
       Rulepack::Common.log "  ✓ Installed: #{pkgname}" unless quiet
       installed_this_run << pkgname
     end
 
     # ─── Common: record installation in index ──────────────────────────────────────
 
-    def record_installation(index, pkgname, platform_id, pkgdata, output, checksum)
+    def record_installation(index, pkgname, platform_id, pkgdata, output, checksum, format: nil)
       pkg_index = index[:packages][pkgname] || { installed: [] }
       pkg_index[:installed] ||= []
       record = {
@@ -552,6 +587,7 @@ module Rulepack
         epoch: pkgdata[:epoch],
         output: output,
         checksum: checksum,
+        format: format,
         installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
       }
       if output == '.'

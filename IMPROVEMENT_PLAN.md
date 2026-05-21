@@ -1822,3 +1822,96 @@ Rulepack::Common.const_set(:BUILD_DIR, @build_dir)
 | 5 | P15.5 $stdout capture in fix.rb | 🟢 Code smell | 20 min | verify.rb, fix.rb | ✅ COMPLETED |
 
 **Total Estimated Effort**: ~2 hours
+
+
+## 📋 Priority 16 — Custom Agent Destegi (2026-05-21)
+
+### Arka Plan
+
+Bazi paketler (ornegin `ruby-update-signatures`) skill degil, **custom agent** tanimi iceriyor.
+Skill'ler "nasil yapilir" bilgisi verirken, agent'ler "su gorevi su araclarla yap" tanimidir -- farkli bir hedef dizine kurulmasi gerekir.
+
+Mevcut durumda `ruby-update-signatures`'in `agents/` alt klasoru skill dizinine yanlis yere kuruluyor.
+
+### Platform Agent Mekanizmalari
+
+| Platform | Agent Dizini | Format | Kapsam |
+|---|---|---|---|
+| OpenCode | `~/.config/opencode/agents/` | Markdown (frontmatter + prompt) | user + project |
+| Oh My Pi | `~/.omp/agents/` | YAML (`agent.yml` veya `config.yml`) | user |
+| Claude Code | `.claude/agents/` | Markdown (prompt + description) | project |
+| Cursor | `.cursor/agents/` | Manifest JSON + prompt dosyalari | project |
+| Windsurf | `.windsurf/agents/` | Markdown (Cursor benzeri) | project |
+| Crush / Goose / Droid / Codex | Desteklenmiyor | - | - |
+
+### Tasarim
+
+#### P16.1 — PKGBUILD'e `pkg_type: agent` ve `format: agent` ekleme
+
+- `pkg_type: agent` tanitimi (mevcut: `rule`, `skill`, `hybrid`)
+- `format: agent` tanitimi -- installer'a platformun `agents_dir` dizinine kopyalama yaptigini soyler
+- `ruby-update-signatures` PKGBUILD'i `pkg_type: skill` yerine `pkg_type: agent` olarak guncellenir
+
+#### P16.2 — Platform registry'ye `agents_dir` ekleme
+
+Destekleyen platformlara `agents_dir` alani eklenir:
+
+```yaml
+opencode:
+  agents_dir: agents/          # ~/.config/opencode/agents/
+oh-my-pi:
+  agents_dir: agents/          # ~/.omp/agents/
+claude-code:
+  agents_dir: .claude/agents/  # (project scope)
+cursor:
+  agents_dir: .cursor/agents/  # (project scope)
+windsurf:
+  agents_dir: .windsurf/agents/ # (project scope)
+```
+
+Agent desteklemeyen platformlar (crush, goose, droid, codex, gemini-cli, qwen-code, github-copilot, antigravity) icin `agents_dir` tanimlanmaz -- bu platformlarda `format: agent` hedefleri skip edilir.
+
+#### P16.3 — Installer'da `format: agent` hedef yolu cozumleme
+
+`install_file_or_skill` metodunda `format: agent` icin yeni dal:
+- `platform_cfg[:agents_dir]` varsa -> `base_path.join(agents_dir).join(target_dir or pkgname)`
+- `platform_cfg[:agents_dir]` yoksa -> "no agent support" log'u ile skip
+
+Install davranisi: **copy** (symlink degil -- agent dosyalari platform tarafindan okunur, referans degil)
+
+#### P16.4 — `ruby-update-signatures` paketini duzeltme
+
+- `pkg_type: skill` -> `pkg_type: agent`
+- Agent desteklemeyen platformlar icin hedefler kaldirilir
+- `source.path` zaten dogru: `plugins/ruby-type-signature-skills/agents/`
+
+#### P16.5 — Uninstall, verify, fix destegi
+
+- `format: agent` ile kurulmus dosyalar icin uninstall/verify/fix mekanizmasi
+- Mevcut dongu zaten `installed` index'inden calisir, sadece yol cozumlemesi `agents_dir` kullanmalidir
+
+### Dosyalar
+
+| Dosya | Degisiklik |
+|---|---|
+| `data/registry/platforms.yaml` | `agents_dir` ekleme (5 platform) |
+| `lib/rulepack/installer.rb` | `format: agent` hedef yol cozumleme |
+| `lib/rulepack/platform.rb` | `resolve_directory_path` icin agent destegi |
+| `data/packages/ruby-update-signatures/PKGBUILD` | `pkg_type: agent`, hedef guncelleme |
+| `AGENTS.md` | `pkg_type: agent` dokumantasyonu |
+| `README.md` | Agent kurulumu ornekleri |
+
+### Test Stratejisi
+
+- Mevcut 277 testin hepsi gecmeli (geriye uyumluluk)
+- Yeni test: `format: agent` hedefi icin kurulum/yol dogrulama
+- Yeni test: `agents_dir` olmayan platformda `format: agent` skip edilmeli
+
+### Uygulama Sirasi
+
+1. P16.1 — `pkg_type: agent` ve `format: agent` tanimleri (PKGBUILD + dokuman)
+2. P16.2 — Platform registry `agents_dir` (5 platform)
+3. P16.3 — Installer `format: agent` yol cozumleme
+4. P16.4 — `ruby-update-signatures` paketini duzelt
+5. P16.5 — Uninstall/verify/fix entegrasyonu
+6. Test + commit

@@ -7,6 +7,7 @@ opencode:
   rules_dir: rules/
   skills_dir: skills/
   docs_dir: docs/
+  agents_dir: agents/
   rules_file: AGENTS.md
   rule_install:
     type: symlink
@@ -90,6 +91,7 @@ oh-my-pi:
   rules_dir: rules/
   skills_dir: skills/
   docs_dir: docs/
+  agents_dir: agents/
   rule_install:
     type: symlink
   skill_install:
@@ -106,6 +108,7 @@ cursor:
   rules_dir: ".cursor/rules/"
   skills_dir: ".cursor/skills/"
   docs_dir: ".cursor/docs/"
+  agents_dir: ".cursor/agents/"
   rule_install:
     type: symlink
   skill_install:
@@ -121,6 +124,7 @@ windsurf:
   rules_dir: ".windsurf/rules/"
   skills_dir: ".windsurf/skills/"
   docs_dir: ".windsurf/docs/"
+  agents_dir: ".windsurf/agents/"
   rule_install:
     type: symlink
   skill_install:
@@ -149,6 +153,7 @@ claude-code:
   rules_dir: ".claude/rules/"
   skills_dir: ".claude/skills/"
   docs_dir: ".claude/docs/"
+  agents_dir: ".claude/agents/"
   rule_install:
     type: symlink
   skill_install:

@@ -152,6 +152,11 @@ module Rulepack
       Pathname.new(base).join(platform_cfg[:skill_file])
     end
 
+    def resolve_agent_install_path(platform_cfg, target_cfg, base)
+      agents_dir = platform_cfg[:agents_dir]
+      target_dir = (target_cfg[:install] && target_cfg[:install][:target_dir]) || target_cfg[:output]
+      Pathname.new(base).join(agents_dir, target_dir)
+    end
 
 
     def resolve_install_path(platform_cfg, target_cfg, base_override = nil)
@@ -165,18 +170,26 @@ module Rulepack
       target_dir = install_cfg[:target_dir]
 
       if target_dir
-        target_subdir = expand_user_path(target_dir)
-        # Directory-type platforms have special handling
-        if platform_cfg[:type] == 'directory'
-          resolve_directory_path(platform_cfg, target_cfg, base)
-        elsif Pathname.new(target_subdir).absolute?
-          Pathname.new(target_subdir)
+        if target_cfg[:format] == 'agent' && platform_cfg[:agents_dir]
+          resolve_agent_install_path(platform_cfg, target_cfg, base)
         else
-          Pathname.new(base).join(target_subdir)
+          target_subdir = expand_user_path(target_dir)
+          # Directory-type platforms have special handling
+          if platform_cfg[:type] == 'directory'
+            resolve_directory_path(platform_cfg, target_cfg, base)
+          elsif Pathname.new(target_subdir).absolute?
+            Pathname.new(target_subdir)
+          else
+            Pathname.new(base).join(target_subdir)
+          end
         end
       else
-        # No target_dir specified - dispatch by platform type
-        case platform_cfg[:type]
+        # No target_dir specified - agent format takes priority
+        if target_cfg[:format] == 'agent' && platform_cfg[:agents_dir]
+          resolve_agent_install_path(platform_cfg, target_cfg, base)
+        else
+          # Dispatch by platform type
+          case platform_cfg[:type]
         when 'directory'
           resolve_directory_path(platform_cfg, target_cfg, base)
         when 'import'
@@ -186,6 +199,7 @@ module Rulepack
         else
           raise "Unknown platform type: #{platform_cfg[:type]}"
         end
+        end # agent format check
       end
     end
     # Safe relative path (no escaping parent)

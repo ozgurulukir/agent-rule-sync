@@ -84,7 +84,7 @@ module Rulepack
       errors << 'targets must be a non-empty array' unless pkg[:targets].is_a?(Array) && !pkg[:targets].empty?
       return unless pkg[:targets].is_a?(Array)
 
-      valid_formats = %w[directory import skill skill-bundle]
+      valid_formats = %w[directory import skill skill-bundle agent]
       pkg[:targets].each_with_index do |t, i|
         errors << "targets[#{i}]: missing platform" unless t[:platform].is_a?(String)
         unless valid_formats.include?(t[:format])
@@ -153,13 +153,13 @@ module Rulepack
       # Validate targets array
       raise 'PKGBUILD must have at least one target' unless data[:targets].is_a?(Array) && !data[:targets].empty?
 
-      valid_formats = %w[directory import skill skill-bundle]
+      valid_formats = %w[directory import skill skill-bundle agent]
       data[:targets].each do |t|
         raise "Target missing required fields: #{t.inspect}" unless t[:platform] && t[:format] && t[:output]
         raise "Invalid format '#{t[:format]}' for platform '#{t[:platform]}'" unless valid_formats.include?(t[:format])
 
-        # skill-bundle: output must be '.' (directory marker), target_dir required
-        next unless t[:format] == 'skill-bundle'
+        # skill-bundle/agent: output must be '.' (directory marker), target_dir required
+        next unless %w[skill-bundle agent].include?(t[:format])
         if t[:output] && t[:output] != '.' && !t[:output].empty?
           raise "skill-bundle output must be '.' (directory marker), got '#{t[:output]}'"
         end

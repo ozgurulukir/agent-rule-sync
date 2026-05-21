@@ -55,7 +55,7 @@ module Rulepack
         write_selected_manifest(dest_dir, manifest, pkgname, platform_id, selected)
       end
 
-      installer_inst.record_installation(index, pkgname, platform_id, pkgdata, '.', nil) unless dry_run
+      installer_inst.record_installation(index, pkgname, platform_id, pkgdata, '.', nil, format: 'skill-bundle') unless dry_run
       Rulepack::Common.log "  ✓ Installed: #{pkgname}" unless quiet
       installed_this_run << pkgname
       true

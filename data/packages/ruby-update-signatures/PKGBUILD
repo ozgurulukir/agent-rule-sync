@@ -7,7 +7,7 @@ pkgdesc: >
   Agent that auto-detects Ruby type-signature system (RBS vs Sorbet) and
   style (inline vs separate) and updates signatures for changed files.
 arch: any
-pkg_type: skill
+pkg_type: agent
 order: 5
 
 source:
@@ -19,104 +19,40 @@ source:
 
 targets:
   - platform: opencode
-    format: skill-bundle
+    format: agent
     output: .
     transformer: strip-frontmatter
     install:
       type: copy
       target_dir: ruby-update-signatures/
   - platform: cursor
-    format: skill-bundle
+    format: agent
     output: .
     transformer: strip-frontmatter
     install:
       type: copy
       target_dir: ruby-update-signatures/
   - platform: claude-code
-    format: skill-bundle
+    format: agent
     output: .
     transformer: strip-frontmatter
     install:
       type: copy
       target_dir: ruby-update-signatures/
   - platform: windsurf
-    format: skill-bundle
+    format: agent
     output: .
     transformer: strip-frontmatter
     install:
       type: copy
       target_dir: ruby-update-signatures/
   - platform: oh-my-pi
-    format: skill-bundle
+    format: agent
     output: .
     transformer: strip-frontmatter
     install:
       type: copy
       target_dir: ruby-update-signatures/
-  - platform: agents
-    format: skill-bundle
-    output: .
-    transformer: strip-frontmatter
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
-  - platform: antigravity
-    format: skill-bundle
-    output: .
-    transformer: strip-frontmatter
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
-  - platform: crush
-    format: skill-bundle
-    output: .
-    transformer: strip-frontmatter
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
-  - platform: gemini-cli
-    format: skill-bundle
-    output: .
-    transformer: strip-frontmatter
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
-  - platform: goose
-    format: skill-bundle
-    output: .
-    transformer: strip-frontmatter
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
-  - platform: droid
-    format: skill-bundle
-    output: .
-    transformer: strip-frontmatter
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
-  - platform: qwen-code
-    format: skill-bundle
-    output: .
-    transformer: strip-frontmatter
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
-  - platform: github-copilot
-    format: skill-bundle
-    output: .
-    transformer: strip-frontmatter
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
-  - platform: codex
-    format: skill-bundle
-    output: .
-    transformer: strip-frontmatter
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
-
 checksums:
   source: null
   built: {}

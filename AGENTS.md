@@ -186,6 +186,7 @@ Every package must declare its type:
 | `rule` | Pure rule file(s) — agent instructions, constraints, conventions | memory, shell, ast-grep |
 | `skill` | Pure skill file(s) — tool-like capabilities with SKILL.md manifest | vibe-security, antigravity-skills |
 | `hybrid` | Contains both rule and skill content — use multiple targets per platform | (future use) |
+| `agent` | Custom agent definition — installed to platform's agents_dir | ruby-update-signatures |
 
 For **hybrid** packages, declare two targets for the same platform with different `format` values. The build pipeline already supports multiple targets per platform:
 
@@ -259,6 +260,27 @@ tags:
   - memory
 maintainer: Antigravity AI
 license: MIT
+```
+
+### Agent Format
+
+Agent packages use `format: agent` to install custom agent definitions to the platform's `agents_dir`:
+
+| Platform | Install Path |
+|---|---|
+| OpenCode | `~/.config/opencode/agents/<pkgname>/` |
+| Oh My Pi | `~/.omp/agents/<pkgname>/` |
+| Cursor | `.cursor/agents/<pkgname>/` |
+| Windsurf | `.windsurf/agents/<pkgname>/` |
+| Claude Code | `.claude/agents/<pkgname>/` |
+
+Platforms without `agents_dir` in their registry config will skip `format: agent` targets automatically.
+
+```yaml
+pkg_type: agent
+
+targets:\  - platform: opencode\    format: agent\    output: .\    install:\      type: copy\      target_dir: my-agent/
+  - platform: crush\    format: skill-bundle  # fallback: install as skill on non-agent platforms
 ```
 
 ---

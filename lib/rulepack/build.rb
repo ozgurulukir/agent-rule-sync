@@ -96,7 +96,7 @@ module Rulepack
           # ─── Fetch source ────────────────────────────────────────────────────────────
 
           # Determine if all targets are skill-bundle (source is a directory)
-          all_skill_bundle = pkg[:targets].all? { |t| t[:format] == 'skill-bundle' }
+          all_skill_bundle = pkg[:targets].all? { |t| %w[skill-bundle agent].include?(t[:format]) }
 
           skip_pkg = false
 
@@ -218,7 +218,7 @@ module Rulepack
             translate = tgt[:translate] || nil # optional translate step (before transformer)
             transformer = tgt[:transformer] || 'copy'
 
-            if format == 'skill-bundle'
+            if %w[skill-bundle agent].include?(format)
               Rulepack::Common.log "  → Building for #{platform_id} (skill-bundle: #{pkgname})"
               puts "  → Building for #{platform_id} (skill-bundle: #{pkgname})"
 
