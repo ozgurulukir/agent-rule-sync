@@ -1915,3 +1915,89 @@ Install davranisi: **copy** (symlink degil -- agent dosyalari platform tarafinda
 4. P16.4 — `ruby-update-signatures` paketini duzelt
 5. P16.5 — Uninstall/verify/fix entegrasyonu
 6. Test + commit
+
+
+
+---
+
+## Priority 17 — Platform-Specific Agent Format Translator'leri (P17)
+
+**Durum**: Planlaniyor
+**Tarih**: 2026-05-21
+**Bagimlilik**: P16 (Ozel Agent Destegi) tamamlandi
+
+### Sorun
+
+P16'de `format: agent` ile dosyalari platformlarin `agents/` dizinlerine kopyalama ozelligi eklendi. Ancak her platformun farkli dosya format beklentisi var:
+
+| Platform | Beklenen Format | Dosya Yapisi | Aciklama |
+|---|---|---|---|
+| **OpenCode** | Markdown + YAML frontmatter | `agents/my-agent.md` | Frontmatter'da name, model, tools, permissions; body'de prompt |
+| **Oh My Pi** | Markdown | `agents/my-agent/agent.md` | Dizin icerisinde markdown prompt; otomatik kesif |
+| **Claude Code** | Markdown (section schema) | `.claude/agents/my-agent.md` | `## Metadata`, `## System Prompt`, `## Capabilities` section'lari |
+| **Cursor** | JSON manifest + markdown | `.cursor/agents/my-agent/agent.json` + `skills.md` | agent.json manifest zorunlu: name, description, model, temperature, triggers |
+| **Windsurf** | Markdown (AGENTS.md format) | `.windsurf/agents/my-agent.md` | Basit markdown; otomatik kesif |
+
+**Mevcut davranis**: `format: agent` tum platformlara ayni ham dosyayi kopyalar. Bu yeterli **Oh My Pi** ve **Windsurf** icin, ama **Cursor** (manifest gerekli), **OpenCode** (frontmatter gerekli), ve **Claude Code** (section schema gerekli) icin yetersiz.
+
+### Tasarim
+
+#### P17.1 — Agent format translator'leri
+
+Her platform icin `data/translators/` altinda translator betigi. PKGBUILD'de kullanim:
+
+```yaml
+targets:
+  - platform: cursor
+    format: agent
+    translate: custom:data/translators/agent_to_cursor.rb
+    output: .
+```
+
+Mevcut `translate` mekanizmasi (build_pipeline'da `:translate` asamasi) zaten var. Sadece agent icin yeni translator'ler yazilmasi gerekiyor.
+
+#### P17.2 — Cursor agent.json manifest uretimi
+
+Cursor icin her agent dizininde zorunlu `agent.json`. PKGBUILD'e opsiyonel `agent_config` alani eklenebilir:
+
+```yaml
+targets:
+  - platform: cursor
+    format: agent
+    output: .
+    agent_config:
+      model: claude-3.5-sonnet
+      temperature: 0.3
+      triggers:
+        file_patterns: ["*.rb", "*.rbs"]
+```
+
+#### P17.3 — OpenCode YAML frontmatter enjeksiyonu
+
+OpenCode agent dosyalari YAML frontmatter gerektiriyor. Kaynak dosyada frontmatter yoksa, PKGBUILD metadata'sindan uretilmeli.
+
+#### P17.4 — Claude Code section schema donusumu
+
+Claude Code agent dosyalari belirli markdown section'lari bekliyor. Translator bu formati uretmeli.
+
+### Dosyalar
+
+| Dosya | Degisiklik |
+|---|---|
+| `data/translators/agent_to_cursor.rb` | Yeni — Cursor manifest + prompt uretimi |
+| `data/translators/agent_to_opencode.rb` | Yeni — OpenCode frontmatter enjeksiyonu |
+| `data/translators/agent_to_claude_code.rb` | Yeni — Claude Code section schema |
+| `data/packages/ruby-update-signatures/PKGBUILD` | `translate` ve `agent_config` ekleme |
+| `AGENTS.md` | Translator dokumantasyonu |
+
+### Uygulama Sirasi
+
+1. P17.1 — Translator mekanizmasini agent icin aktif et
+2. P17.2 — Cursor translator + PKGBUILD agent_config destegi
+3. P17.3 — OpenCode translator
+4. P17.4 — Claude Code translator
+5. Test + commit
+
+### Not
+
+Oh My Pi ve Windsurf icin translator gerekmez — ham markdown yeterli. Mevcut `format: agent` kopyalama bu platformlar icin dogru calisiyor.
