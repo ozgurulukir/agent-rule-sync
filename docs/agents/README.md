@@ -15,20 +15,20 @@ This is the PKGBUILD-based system for managing AI agent rules, skills, and docum
 
 | Agent | Type | Scope | Config | Guide |
 |-------|------|-------|--------|-------|
-| OpenCode | directory | user | `~/.config/opencode/rules/` | [OpenCode](agents/opencode.md) |
-| Oh My Pi | directory | user | `~/.omp/agent/rules/` | [Oh My Pi](agents/oh-my-pi.md) |
-| Crush | skill | user | `~/.config/crush/crush.md` | [Crush](agents/crush.md) |
-| Goose | skill | user | `~/.local/share/goose/goose.md` | [Goose](agents/goose.md) |
-| Droid | skill | user | `~/.factory/AGENTS.md` | [Droid](agents/droid.md) |
-| Gemini CLI | import | user | `~/.config/gemini/cli_config.yaml` | [Gemini CLI](agents/gemini-cli.md) |
-| Qwen Code | import | user | `~/.config/qwen/config.yaml` | [Qwen Code](agents/qwen-code.md) |
-| Cursor | directory | project | `.cursor/rules/` | [Cursor](agents/cursor.md) |
-| Windsurf | directory | project | `.windsurf/rules/` | [Windsurf](agents/windsurf.md) |
-| GitHub Copilot | import | project | `.github/copilot-instructions.md` | [GitHub Copilot](agents/github-copilot.md) |
-| Claude Code | directory | project | `.claude/rules/` | [Claude Code](agents/claude-code.md) |
-| Codex CLI | skill | project | `AGENTS.md` | [Codex CLI](agents/codex.md) |
-| Antigravity | directory | user | `~/.gemini/antigravity/.agent/skills/` | [Antigravity](agents/antigravity.md) |
-| Agents | directory | user | `~/.agents/rules/` | [Agents](agents/agents.md) |
+| OpenCode | directory | user | `~/.config/opencode/rules/` | [OpenCode](platforms/opencode.md) |
+| Oh My Pi | directory | user | `~/.omp/agent/rules/` | [Oh My Pi](platforms/oh-my-pi.md) |
+| Crush | skill | user | `~/.config/crush/crush.md` | [Crush](platforms/crush.md) |
+| Goose | skill | user | `~/.local/share/goose/goose.md` | [Goose](platforms/goose.md) |
+| Droid | skill | user | `~/.factory/AGENTS.md` | [Droid](platforms/droid.md) |
+| Gemini CLI | import | user | `~/.config/gemini/cli_config.yaml` | [Gemini CLI](platforms/gemini-cli.md) |
+| Qwen Code | import | user | `~/.config/qwen/config.yaml` | [Qwen Code](platforms/qwen-code.md) |
+| Cursor | directory | project | `.cursor/rules/` | [Cursor](platforms/cursor.md) |
+| Windsurf | directory | project | `.windsurf/rules/` | [Windsurf](platforms/windsurf.md) |
+| GitHub Copilot | import | project | `.github/copilot-instructions.md` | [GitHub Copilot](platforms/github-copilot.md) |
+| Claude Code | directory | project | `.claude/rules/` | [Claude Code](platforms/claude-code.md) |
+| Codex CLI | skill | project | `AGENTS.md` | [Codex CLI](platforms/codex.md) |
+| Antigravity | directory | user | `~/.gemini/antigravity/.agent/skills/` | [Antigravity](platforms/antigravity.md) |
+| Agents | directory | user | `~/.agents/rules/` | [Agents](platforms/agents.md) |
 
 ## Overview
 

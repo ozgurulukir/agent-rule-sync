@@ -108,20 +108,20 @@ rulepack/
 
 | Agent | Type | Scope | Config Location | Install Command |
 |-------|------|-------|-----------------|-----------------|
-| [OpenCode](docs/agents/agents/opencode.md) | directory | user | `~/.config/opencode/rules/` or `AGENTS.md` | `bin/rulepack install --target opencode` |
-| [Oh My Pi](docs/agents/agents/oh-my-pi.md) | directory | user | `~/.omp/agent/rules/` or `AGENTS.md` | `bin/rulepack install --target oh-my-pi` |
-| [Crush](docs/agents/agents/crush.md) | skill | user | `~/.config/crush/crush.md` | `bin/rulepack install --target crush` |
-| [Goose](docs/agents/agents/goose.md) | skill | user | `~/.local/share/goose/goose.md` | `bin/rulepack install --target goose` |
-| [Droid](docs/agents/agents/droid.md) | skill | user | `~/.factory/AGENTS.md` | `bin/rulepack install --target droid` |
-| [Gemini CLI](docs/agents/agents/gemini-cli.md) | import | user | `~/.config/gemini/cli_config.yaml` | `bin/rulepack install --target gemini-cli` |
-| [Qwen Code](docs/agents/agents/qwen-code.md) | import | user | `~/.config/qwen/config.yaml` | `bin/rulepack install --target qwen-code` |
-| [Cursor](docs/agents/agents/cursor.md) | directory | project | `.cursor/rules/` | `bin/rulepack install --target cursor --project .` |
-| [Windsurf](docs/agents/agents/windsurf.md) | directory | project | `.windsurf/rules/` | `bin/rulepack install --target windsurf --project .` |
-| [GitHub Copilot](docs/agents/agents/github-copilot.md) | import | project | `.github/copilot-instructions.md` | `bin/rulepack install --target github-copilot --project .` |
-| [Claude Code](docs/agents/agents/claude-code.md) | directory | project | `.claude/rules/` | `bin/rulepack install --target claude-code --project .` |
-| [Codex CLI](docs/agents/agents/codex.md) | skill | project | `AGENTS.md` | `bin/rulepack install --target codex --project .` |
-| [Antigravity](docs/agents/agents/antigravity.md) | directory | user | `~/.gemini/antigravity/GEMINI.md` | `bin/rulepack install --target antigravity` |
-| [Agents](docs/agents/agents/agents.md) | directory | user | `~/.agents/rules/` | `bin/rulepack install --target agents` |
+| [OpenCode](docs/agents/platforms/opencode.md) | directory | user | `~/.config/opencode/rules/` or `AGENTS.md` | `bin/rulepack install --target opencode` |
+| [Oh My Pi](docs/agents/platforms/oh-my-pi.md) | directory | user | `~/.omp/agent/rules/` or `AGENTS.md` | `bin/rulepack install --target oh-my-pi` |
+| [Crush](docs/agents/platforms/crush.md) | skill | user | `~/.config/crush/crush.md` | `bin/rulepack install --target crush` |
+| [Goose](docs/agents/platforms/goose.md) | skill | user | `~/.local/share/goose/goose.md` | `bin/rulepack install --target goose` |
+| [Droid](docs/agents/platforms/droid.md) | skill | user | `~/.factory/AGENTS.md` | `bin/rulepack install --target droid` |
+| [Gemini CLI](docs/agents/platforms/gemini-cli.md) | import | user | `~/.config/gemini/cli_config.yaml` | `bin/rulepack install --target gemini-cli` |
+| [Qwen Code](docs/agents/platforms/qwen-code.md) | import | user | `~/.config/qwen/config.yaml` | `bin/rulepack install --target qwen-code` |
+| [Cursor](docs/agents/platforms/cursor.md) | directory | project | `.cursor/rules/` | `bin/rulepack install --target cursor --project .` |
+| [Windsurf](docs/agents/platforms/windsurf.md) | directory | project | `.windsurf/rules/` | `bin/rulepack install --target windsurf --project .` |
+| [GitHub Copilot](docs/agents/platforms/github-copilot.md) | import | project | `.github/copilot-instructions.md` | `bin/rulepack install --target github-copilot --project .` |
+| [Claude Code](docs/agents/platforms/claude-code.md) | directory | project | `.claude/rules/` | `bin/rulepack install --target claude-code --project .` |
+| [Codex CLI](docs/agents/platforms/codex.md) | skill | project | `AGENTS.md` | `bin/rulepack install --target codex --project .` |
+| [Antigravity](docs/agents/platforms/antigravity.md) | directory | user | `~/.gemini/antigravity/GEMINI.md` | `bin/rulepack install --target antigravity` |
+| [Agents](docs/agents/platforms/agents.md) | directory | user | `~/.agents/rules/` | `bin/rulepack install --target agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 

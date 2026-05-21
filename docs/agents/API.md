@@ -405,7 +405,7 @@ end
 
 1. Add to `data/registry/platforms.yaml`
 2. Add platform format profile in `data/platforms/<agent>.yaml`
-3. Add agent guide in `docs/agents/agents/<agent>.md`
+3. Add agent guide in `docs/agents/platforms/<agent>.md`
 
 ---
 

@@ -16,7 +16,7 @@ Rulepack uses a package-based architecture where each rule is a package with a d
 
 ### Which platforms are supported?
 
-See [Platforms](PLATFORMS.md) for the full list of 14 supported platforms, including OpenCode, Cursor, Claude Code, GitHub Copilot, Windsurf, and more.
+See [Platforms](agents/PLATFORMS.md) for the full list of 14 supported platforms, including OpenCode, Cursor, Claude Code, GitHub Copilot, Windsurf, and more.
 
 ---
 
@@ -26,31 +26,20 @@ See [Platforms](PLATFORMS.md) for the full list of 14 supported platforms, inclu
 
 ```bash
 # Clone the repository
-git clone https://github.com/example/rulepack.git
-cd rulepack
+git clone <repo-url>
+cd agent-rule-sync
 
-# Install dependencies (Ruby 2.7+)
-bundle install
+# Build all packages
+bin/rulepack build
 
-# Run the setup
-bin/rulepack setup
-```
-
-### How do I add Rulepack to my project?
-
-```bash
-# Initialize in an existing project
-cd /path/to/your/project
-/path/to/rulepack/bin/rulepack init
-
-# This creates the data/ directory structure
+# Install to a platform
+bin/rulepack install opencode
 ```
 
 ### What are the prerequisites?
 
-- **Ruby 2.7+** (for build system)
+- **Ruby 2.7+** (for build system — stdlib only, no gems)
 - **Git** (for fetching remote sources)
-- **Bundler** (for dependency management)
 
 ---
 
@@ -72,19 +61,29 @@ bin/rulepack install opencode
 
 # Project-level platform (version-controlled)
 bin/rulepack install cursor --project .
+
+# Install specific package to a platform
+bin/rulepack install memory --target opencode
+
+# Install with pacman-style flag
+bin/rulepack install -S opencode
 ```
 
 ### How do I check what's installed?
 
 ```bash
-# List all installed packages
-bin/rulepack query installed
+# Show package details
+bin/rulepack show memory
 
-# Show details for a specific package
+# Search packages by tag
+bin/rulepack search security
+
+# Verify installed state matches index
+bin/rulepack verify opencode
+
+# Query package database
 bin/rulepack query show memory
-
-# Check platform sync state
-bin/rulepack check opencode
+bin/rulepack query search shell
 ```
 
 ### How do I update rules?
@@ -92,10 +91,10 @@ bin/rulepack check opencode
 ```bash
 # Rebuild and reinstall
 bin/rulepack build
-bin/rulepack install <platform>
+bin/rulepack install opencode
 
-# Or use the sync command (build + install)
-bin/rulepack sync <platform>
+# Force reinstall (allows downgrades)
+bin/rulepack install opencode --force
 ```
 
 ---
@@ -110,7 +109,7 @@ bin/rulepack sync <platform>
 
 ```bash
 bin/rulepack build
-bin/rulepack install <platform>
+bin/rulepack install opencode
 ```
 
 ### "Platform not found"
@@ -120,7 +119,7 @@ bin/rulepack install <platform>
 **Solution**: Check available platforms:
 
 ```bash
-bin/rulepack list-platforms
+bin/rulepack platforms
 ```
 
 Ensure the platform ID matches exactly (e.g., `claude-code`, not `claude`).
@@ -148,10 +147,11 @@ Then update `data/packages/<name>/PKGBUILD`.
 
 **Problem**: I updated a rule but the agent isn't seeing changes
 
-**Solution**: 
+**Solution**:
 1. Verify the artifact was rebuilt: `ls build/<platform>/`
-2. Reinstall: `bin/rulepack install <platform> --force`
+2. Reinstall: `bin/rulepack install opencode --force`
 3. Check the agent's config location (some agents cache rules)
+4. Repair drift: `bin/rulepack fix opencode`
 
 ---
 
@@ -159,7 +159,7 @@ Then update `data/packages/<name>/PKGBUILD`.
 
 ### How do I add a new package?
 
-See [Adding a New Package](USAGE.md#adding-a-new-package) for a step-by-step guide.
+See [Usage](agents/USAGE.md) for a step-by-step guide.
 
 ### How do I create a custom transformer?
 
@@ -185,7 +185,7 @@ Reference it in your PKGBUILD:
 ```yaml
 targets:
   - platform: opencode
-    transformer: custom:transformers/my-transform.rb
+    transformer: custom:data/transformers/my-transform.rb
 ```
 
 ### How do I create a custom translator?
@@ -207,8 +207,7 @@ end
 
 1. Add platform definition to `data/registry/platforms.yaml`
 2. Create platform format profile in `data/platforms/<agent>.yaml`
-3. Add platform logic in `lib/rulepack/install.rb` if needed
-4. Create agent guide in `docs/agents/agents/<agent>.md`
+3. Create platform guide in `docs/agents/platforms/<agent>.md`
 
 ---
 
@@ -243,9 +242,7 @@ For skill-based platforms (Crush, Goose, Droid, Codex), Rulepack aggregates mult
 ### How do I run tests?
 
 ```bash
-rake test                    # All tests
-rake test_unit               # Unit tests only
-rake test_integration        # Integration tests
+rake test                    # All tests (277 tests, 855 assertions)
 ```
 
 ### How do I debug a build?
@@ -256,8 +253,6 @@ Enable debug logging:
 RULEPACK_LOG_LEVEL=debug bin/rulepack build
 ```
 
-Logs are written to `build/build.log`.
-
 ---
 
 ## Platform-Specific
@@ -267,48 +262,21 @@ Logs are written to `build/build.log`.
 - Ensure rules are in `.cursor/rules/` directory
 - Check that filenames end with `.md`
 - Restart Cursor after installing rules
-- Use `.mdc` extension for frontmatter support
 
-### Claude Code: "CLAUDE.md not found"
+### Claude Code: Rules not loading
 
-- Claude Code reads `CLAUDE.md` from current or parent directory
+- Claude Code reads rules from `.claude/rules/` in the project
 - Ensure you're running from the project root
-- Check that `bin/rulepack install claude-code --project .` completed successfully
+- Install with: `bin/rulepack install claude-code --project .`
 
 ### GitHub Copilot: Instructions not applying
 
 - Copilot reads `.github/copilot-instructions.md` in the repository root
 - Ensure the file exists and is committed
-- Check GitHub Copilot Labs extension is enabled
 - Instructions may take a minute to activate after changes
 
 ### OpenCode: Rules not loading
 
 - OpenCode reads from `~/.config/opencode/rules/`
 - Ensure files are symlinked correctly: `ls -la ~/.config/opencode/rules/`
-- Check file permissions (should be readable)
 - Restart OpenCode after installing rules
-
----
-
-## Contributing
-
-### How can I contribute?
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### How do I report a bug?
-
-Open an issue at https://github.com/example/rulepack/issues with:
-- Rulepack version (`bin/rulepack --version`)
-- Platform and version
-- Steps to reproduce
-- Expected vs actual behavior
-
-### How do I request a new platform?
-
-Open an issue with:
-- Platform name and documentation URL
-- Configuration file location and format
-- Install method (symlink/copy/inject/etc.)
-- Any special handling needed
