@@ -1585,3 +1585,59 @@ Total: ~9s of network I/O per test run, plus ~2.5s of file I/O for 305+ sub-skil
 - Enabled fast CI testing by default (E2E <30s)
 
 ---
+
+---
+
+## Priority 14 — True Pacman, Mock Git & Rollbacks
+
+**Status**: COMPLETED (2026-05-21)
+
+All 5 items were already implemented in the codebase. The plan documented them as PLANNED but verification confirmed full implementation:
+
+| # | Item | Evidence |
+|---|------|----------|
+| P14.1 | Pacman CLI Routing | `bin/rulepack` lines 35-52: `-S`/`-R`/`-Qk`/`-F`/`-Q` mapped to install/uninstall/verify/fix/query |
+| P14.2 | Query `-Q` Flag | `query.rb` line 20: `argv.shift if argv.first == '-Q'` |
+| P14.3 | Mock Git E2E | `test/helper.rb` `mock_git_packages` + `NETWORK_E2E = true` (no skip gate) |
+| P14.4 | Transaction Rollbacks | `transaction.rb`: `transaction_rollback` + `rollback_journal` fully implemented |
+| P14.5 | TUI Pagination | `tui_selector.rb`: sliding window `page_size = 10`, `start_index` tracking |
+
+---
+
+## Priority 15 — Slop & Gap Remediation
+
+**Status**: COMPLETED (2026-05-20, commit `9afbfa9`)
+
+5 refactoring tasks completed:
+
+- P15.1: Eliminated ~95 lines duplicated CLI parsing (install.rb, uninstall.rb → CliParser)
+- P15.2: Completed `validate_targets_and_packages` shared method in common.rb
+- P15.3: Replaced `const_set` hacks with proper accessors (`index_yaml_path`, `build_dir`)
+- P15.4: Fixed `record_journal` delegation in test_transaction_rollback.rb
+- P15.5: Eliminated `$stdout` global mutation in fix.rb
+
+---
+
+## Priority 16 — Custom Agent Support
+
+**Status**: COMPLETED (2026-05-21, commit `183888c`)
+
+- `pkg_type: agent` and `format: agent` introduced in PKGBUILD schema
+- `agents_dir` added to 5 platforms in registry (opencode, oh-my-pi, cursor, windsurf, claude-code)
+- Installer resolves agent paths via `agents_dir`, uses copy (not symlink)
+- Verify checks directory existence for agent installs
+- `ruby-update-signatures` package updated to `pkg_type: agent`
+
+---
+
+## Priority 17 — Platform-Specific Agent Format Translators
+
+**Status**: COMPLETED (2026-05-21, commit `b46cf7e`)
+
+3 translators implemented:
+- `agent_to_opencode.rb`: YAML frontmatter injection
+- `agent_to_cursor.rb`: Markdown passthrough + `agent.json` manifest generation from `agent_config`
+- `agent_to_claude_code.rb`: `## Metadata` / `## System Prompt` / `## Capabilities` sections
+
+Build pipeline extended: agent translate support in `build.rb`, `apply_translator` extended with `extra_args`.
+Oh My Pi and Windsurf need no translator — plain markdown auto-discovered.
