@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'yaml'
+require 'json'
 require 'pathname'
 require 'fileutils'
 require 'digest'
@@ -248,6 +249,44 @@ module Rulepack
                 count = manifest_data[:sub_skills].size
                 Rulepack::Common.log "    ✓ Manifest generated: #{count} sub-skill(s)"
                 puts "    ✓ Manifest generated: #{count} sub-skill(s)"
+              end
+
+              # Agent format: translate each .md file if translator specified
+              if format == 'agent' && translate
+                translator_cfg = translate
+                Rulepack::Common.log "    → Translating agent files for #{platform_id} (#{translator_cfg})"
+                puts "    → Translating agent files for #{platform_id} (#{translator_cfg})"
+                translate_args = {
+                  pkgname: pkgname,
+                  pkgdesc: pkg[:pkgdesc],
+                  tags: pkg[:tags]
+                }
+                translate_extra = { pkgdesc: pkg[:pkgdesc], tags: pkg[:tags] }
+                Dir.glob(build_pkg_dir.join('**', '*.md')).each do |md_file|
+                  file_content = File.read(md_file)
+                  translated = Rulepack::Common.apply_translator(translator_cfg, file_content, pkgname: pkgname.to_s, extra_args: translate_extra)
+                  File.write(md_file, translated)
+                end
+                Rulepack::Common.log "    ✓ Agent files translated (#{translator_cfg})"
+                puts "    ✓ Agent files translated (#{translator_cfg})"
+              end
+
+              # Agent format: generate agent.json manifest from agent_config (Cursor)
+              if format == 'agent' && tgt[:agent_config]
+                agent_cfg = tgt[:agent_config]
+                manifest = {
+                  'name' => pkgname.to_s,
+                  'description' => (pkg[:pkgdesc] || '').to_s.strip.tr("
+", ' '),
+                  'model' => agent_cfg[:model] || 'claude-3.5-sonnet',
+                  'temperature' => agent_cfg[:temperature] || 0.3
+                }
+                if agent_cfg[:triggers]
+                  manifest['triggers'] = agent_cfg[:triggers].transform_keys(&:to_s)
+                end
+                File.write(build_pkg_dir.join('agent.json'), JSON.pretty_generate(manifest))
+                Rulepack::Common.log "    ✓ Generated agent.json manifest"
+                puts "    ✓ Generated agent.json manifest"
               end
 
               # Record in package index (no single checksum for bundle; use source_sha256 i.e. commit hash or nil)

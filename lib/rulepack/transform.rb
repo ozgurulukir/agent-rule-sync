@@ -63,7 +63,7 @@ module Rulepack
     # Runs BEFORE transformer. Translators read content + optional args, return translated content.
     # Built-in: 'copy' (identity), 'identity'
     # Custom: 'custom:<relative/path/to/translator.rb>' — must define Translator.translate(content, args: {})
-    def apply_translator(translator_cfg, content, pkgname:)
+    def apply_translator(translator_cfg, content, pkgname:, extra_args: {})
       return content unless translator_cfg
 
       case translator_cfg
@@ -101,7 +101,7 @@ module Rulepack
           raise "Custom translator #{custom_path} must define RulepackTranslator::Impl.translate(content, args: {}) or Translator.translate method"
         end
 
-        translator_klass.translate(content, args: { pkgname: pkgname })
+        translator_klass.translate(content, args: { pkgname: pkgname }.merge(extra_args))
       else
         raise "Unknown translator: #{translator_cfg}"
       end
