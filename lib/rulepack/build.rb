@@ -315,7 +315,8 @@ module Rulepack
                   platform_id: platform_id,
                   pkgname: pkgname,
                   target_format: tgt[:format],
-                  format_profile: format_profile
+                  format_profile: format_profile,
+                  transformer: transformer
                 )
                 transformed = pipeline.run(platform_cfg)
               rescue StandardError => e

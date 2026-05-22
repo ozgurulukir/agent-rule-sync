@@ -89,10 +89,5 @@ module Rulepack
       end
     end
 
-    # Auto-derive transformer based on platform profile and target format
-    def auto_derive_transformer(format_profile, target_format)
-      # All formatting/stripping is natively done by SchemaEngine, so the additional transformer is just copy
-      'copy'
-    end
   end
 end

@@ -7,14 +7,15 @@ module Rulepack
   class BuildPipeline
     STAGES = %i[fetch translate schema_engine transform].freeze
 
-    attr_reader :current_stage, :content, :platform_id, :pkgname, :target_format, :format_profile, :stage_log
+    attr_reader :current_stage, :content, :platform_id, :pkgname, :target_format, :format_profile, :transformer, :stage_log
 
-    def initialize(content, platform_id:, pkgname:, target_format:, format_profile:)
+    def initialize(content, platform_id:, pkgname:, target_format:, format_profile:, transformer: 'copy')
       @content = content
       @platform_id = platform_id.to_s
       @pkgname = pkgname.to_s
       @target_format = target_format.to_s
       @format_profile = format_profile || {}
+      @transformer = transformer || 'copy'
       @current_stage = :fetch
       @stage_log = [:fetch]
     end
@@ -37,7 +38,6 @@ module Rulepack
     end
 
     # Run the full pipeline
-    # Note: Explicit overrides are no longer supported per user decision.
     def run(platform_cfg)
       # ─── TRANSLATE STAGE ──────────────────────────────────────────────────
       advance(:translate) do
@@ -58,7 +58,7 @@ module Rulepack
 
       # ─── TRANSFORM STAGE ──────────────────────────────────────────────────
       advance(:transform) do
-        transformer_cfg = Rulepack::SchemaEngine.auto_derive_transformer(@format_profile, @target_format)
+        transformer_cfg = @transformer
         if transformer_cfg && transformer_cfg != 'copy'
           Rulepack::Common.log "  → Transforming for #{@platform_id} (#{transformer_cfg})"
           puts "  → Transforming for #{@platform_id} (#{transformer_cfg})"

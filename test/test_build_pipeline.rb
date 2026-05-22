@@ -97,12 +97,6 @@ class TestBuildPipeline < Minitest::Test
     assert_nil result
   end
 
-  def test_auto_derive_transformer_is_always_copy
-    format_profile = { rules: { frontmatter: 'strip' } }
-    result = Rulepack::SchemaEngine.auto_derive_transformer(format_profile, 'directory')
-    assert_equal 'copy', result
-  end
-
   def test_pipeline_runs_stages_correctly
     format_profile = {
       rules: {
