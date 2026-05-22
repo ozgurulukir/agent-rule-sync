@@ -674,6 +674,145 @@ module Rulepack
       exit 1
     end
 
+
+    # ─── CLI dispatch: replaces install.rb duplication ────────────────────────────
+    def dispatch(options)
+      target_arg       = options[:target]
+      package_arg      = options[:package_name]
+      project_arg      = options[:project_path]
+      dry_run          = options[:dry_run]
+      check_mode       = options[:check_mode]
+      force_mode       = options[:force]
+      verbose_mode     = options[:verbose]
+      needed_mode      = options[:needed]
+      select_list      = options[:select]
+      collision_strategy = options[:on_collision] || 'stop'
+      rules_to         = options[:rules_to]
+      targets_mode     = options[:targets_mode]
+
+      Rulepack::Common.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
+
+      build_idx = nil
+
+      # ── Resolve target package ────────────────────────────────────────────────
+      target_package = nil
+      if package_arg
+        build_idx = ensure_build_index
+        unless build_idx && build_idx[:packages] && (build_idx[:packages].key?(package_arg) || build_idx[:packages].key?(package_arg.to_sym))
+          abort "\u{274c} Error: Package '#{package_arg}' not found in build index."
+        end
+        target_package = build_idx[:packages].keys.find { |k| k.to_s == package_arg }.to_s
+      end
+
+      # ── Targets mode ──────────────────────────────────────────────────────────
+      if targets_mode
+        abort '\u{274c} Error: --targets requires a package name.' unless target_package
+        build_idx ||= ensure_build_index
+        show_package_targets(build_idx, target_package)
+        return
+      end
+
+      # ── Target required ───────────────────────────────────────────────────────
+      unless target_arg
+        abort '\u{274c} Error: Please specify target platform(s) with --target <platform> (or --target all).'
+      end
+
+      # ── Check mode ────────────────────────────────────────────────────────────
+      if check_mode
+        check_platform(target_arg, project_arg: project_arg)
+        return
+      end
+
+      # ── Resolve target list ───────────────────────────────────────────────────
+      build_idx ||= ensure_build_index
+      registry = Rulepack::Common.load_platform_registry
+      targets_to_install = resolve_targets(target_arg, target_package, build_idx, registry, project_arg)
+
+      abort '\u{274c} Error: No target platforms matched.' if targets_to_install.empty?
+
+      # ── Dispatch ──────────────────────────────────────────────────────────────
+      if target_arg.downcase == 'all' && !target_package
+        install_all(
+          dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
+          verbose_mode: verbose_mode, select_list: select_list,
+          project_arg: project_arg, collision_strategy: collision_strategy, rules_to: rules_to
+        )
+      else
+        targets_to_install.each do |pkg_platform|
+          if target_package
+            Rulepack::Common.log "\u{1f4e6} Installing #{target_package} \u{2192} #{pkg_platform}"
+            puts "\u{1f4e6} Installing #{target_package} \u{2192} #{pkg_platform}"
+          else
+            Rulepack::Common.log "\u{1f4e6} Installing all packages \u{2192} #{pkg_platform}"
+            puts "\u{1f4e6} Installing all packages \u{2192} #{pkg_platform}"
+          end
+          run(pkg_platform,
+              dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
+              verbose_mode: verbose_mode, select_list: select_list,
+              project_arg: project_arg, specific_package: target_package,
+              rules_to: rules_to, collision_strategy: collision_strategy)
+        end
+      end
+    end
+
+    def ensure_build_index
+      return nil unless Rulepack::Common::BUILD_INDEX_PATH.exist?
+      Rulepack::Common.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
+    end
+
+    def resolve_targets(target_arg, target_package, build_idx, registry, project_arg)
+      targets = []
+      if target_arg.downcase == 'all'
+        if target_package
+          pkgdata = build_idx[:packages][target_package.to_sym]
+          targets = (pkgdata[:targets] || []).map { |t| t[:platform] }
+        else
+          targets = registry.keys.select { |p| registry[p][:scope] == 'user' || !registry[p].key?(:scope) }
+        end
+      else
+        targets = target_arg.split(',').map(&:strip).reject(&:empty?)
+      end
+
+      targets.each do |p|
+        cfg = registry[p.to_sym] || registry[p.to_s]
+        abort "\u{274c} Error: Unknown target platform '#{p}'." unless cfg
+        if cfg[:scope] == 'project' && !project_arg
+          abort "\u{274c} Error: Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>."
+        end
+      end
+      targets
+    end
+
+    def show_package_targets(build_idx, target_package)
+      pkg_data = build_idx[:packages][target_package.to_sym]
+      targets = pkg_data[:targets] || []
+      available = pkg_data[:available_targets] || []
+
+      puts "\u{1f4e6} #{target_package} (#{Rulepack::Common.format_version(pkg_data[:epoch] || 0, pkg_data[:pkgver], pkg_data[:pkgrel] || 1)})"
+      puts ''
+      puts "Targets (#{targets.size}):"
+      targets.each do |t|
+        status = available.include?(t[:platform]) ? '\u{2713} built' : '\u{2717} not built'
+        puts "  \u{2022} #{t[:platform]} (#{t[:format]}, #{t[:output]}) [#{status}]"
+      end
+      puts ''
+      puts 'Installed on:'
+      index = if Rulepack::Common.index_yaml_path.exist?
+                Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+              else
+                { version: 3.0, packages: {} }
+              end
+      pkg_idx = index[:packages]&.[](target_package.to_sym) || index[:packages]&.[](target_package.to_s) || {}
+      installed = pkg_idx[:installed] || []
+      if installed.empty?
+        puts '  (none)'
+      else
+        installed.each do |rec|
+          puts "  \u{2022} #{rec[:platform]} (#{Rulepack::Common.format_version(rec[:epoch] || 0, rec[:version], rec[:pkgrel] || 1)}) \u{2014} #{rec[:output]}"
+        end
+      end
+    end
+
     def project_root_for(_platform_id, platform_cfg, project_arg)
       Rulepack::Common.project_root_for(platform_cfg, project_arg)
     end
