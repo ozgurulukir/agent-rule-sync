@@ -32,6 +32,8 @@ module Rulepack
     end
   end
 
+require_relative 'logging'
+
   module Common
     RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path
     BUILD_DIR = RULEPACK_ROOT.join('build')
@@ -40,29 +42,8 @@ module Rulepack
     INDEX_JSON_PATH = RULEPACK_ROOT.join('data', 'index.json')
     LOG_PATH = BUILD_DIR.join('install.log')
 
-    @_default_log_file = LOG_PATH
-    @_log_level = nil
-    @_show_timing = false
     @_build_index_override = nil
     module_function
-
-    # Overrideable log level (falls back to Rulepack::Config.log_level)
-    def log_level
-      @_log_level || Rulepack::Config.log_level
-    end
-
-    def log_level=(val)
-      @_log_level = val
-    end
-
-    # Show timing flag for operation timing
-    def show_timing
-      @_show_timing
-    end
-
-    def show_timing=(val)
-      @_show_timing = val
-    end
 
     # Overrideable build index path (for testing)
     def build_index_path
@@ -286,6 +267,14 @@ module Rulepack
     def migrate_installed_records(pkg_index)
       Rulepack::Uninstaller.migrate_installed_records(pkg_index)
     end
+
+    # ─── Delegation to Logging ──────────────────────────────────────────────────
+    # Maintains backward compatibility: Rulepack::Common.log(...) still works
+
+    Rulepack::Logging.public_methods(false).each do |m|
+      define_singleton_method(m, &Rulepack::Logging.method(m))
+    end
+
   end
 end
 
