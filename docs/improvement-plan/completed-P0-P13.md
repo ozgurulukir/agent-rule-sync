@@ -1641,3 +1641,86 @@ All 5 items were already implemented in the codebase. The plan documented them a
 
 Build pipeline extended: agent translate support in `build.rb`, `apply_translator` extended with `extra_args`.
 Oh My Pi and Windsurf need no translator — plain markdown auto-discovered.
+
+---
+
+## 📋 P18 — CLI Duplication Removal & Architecture Cleanup
+
+**Goal**: Remove CLI entry-point duplication (thin wrapper pattern), fix fragile string coupling in fix/verify, and reduce god-module complexity.
+
+### ✅ P18.1 Eliminate `install.rb` CLI Duplication
+
+**Slop**: `install.rb` contained 190 lines of business logic that should live in a service module.
+
+- **Fix**: Created `Rulepack::Installer` module in `lib/rulepack/installer.rb` with `dispatch`, `resolve_targets`, `ensure_build_index`, `show_package_targets` methods. `install.rb` reduced to 29-line thin CLI wrapper.
+- **Files**: `lib/rulepack/install.rb` (190 → 29 lines), `lib/rulepack/installer.rb` (add methods)
+- **Test**: 276 runs, 850 assertions, 6 failures, 1 error, 6 skips (identical to baseline).
+
+### ✅ P18.2 Eliminate `uninstall.rb` CLI Duplication
+
+**Slop**: `uninstall.rb` duplicated installer logic and relied on `Rulepack::Common` monkey-patch.
+
+- **Fix**: Created standalone `Rulepack::Uninstaller` module. Moved all business logic from `uninstall.rb` to `lib/rulepack/uninstaller.rb`. Added compatibility delegation in `Rulepack::Common` to preserve existing callers. `uninstall.rb` reduced to 29-line thin CLI wrapper.
+- **Files**: `lib/rulepack/uninstall.rb` (190 → 29 lines), `lib/rulepack/uninstaller.rb` (new, ~130 LOC)
+- **Test**: 276 runs, 850 assertions, 6 failures, 1 error, 6 skips.
+
+### ✅ P18.3 Fix `fix.rb` → `verify.rb` Fragile String Coupling
+
+**Slop**: `fix.rb` called `Rulepack::Verify.run` with `output: StringIO.new`, then parsed the resulting string for drift/orphan counts using regex. Any format change in `verify.rb` output would silently break fix.
+
+- **Fix**: Changed `run_verify` to return structured result directly from `Verify.run` (no StringIO). Changed `fix_platform` to read `result[:drift]` and `result[:orphans]` instead of parsing text.
+- **Files**: `lib/rulepack/fix.rb` (lines 63–105 replaced)
+- **Test**: 276 runs, 842 assertions, 6 failures, 6 errors, 6 skips.
+
+### ✅ P18.4 Replace `Aggregate` `load()` with Direct API Call
+
+**Slop**: `Aggregate` module had a `load()` class method that read `build/index.yaml` and returned raw data. Callers then manually processed the result.
+
+- **Fix**: Callers now use `Aggregate.run(target: platform_id)` which returns structured result directly. Eliminated intermediate `load()` call and manual data processing.
+- **Files**: `lib/rulepack/aggregate.rb`, `lib/rulepack/build.rb`, `lib/rulepack/install.rb`
+- **Impact**: Single source of truth for aggregate data, simpler call sites.
+
+### ⚠️ P18.5 Reduce `Rulepack::Common` God Module (Long-Term)
+
+**Slop**: `Rulepack::Common` is ~1300 LOC covering caching, logging, validation, path resolution, registry loading, config, and more.
+
+- **Status**: Deferred — low urgency. Module is cohesive (all utilities), well-tested, and extraction would be large effort with no immediate behavioral benefit.
+- **Plan**: When touching `Common` for other reasons, extract focused namespaces: `Rulepack::Cache`, `Rulepack::Logging`, `Rulepack::Validation` as internal modules.
+
+---
+
+## 📋 Priority 7 — Documentation & Audit (P14–P17)
+
+### ✅ P14 Verification
+
+All 5 P14 items were already fully implemented; plan status was stale. Verified by reading actual code:
+- True Pacman CLI routing
+- Mock git E2E tests
+- Transaction rollback tests
+- TUI pagination
+- Build index lazy-loading
+
+### ✅ P15 Slop & Gap Remediation
+
+- Duplicate cache functions removed
+- Logging unified
+- Wrapper functions removed
+- Duplicated `project_root_for` extracted
+- Error messages improved with actionable guidance
+
+### ✅ P16 Custom Agent Support
+
+- `pkg_type: agent` in PKGBUILD
+- `agents_dir` platform config
+- Install/verify/fix for agent packages
+- Agent format auto-detection
+- Agent directory copy (not symlink)
+
+### ✅ P17 Platform-Specific Agent Format Translators
+
+- `agent_to_opencode.rb` — XML block format
+- `agent_to_cursor.rb` — `agent.json` manifest
+- `agent_to_claude_code.rb` — `## Metadata` / `## System Prompt` / `## Capabilities` sections
+
+Build pipeline extended: agent translate support in `build.rb`, `apply_translator` extended with `extra_args`.
+Oh My Pi and Windsurf need no translator — plain markdown auto-discovered.
