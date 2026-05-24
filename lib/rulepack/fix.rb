@@ -62,30 +62,20 @@ module Rulepack
     # Execution Helpers
 
     def run_verify(platform_id, package_arg, project_arg)
-      # Capture verify run output cleanly via output parameter
-      out = StringIO.new
-      begin
-        Rulepack::Verify.run(
-          target: platform_id,
-          package_name: package_arg,
-          project_path: project_arg,
-          exit_on_failure: false,
-          output: out
-        )
-      rescue StandardError => e
-        out.puts "Verify failed: #{e.message}"
-      end
-      out.string
+      Rulepack::Verify.run(
+        target: platform_id,
+        package_name: package_arg,
+        project_path: project_arg,
+        exit_on_failure: false
+      )
     end
 
     def fix_platform(platform_id, package_arg, project_arg, dry_run, auto_mode)
       puts "\n── #{platform_id} ──"
 
-      cmd_out = run_verify(platform_id, package_arg, project_arg)
-      # Re-print relevant lines
-      cmd_out.each_line { |l| puts l if l =~ /[✓⚠?]/ }
-      has_drift = cmd_out.include?('⚠')
-      orphans = cmd_out.scan(/^\s*\?\s+ORPHAN:\s+(.+)$/).flatten
+      result = run_verify(platform_id, package_arg, project_arg)
+      has_drift = result[:drift].to_i > 0
+      orphans = result[:orphans] || []
 
       unless has_drift || orphans.any?
         puts '  ✓ No drift detected.'
@@ -98,7 +88,7 @@ module Rulepack
       end
 
       fixed_orphans = false
-      if orphans.any? && package_arg.nil? # Only clean orphans if verifying entire platform
+      if orphans.any? && package_arg.nil?
         fixed_orphans = fix_orphans(orphans, dry_run, auto_mode)
       end
 
