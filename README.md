@@ -74,22 +74,28 @@ bin/rulepack init-hooks                             # Audits PKGBUILDs automatic
 ```
 rulepack/
 ├── bin/rulepack              # CLI entry point
-├── lib/rulepack/             # Library modules (32 .rb files)
+├── lib/rulepack/             # Library modules (38 .rb files)
 │   ├── common.rb             # Facade — delegates to submodules (70 LOC)
-│   ├── installer.rb          # Installer orchestrator
+│   ├── installer.rb          # Installer orchestrator (split via InstallPlan + InstallExecute)
 │   ├── cli_parser.rb         # Unified command-line argument parser
-│   ├── build.rb              # Build orchestrator namespace
+│   ├── build.rb              # Build orchestrator (~100 LOC → delegates to 3 submodules)
+│   ├── build_loader.rb       # PKGBUILD discovery, loading, and validation
+│   ├── build_per_pkg.rb      # Per-package fetch + pipeline + checksum loop
+│   ├── build_writer.rb       # Writes build/index.yaml and build/catalog.json
 │   ├── build_pipeline.rb     # 4-stage sequential build pipeline state machine
 │   ├── schema_engine.rb      # Centralized dynamic formatting and emoji/bullet normalizer
+│   ├── schema_migration.rb   # data/index.yaml version-migration (idempotent while-loop, v1→v2→v3)
+│   ├── cache.rb              # Build cache with LRU eviction and configurable MB limit
 │   ├── verify.rb             # Verification/drift namespace
 │   ├── fix.rb                # Drift self-healing namespace
 │   ├── uninstaller.rb        # Surgical uninstallation namespace
+│   ├── query.rb              # Frozen COMMANDS dispatch table; 10 cmds + 10 aliases via send()
 │   ├── lib/                  # Decomposed installer components
 │   │   ├── transaction.rb    # Backups, journals, and atomic rollbacks
 │   │   ├── install_handlers.rb # Link/copy/marker append low-level handlers
 │   │   ├── skill_bundle.rb   # Sub-skills selection, caching, and manifest audits
 │   │   └── tui_selector.rb   # Multi-select terminal draws and keyboard prompts
-│   └── ... (logging, cache, backup, version, source,
+│   └── ... (logging, backup, version, source,
 │             transform, validation, platform, aggregate,
 │             translate, generate-catalog, install CLI, uninstall CLI)
 ├── data/                     # Single Source of Truth (SSOT)
@@ -98,10 +104,10 @@ rulepack/
 │   ├── platforms/            # Format profiles (informational)
 │   ├── translators/          # Custom translation layers (6 translators)
 │   ├── transformers/         # Custom transform filters
-│   └── index.yaml            # Master package database
+│   └── index.yaml            # Master package database (schema v3.0)
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (276 runs, 844 assertions, 0 failures, 0 errors, 6 skips)
-
+├── test/                     # Test suite (287 runs, 865 assertions, 0 failures, 0 errors, 6 skips)
+│
 ├── Rakefile
 ├── README.md
 └── AGENTS.md

@@ -67,7 +67,7 @@ graph TD
 
 ## 🧱 Modular Architecture & Code Quality
 
-To maintain optimal code health and prevent god-object clutter, the installer and E2E scripts are partitioned into highly specialized modules under [lib/rulepack/](lib/rulepack/) (32 .rb files across main and lib subdirectories):
+To maintain optimal code health and prevent god-object clutter, the installer and E2E scripts are partitioned into highly specialized modules under [lib/rulepack/](lib/rulepack/) (38 .rb files across main and lib subdirectories):
 
 ### Facade Pattern — `common.rb` → Submodule Delegation
 
@@ -86,14 +86,20 @@ This guarantees **100% backward compatibility**: all `Rulepack::Common.xxx` call
 *   **[install_handlers.rb](lib/rulepack/lib/install_handlers.rb)**: Coordinates low-level copy, symlink, and injection/append routines (marker-aware splicing).
 *   **[skill_bundle.rb](lib/rulepack/lib/skill_bundle.rb)**: Resolves complex directory skill-bundles, selectively caching sub-skills and parsing manifests.
 *   **[tui_selector.rb](lib/rulepack/lib/tui_selector.rb)**: Handles terminal keyboard inputs, formatted menu draws, and multi-selection prompts.
+*   **[build_loader.rb](lib/rulepack/build_loader.rb)**: Discovers, loads, and validates all PKGBUILD descriptors; initialises pkg_index.
+*   **[build_per_pkg.rb](lib/rulepack/build_per_pkg.rb)**: Per-package transformation loop (source fetch → per-target pipeline → checksum recording).
+*   **[build_writer.rb](lib/rulepack/build_writer.rb)**: Writes `build/index.yaml` (build index) and `build/catalog.json`.
+*   **[schema_migration.rb](lib/rulepack/schema_migration.rb)**: `data/index.yaml` version-migration framework. Migrates legacy index schemas to `CURRENT_VERSION = 3.0` using an idempotent while-loop with named migrator methods (`migrate_1_to_2!`, `migrate_2_to_3!`). Called automatically from `Installer.load_master_index`.
 *   **[build_pipeline.rb](lib/rulepack/build_pipeline.rb)**: Orchestrates sequential build stage progression (:fetch → :translate → :schema_engine → :transform) and stage-transition validations.
 *   **[schema_engine.rb](lib/rulepack/schema_engine.rb)**: Centralized Dynamic Schema Engine that normalizes document structure (YAML frontmatter, emoji policies, ATX heading style, dash bullets) using platform mappings.
+*   **[cache.rb](lib/rulepack/cache.rb)**: Build cache helper — reads `Rulepack::Config.cache_max_size_mb` (default `0` = disabled). When a positive limit is set, `enforce_cache_limit!` evicts least-recently-used entries (oldest directory mtime) after every `cache_source` write, keeping total cache under the configured MB threshold.
 
 ### Programmatic Modules (Call-Aware)
-All procedural pipeline components (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`) are wrapped inside namespaces (e.g. `Rulepack::Build`). They use caller-aware runner hooks at their bottom margins, allowing them to run programmatically when required, or as standalone executables from the CLI without side effects.
+All procedural pipeline components (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`) are wrapped inside namespaces (e.g. `Rulepack::Build`). `build.rb` itself is a slim orchestrator (~100 LOC) that delegates to three extracted modules: `BuildLoader` (PKGBUILD discovery and validation), `BuildPerPkg` (per-package transformation loop), and `BuildWriter` (build index + catalog generation). They use caller-aware runner hooks at their bottom margins, allowing them to run programmatically when required, or as standalone executables from the CLI without side effects.
 
 ### Command Line Parsing Unification
 *   **[cli_parser.rb](lib/rulepack/cli_parser.rb)**: Implements `Rulepack::CliParser`, unifying `ARGV` parsing, pacman flag conversions (`-S`, `-R`, `-Qk`, `-F`), selective configurations, and project scopes under a single robust interface.
+*   **[query.rb](lib/rulepack/query.rb)**: Refactored to use a frozen `COMMANDS` dispatch table (command string → `:cmd_method` symbol) of 10 commands + 10 aliases. `run` delegates via `send()`. Shared helpers renamed with `_impl` suffix to prevent dispatch collision; 10 backward-compat aliases (`list_packages`, `list_platforms`, `installed`, `show`, `search`, `check`, `orphans`, `depends`, `provides`, `show_provides`) preserved for tests and external callers.
 
 ---
 
@@ -347,7 +353,7 @@ All contributions must pass the absolute quality threshold before integration:
   ```bash
   rake test
   ```
-  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (276 runs, 844 assertions, 0 failures, 0 errors, 6 skips by default).
+  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (287 runs, 865 assertions, 0 failures, 0 errors, 6 skips by default).
 
 ---
 
