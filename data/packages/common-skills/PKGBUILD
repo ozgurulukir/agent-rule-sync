@@ -1,0 +1,125 @@
+---
+pkgname: common-skills
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: >
+  Popüler ve çok kullanılan LLM becerileri paketi — AI Engineering,
+  Debugging, Architecture Review, Security Audit, Python Pro ve
+  React Modernization. Her beceri ayrı kaynak dosyası olarak tutulur
+  ve tek bir skill-bundle olarak derlenir.
+arch: any
+pkg_type: skill
+order: 30
+
+source:
+  - type: local
+    path: src/ai-engineer.md
+  - type: local
+    path: src/debugger.md
+  - type: local
+    path: src/architect-review.md
+  - type: local
+    path: src/security-auditor.md
+  - type: local
+    path: src/python-pro.md
+  - type: local
+    path: src/react-modernization.md
+
+targets:
+  - platform: opencode
+    format: skill
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: cursor
+    format: skill
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: windsurf
+    format: skill
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: claude-code
+    format: skill
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: crush
+    format: skill
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: goose
+    format: skill
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: droid
+    format: skill
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: gemini-cli
+    format: import
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: qwen-code
+    format: import
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: codex
+    format: skill
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: github-copilot
+    format: import
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: oh-my-pi
+    format: skill
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: antigravity
+    format: skill
+    output: common-skills.md
+    install:
+      type: copy
+
+  - platform: agents
+    format: skill
+    output: common-skills.md
+    install:
+      type: copy
+
+tags:
+  - skills
+  - popular
+  - ai-engineer
+  - debugger
+  - architect-review
+  - security
+  - python
+  - react
+  - full-stack
+maintainer: Antigravity AI
+license: MIT

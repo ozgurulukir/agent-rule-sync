@@ -208,7 +208,7 @@ class TestCliSyntax < Minitest::Test
     assert_equal 0, res[:exit_code], "Expected exit 0 but got: #{res[:stderr]}"
     data = JSON.parse(res[:stdout])
     assert_kind_of Hash, data
-    assert_equal 10, data['packages'].size
+    assert_equal 11, data['packages'].size
   end
 
   def test_audit_strict_mode_fails_due_to_partial_coverage
