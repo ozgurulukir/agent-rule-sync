@@ -1,0 +1,85 @@
+---
+pkgname: readme-standards
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: Guidelines for creating comprehensive project README files including badges, quick start, installation, usage examples, and API reference structure
+arch: any
+pkg_type: skill
+order: 230
+
+source:
+- type: local
+  path: src/SKILL.md
+
+targets:
+- platform: opencode
+  format: skill
+  output: readme-standards.md
+  install:
+    type: copy
+- platform: cursor
+  format: skill
+  output: readme-standards.md
+  install:
+    type: copy
+- platform: gemini-cli
+  format: import
+  output: readme-standards.md
+  install:
+    type: copy
+- platform: qwen-code
+  format: import
+  output: readme-standards.md
+  install:
+    type: copy
+- platform: crush
+  format: skill
+  output: readme-standards.md
+- platform: goose
+  format: skill
+  output: readme-standards.md
+- platform: droid
+  format: skill
+  output: readme-standards.md
+- platform: windsurf
+  format: directory
+  output: readme-standards.md
+  install:
+    type: symlink
+- platform: github-copilot
+  format: import
+  output: readme-standards.md
+  install:
+    type: copy
+- platform: claude-code
+  format: directory
+  output: readme-standards.md
+  install:
+    type: symlink
+- platform: codex
+  format: skill
+  output: SKILL.md
+- platform: oh-my-pi
+  format: directory
+  output: readme-standards.md
+  install:
+    type: symlink
+- platform: agents
+  format: directory
+  output: readme-standards.md
+  install:
+    type: symlink
+- platform: antigravity
+  format: directory
+  output: readme-standards.md
+  install:
+    type: symlink
+
+tags:
+  - documentation
+  - readme
+  - oss
+  - developer-experience
+maintainer: continuedev
+license: MIT

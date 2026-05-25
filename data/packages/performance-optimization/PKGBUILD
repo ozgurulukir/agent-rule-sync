@@ -1,0 +1,86 @@
+---
+pkgname: performance-optimization
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: Best practices for writing high-performance, efficient code including algorithmic complexity, caching, memory pooling, and async patterns
+arch: any
+pkg_type: skill
+order: 220
+
+source:
+- type: local
+  path: src/SKILL.md
+
+targets:
+- platform: opencode
+  format: skill
+  output: performance-optimization.md
+  install:
+    type: copy
+- platform: cursor
+  format: skill
+  output: performance-optimization.md
+  install:
+    type: copy
+- platform: gemini-cli
+  format: import
+  output: performance-optimization.md
+  install:
+    type: copy
+- platform: qwen-code
+  format: import
+  output: performance-optimization.md
+  install:
+    type: copy
+- platform: crush
+  format: skill
+  output: performance-optimization.md
+- platform: goose
+  format: skill
+  output: performance-optimization.md
+- platform: droid
+  format: skill
+  output: performance-optimization.md
+- platform: windsurf
+  format: directory
+  output: performance-optimization.md
+  install:
+    type: symlink
+- platform: github-copilot
+  format: import
+  output: performance-optimization.md
+  install:
+    type: copy
+- platform: claude-code
+  format: directory
+  output: performance-optimization.md
+  install:
+    type: symlink
+- platform: codex
+  format: skill
+  output: SKILL.md
+- platform: oh-my-pi
+  format: directory
+  output: performance-optimization.md
+  install:
+    type: symlink
+- platform: agents
+  format: directory
+  output: performance-optimization.md
+  install:
+    type: symlink
+- platform: antigravity
+  format: directory
+  output: performance-optimization.md
+  install:
+    type: symlink
+
+tags:
+  - performance
+  - optimization
+  - algorithmic-complexity
+  - caching
+  - memory-management
+maintainer: continuedev
+license: MIT

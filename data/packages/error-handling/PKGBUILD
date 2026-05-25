@@ -1,0 +1,87 @@
+---
+pkgname: error-handling
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: Guidelines for implementing comprehensive error handling strategies, custom error types, retry logic, circuit-breaker, and graceful degradation
+arch: any
+pkg_type: skill
+order: 210
+
+source:
+- type: local
+  path: src/SKILL.md
+
+targets:
+- platform: opencode
+  format: skill
+  output: error-handling.md
+  install:
+    type: copy
+- platform: cursor
+  format: skill
+  output: error-handling.md
+  install:
+    type: copy
+- platform: gemini-cli
+  format: import
+  output: error-handling.md
+  install:
+    type: copy
+- platform: qwen-code
+  format: import
+  output: error-handling.md
+  install:
+    type: copy
+- platform: crush
+  format: skill
+  output: error-handling.md
+- platform: goose
+  format: skill
+  output: error-handling.md
+- platform: droid
+  format: skill
+  output: error-handling.md
+- platform: windsurf
+  format: directory
+  output: error-handling.md
+  install:
+    type: symlink
+- platform: github-copilot
+  format: import
+  output: error-handling.md
+  install:
+    type: copy
+- platform: claude-code
+  format: directory
+  output: error-handling.md
+  install:
+    type: symlink
+- platform: codex
+  format: skill
+  output: SKILL.md
+- platform: oh-my-pi
+  format: directory
+  output: error-handling.md
+  install:
+    type: symlink
+- platform: agents
+  format: directory
+  output: error-handling.md
+  install:
+    type: symlink
+- platform: antigravity
+  format: directory
+  output: error-handling.md
+  install:
+    type: symlink
+
+tags:
+  - error-handling
+  - resilience
+  - retry
+  - circuit-breaker
+  - exceptions
+  - defensive-programming
+maintainer: continuedev
+license: MIT
