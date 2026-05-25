@@ -40,6 +40,7 @@ require_relative 'source'
 require_relative 'cache'
 require_relative 'version'
 require_relative 'validation'
+require_relative 'install_helpers'
 require_relative 'transform'
 require_relative 'backup'
 
@@ -84,22 +85,6 @@ require_relative 'backup'
     # ─── Basic IO Utilities ──────────────────────────────────────────────────────
     # (Moved to lib/rulepack/io.rb — loaded above)
 
-    # ─── Uninstall Helpers (thin wrappers around Uninstaller) ────────────────────
-    # Maintains backward compatibility: Rulepack::Common.uninstall_packages(...) still works
-
-    def uninstall_packages(index, platform_id, dry_run: false, project_root: nil,
-                           specific_packages: nil, ctx: nil)
-      Rulepack::Uninstaller.uninstall_packages(index, platform_id,
-                                                dry_run: dry_run,
-                                                project_root: project_root,
-                                                specific_packages: specific_packages,
-                                                ctx: ctx)
-    end
-
-    def migrate_installed_records(pkg_index)
-      Rulepack::Uninstaller.migrate_installed_records(pkg_index)
-    end
-
     # ─── Delegation to Logging ──────────────────────────────────────────────────
     # Maintains backward compatibility: Rulepack::Common.log(...) still works
 
@@ -126,6 +111,13 @@ require_relative 'backup'
 
     Rulepack::Path.public_methods(false).each do |m|
       define_singleton_method(m, &Rulepack::Path.method(m))
+    end
+
+    # ─── Delegation to InstallHelpers ────────────────────────────────────────────
+    # Maintains backward compatibility: Rulepack::Common.uninstall_packages(...) etc. still works
+
+    Rulepack::InstallHelpers.public_methods(false).each do |m|
+      define_singleton_method(m, &Rulepack::InstallHelpers.method(m))
     end
 
   end
