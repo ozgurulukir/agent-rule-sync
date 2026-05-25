@@ -90,14 +90,14 @@ rulepack/
 │             transform, validation, platform, aggregate,
 │             translate, generate-catalog, install CLI, uninstall CLI)
 ├── data/                     # Single Source of Truth (SSOT)
-│   ├── packages/             # Package definitions (11 packages)
+│   ├── packages/             # Package definitions (10 packages)
 │   ├── registry/platforms.yaml  # 14 platform configurations
 │   ├── platforms/            # Format profiles (informational)
 │   ├── translators/          # Custom translation layers (6 translators)
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (276 runs, 854 assertions, 0 failures, 0 errors, 6 skips)
+├── test/                     # Test suite (276 runs, 844 assertions, 0 failures, 0 errors, 6 skips)
 
 ├── Rakefile
 ├── README.md
