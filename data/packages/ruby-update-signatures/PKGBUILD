@@ -59,6 +59,64 @@ targets:
     install:
       type: copy
       target_dir: ruby-update-signatures/
+
+  # --- additional platforms (agent format, copy passthrough) ---
+  - platform: crush
+    format: agent
+    output: .
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: goose
+    format: agent
+    output: .
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: droid
+    format: agent
+    output: .
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: gemini-cli
+    format: agent
+    output: .
+    translate: custom:data/translators/agent_to_opencode.rb
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: qwen-code
+    format: agent
+    output: .
+    translate: custom:data/translators/agent_to_opencode.rb
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: github-copilot
+    format: agent
+    output: .
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: codex
+    format: agent
+    output: .
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: agents
+    format: agent
+    output: .
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
+  - platform: antigravity
+    format: agent
+    output: .
+    install:
+      type: copy
+      target_dir: ruby-update-signatures/
 checksums:
   source: null
   built: {}

@@ -1,0 +1,98 @@
+---
+pkgname: code-reviewer
+pkgver: 0.1.0
+pkgrel: 1
+epoch: 0
+pkgdesc: Automated code quality review skill — simplifies, extracts, flags patterns
+arch: any
+pkg_type: skill
+order: 10
+
+source:
+- type: local
+  path: src/SKILL.md
+
+targets:
+- platform: opencode
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: code-reviewer/
+- platform: cursor
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: code-reviewer/
+- platform: windsurf
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: code-reviewer/
+- platform: claude-code
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: code-reviewer/
+- platform: crush
+  format: skill
+  output: SKILL.md
+- platform: goose
+  format: skill
+  output: SKILL.md
+- platform: droid
+  format: skill
+  output: SKILL.md
+- platform: agents
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: code-reviewer/
+- platform: gemini-cli
+  format: import
+  output: code-reviewer-rule.md
+  install:
+    type: copy
+- platform: qwen-code
+  format: import
+  output: code-reviewer-rule.md
+  install:
+    type: copy
+- platform: oh-my-pi
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: code-reviewer/
+- platform: github-copilot
+  format: import
+  output: code-reviewer-instructions.md
+  install:
+    type: copy
+- platform: codex
+  format: skill
+  output: SKILL.md
+- platform: antigravity
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: code-reviewer/
+checksums:
+  source:
+  built: {}
+dependencies: []
+conflicts: []
+provides:
+- code-review
+- review
+tags:
+- review
+- quality
+- must-have
+maintainer:
+license: MIT

@@ -1,0 +1,99 @@
+---
+pkgname: security-auditor
+pkgver: 0.1.0
+pkgrel: 1
+epoch: 0
+pkgdesc: Security-focused code review skill — secrets, auth, access-control, injection
+arch: any
+pkg_type: skill
+order: 20
+
+source:
+- type: local
+  path: src/SKILL.md
+
+targets:
+- platform: opencode
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: security-auditor/
+- platform: cursor
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: security-auditor/
+- platform: windsurf
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: security-auditor/
+- platform: claude-code
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: security-auditor/
+- platform: crush
+  format: skill
+  output: SKILL.md
+- platform: goose
+  format: skill
+  output: SKILL.md
+- platform: droid
+  format: skill
+  output: SKILL.md
+- platform: agents
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: security-auditor/
+- platform: gemini-cli
+  format: import
+  output: security-auditor-rule.md
+  install:
+    type: copy
+- platform: qwen-code
+  format: import
+  output: security-auditor-rule.md
+  install:
+    type: copy
+- platform: oh-my-pi
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: security-auditor/
+- platform: github-copilot
+  format: import
+  output: security-auditor-instructions.md
+  install:
+    type: copy
+- platform: codex
+  format: skill
+  output: SKILL.md
+- platform: antigravity
+  format: skill
+  output: SKILL.md
+  install:
+    type: copy
+    target_dir: security-auditor/
+checksums:
+  source:
+  built: {}
+dependencies: []
+conflicts: []
+provides:
+- security
+- audit
+- security-review
+tags:
+- security
+- audit
+- must-have
+maintainer:
+license: MIT
