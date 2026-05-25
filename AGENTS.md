@@ -239,12 +239,12 @@ targets:
 > - [`docs/agents/TRANSFORMS.md`](docs/agents/TRANSFORMS.md) — when a custom translator is needed vs. what the SchemaEngine handles automatically
 > 
 > **Step 2 — Read the per-platform schema:**
-> For each target platform, read `data/platforms/<agent>.yaml`. This file defines `frontmatter`, `emoji_policy`, `heading_style`, `bullet_style`, and `allowed_formats`. The build engine applies these automatically — **you must NOT duplicate them as manual `transformer` directives** unless the schema does not cover the transformation you need.
+> For each target platform, read `data/platforms/<agent>.yaml`. This file defines `frontmatter`, `emoji_policy`, `heading_style`, and `bullet_style` formatting constraints. The build engine applies these automatically through the Schema Engine — **you must NOT duplicate them as manual `transformer` directives** unless the schema does not cover the transformation you need.
 > 
 > **Step 3 — Apply the rules:**
 > 1. You **MUST** include at least one `targets:` entry for each of the 14 platforms listed in `PLATFORMS.md`.
-> 2. Match the `format:` value to the platform's `allowed_formats` in its schema (e.g. `directory`, `skill`, `import`, `agent`).
-> 3. Match the `install.type` to the platform's `install_method` in `PLATFORMS.md` (e.g. `symlink`, `copy`, `inject`, `append`).
+> 2. Match the `format:` value to a format supported by the platform's type (e.g. `directory` platforms support `directory/skill/skill-bundle/agent`; `skill` platforms support `skill/skill-bundle`; `import` platforms support `import/skill`). The format → platform compatibility matrix is documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Format Types**.
+> 3. Match the `install.type` to the platform's install capabilities documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Install Types** (e.g. `symlink` for directory platforms, `copy` for skill platforms, `inject` for import platforms, `append` for vendor aggregation).
 > 4. If the platform schema already declares a transformer for a concern (e.g. `frontmatter: strip`), **do not add a redundant `translate:` or `transformer:` line**.
 > 5. For format conversions not covered by the SchemaEngine (structural changes, markdown-to-agent-manifest, etc.), write a custom Ruby script under `data/translators/` and map it with `translate: custom:data/translators/your_script.rb` (see `TRANSFORMS.md` for the full API).
 
