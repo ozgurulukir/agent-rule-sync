@@ -20,6 +20,7 @@ module Rulepack
   require_relative 'version'
   require_relative 'transform'
   require_relative 'backup'
+  require_relative 'schema_migration'
 
   module Common
     RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path

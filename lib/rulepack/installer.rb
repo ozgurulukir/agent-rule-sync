@@ -187,6 +187,8 @@ module Rulepack
                 { version: 3.0, packages: {} }
               end
       index[:packages] ||= {}
+      # Migrate schema if needed (idempotent — safe on already-migrated data)
+      Rulepack::SchemaMigration.migrate!(index)
       (index[:packages] || {}).each_value { |pkg_idx| Rulepack::Common.migrate_installed_records(pkg_idx) }
       index
     end

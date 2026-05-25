@@ -83,6 +83,78 @@ class TestCompareVersions < Minitest::Test
   end
 end
 
+# ─── Schema Migration ────────────────────────────────────────────────────────────
+
+class TestSchemaMigration < Minitest::Test
+  def test_migrate_1_to_2_adds_built_checksums_field
+    index = { version: 1.0, packages: { memory: { checksums: { source: 'abc123' } } } }
+    Rulepack::SchemaMigration.migrate!(index)
+    assert_equal 3.0, index[:version]
+    assert_includes index[:packages][:memory][:checksums].keys, :built
+    assert_equal({}, index[:packages][:memory][:checksums][:built])
+  end
+
+  def test_migrate_1_to_2_idempotent
+    index = { version: 1.0, packages: { memory: { checksums: { source: 'abc123' } } } }
+    Rulepack::SchemaMigration.migrate!(index)
+    Rulepack::SchemaMigration.migrate!(index)
+    assert_equal 3.0, index[:version]
+  end
+
+  def test_migrate_2_to_3_adds_pkg_type_for_rule_package
+    index = { version: 2.0, packages: { shell: { targets: [{ platform: 'opencode', format: 'directory', output: '00-shell.md' }] } } }
+    Rulepack::SchemaMigration.migrate!(index)
+    assert_equal 3.0, index[:version]
+    assert_equal 'rule', index[:packages][:shell][:pkg_type]
+  end
+
+  def test_migrate_2_to_3_adds_pkg_type_for_skill_bundle
+    index = { version: 2.0, packages: { vibesec: { targets: [{ platform: 'opencode', format: 'skill-bundle', output: '.' }] } } }
+    Rulepack::SchemaMigration.migrate!(index)
+    assert_equal 3.0, index[:version]
+    assert_equal 'skill', index[:packages][:vibesec][:pkg_type]
+  end
+
+  def test_migrate_2_to_3_adds_pkg_type_for_hybrid
+    index = {
+      version: 2.0,
+      packages: {
+        mypkg: {
+          targets: [
+            { platform: 'opencode', format: 'directory', output: 'rule.md' },
+            { platform: 'opencode', format: 'skill-bundle', output: '.' }
+          ]
+        }
+      }
+    }
+    Rulepack::SchemaMigration.migrate!(index)
+    assert_equal 3.0, index[:version]
+    assert_equal 'hybrid', index[:packages][:mypkg][:pkg_type]
+  end
+
+  def test_migrate_2_to_3_idempotent
+    index = { version: 2.0, packages: { shell: { targets: [] } } }
+    Rulepack::SchemaMigration.migrate!(index)
+    Rulepack::SchemaMigration.migrate!(index)
+    assert_equal 3.0, index[:version]
+  end
+
+  def test_migrate_1_to_2_to_3_full_chain
+    index = { version: 1.0, packages: { memory: { checksums: { source: 'abc' }, targets: [] } } }
+    Rulepack::SchemaMigration.migrate!(index)
+    assert_equal 3.0, index[:version]
+    assert_includes index[:packages][:memory][:checksums].keys, :built
+    assert_equal 'rule', index[:packages][:memory][:pkg_type]
+  end
+
+  def test_migrate_on_already_current_version_is_noop
+    index = { version: 3.0, packages: { memory: { checksums: { source: 'abc', built: {} }, pkg_type: 'rule' } } }
+    Rulepack::SchemaMigration.migrate!(index)
+    assert_equal 3.0, index[:version]
+    assert_equal 'rule', index[:packages][:memory][:pkg_type]
+  end
+end
+
 # ─── format_version ──────────────────────────────────────────────────────────
 
 class TestFormatVersion < Minitest::Test
