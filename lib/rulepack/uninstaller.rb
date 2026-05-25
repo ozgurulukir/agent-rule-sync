@@ -18,7 +18,7 @@ module Rulepack
       project_arg    = options[:project_path]
       dry_run        = options[:dry_run]
 
-      Rulepack::Common.log_file = Rulepack::Common.build_dir.join('uninstall.log')
+      Rulepack::Logging.log_file = Rulepack::Common.build_dir.join('uninstall.log')
 
       # Check positional count
       if options[:positional]&.size.to_i > 1

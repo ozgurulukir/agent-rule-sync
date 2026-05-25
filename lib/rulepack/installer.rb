@@ -42,7 +42,7 @@ module Rulepack
       collision_strategy = options.fetch(:collision_strategy, 'stop')
       rules_to = options.fetch(:rules_to, nil)
 
-      Rulepack::Common.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
+      Rulepack::Logging.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
 
       return check_platform(platform_id, project_arg: project_arg) if check_mode
 
@@ -109,7 +109,7 @@ module Rulepack
       dry_run = options.fetch(:dry_run, false)
       verbose_mode = options.fetch(:verbose_mode, false)
 
-      Rulepack::Common.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
+      Rulepack::Logging.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
 
       registry  = Rulepack::Common.load_platform_registry
       platforms = registry.keys.select do |p|
@@ -690,7 +690,7 @@ module Rulepack
       rules_to         = options[:rules_to]
       targets_mode     = options[:targets_mode]
 
-      Rulepack::Common.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
+      Rulepack::Logging.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
 
       build_idx = nil
 

@@ -18,9 +18,9 @@ module Rulepack
     module_function
 
     def run(options = {})
-      Rulepack::Common.log_level = options[:verbose] ? :debug : Rulepack::Config.log_level
+      Rulepack::Logging.log_level = options[:verbose] ? :debug : Rulepack::Config.log_level
       log_path = Rulepack::Common.build_dir.join('build.log')
-      Rulepack::Common.log_file = log_path
+      Rulepack::Logging.log_file = log_path
 
       # ─── Clean Build Directory ──────────────────────────────────────────────────────
       if Rulepack::Common.build_dir.exist?

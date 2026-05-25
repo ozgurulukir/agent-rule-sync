@@ -94,7 +94,6 @@ module Rulepack
 
       fixed_drift || fixed_orphans
     end
-
     def fix_drift(platform_id, package_arg, project_arg, dry_run)
       if dry_run
         puts "  [DRY-RUN] Would reinstall packages on #{platform_id}"

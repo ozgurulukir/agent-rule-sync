@@ -19,7 +19,7 @@ module Rulepack
   module CLI
     def self.run(argv)
       if argv.include?('--timing')
-        Rulepack::Common.show_timing = true
+        Rulepack::Logging.show_timing = true
         argv.delete('--timing')
       end
 
