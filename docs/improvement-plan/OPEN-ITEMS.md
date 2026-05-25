@@ -62,23 +62,22 @@ Each item below was confirmed by direct source inspection before being added.
 
 **Priority**: MEDIUM  
 **Risk**: LOW  
-**Status**: OPEN
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-25
 
-**Current state** (`build.rb` 430 LOC):
-- Lines 1–80: PKGBUILD discovery, loading, migration
-- Lines 80–200: `build_package` method — per-package transformation loop (fetch → pipeline → write)
-- Lines 200–430: `write_build_artifacts`, `record_checksum`, `write_build_index`, `write_catalog` — output plumbing
+**Files**: `lib/rulepack/build.rb`, `lib/rulepack/build_loader.rb`, `lib/rulepack/build_per_pkg.rb`, `lib/rulepack/build_writer.rb`
 
-**Target**: Extract:
-```
-lib/rulepack/build_loader.rb    # load_all_pkgbuilds, migrate_index_fields, PKGBUILD discovery
-lib/rulepack/build_per_pkg.rb    # build_single_package, transform_per_target, checksum computation
-lib/rulepack/build_writer.rb     # write_build_index, write_catalog, record_built_checksum
-```
+**Result**: `build.rb` 430 LOC → ~100 LOC orchestrator.
+- `BuildLoader` — PKGBUILD discovery, load & validate, pkg_index init
+- `BuildPerPkg` — source fetch, per-target pipeline, checksum recording
+- `BuildWriter` — build index + catalog generation
 
-`build.rb` becomes the top-level `Rulepack::Build.run` orchestrator.
+**Fixes applied during split**:
+- Removed orphaned `case` block in `build_per_pkg.rb` (copy-paste artifact)
+- Defined `translator_cfg` / `translate_extra` in `build_skill_bundle_target`
+- Passed `translate` arg through `process_targets → build_skill_bundle_target`
 
-**Test gate**: `rake test`.
+**Test gate**: `rake test` — 276→287 runs, 844→865 assertions, 0 failures, 0 errors, 6 skips.
 
 ---
 
@@ -141,26 +140,28 @@ end
 
 **Priority**: LOW  
 **Risk**: LOW  
-**Status**: OPEN
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-25
 
-**Current state**: `query.rb` handles 7 subcommands (`list-packages`, `list-platforms`, `installed`, `show`, `search`, `check`, `orphans`) with mode-branching inside `run`.
+**Before**: 316 LOC `case`/`when` ladder inside `run`.
+**After**: `run` → `COMMANDS[command]` → `send(:cmd_method, argv)`.
 
-**Target**: Replace the mode-switch with a dispatch table:
-```ruby
-COMMANDS = {
-  'list-packages'  => method(:cmd_list_packages),
-  'list-platforms' => method(:cmd_list_platforms),
-  'installed'      => method(:cmd_installed),
-  'show'           => method(:cmd_show),
-  'search'         => method(:cmd_search),
-  'check'          => method(:cmd_check),
-  'orphans'        => method(:cmd_orphans),
-  'provides'       => method(:cmd_provides),
-}
-```
+**Dispatch table** (`COMMANDS` constant, frozen):
+| Key aliases | Target |
+|---|---|
+| `list-packages`, `ls` | `:cmd_list_packages` |
+| `list-platforms`, `lp` | `:cmd_list_platforms` |
+| `installed`, `i` | `:cmd_installed` |
+| `show`, `info` | `:cmd_show` |
+| `search`, `s` | `:cmd_search` |
+| `check`, `c` | `:cmd_check` |
+| `orphans`, `o` | `:cmd_orphans` |
+| `depends`, `d` | `:cmd_depends` |
+| `provides`, `p` | `:cmd_provides` |
+| `help`, `h` | `:print_help` |
 
-Each `cmd_*` method is a small private method with a single `--platform` or `--json` concern.
+**Backward compat**: `list_packages`, `list_platforms`, `installed`, `show`, `search`, `check`, `orphans`, `depends`, `provides`, `show_provides` aliases preserved.
 
-**Test gate**: `rake test`.
+**Test gate**: `rake test` — 287 runs, 865 assertions, 0 failures, 0 errors, 6 skips.
 
 ---
