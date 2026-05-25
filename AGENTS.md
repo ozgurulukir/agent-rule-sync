@@ -67,7 +67,7 @@ graph TD
 
 ## 🧱 Modular Architecture & Code Quality
 
-To maintain optimal code health and prevent god-object clutter, the installer and E2E scripts are partitioned into highly specialized modules under [lib/rulepack/](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/) (32 .rb files across main and lib subdirectories):
+To maintain optimal code health and prevent god-object clutter, the installer and E2E scripts are partitioned into highly specialized modules under [lib/rulepack/](lib/rulepack/) (32 .rb files across main and lib subdirectories):
 
 ### Facade Pattern — `common.rb` → Submodule Delegation
 
@@ -82,18 +82,18 @@ IO.methods(false).each { |m| define_singleton_method(m, &IO.method(m)) }
 This guarantees **100% backward compatibility**: all `Rulepack::Common.xxx` call sites continue to work transparently, while the real implementation lives in the submodule. The submodules were extracted incrementally in 7 phases (Phases 1–7), each verified by the full test suite.
 
 ### God Object Decomposition
-*   **[transaction.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/transaction.rb)**: Manages atomic transaction logs, backups, and safe directory rollbacks.
-*   **[install_handlers.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/install_handlers.rb)**: Coordinates low-level copy, symlink, and injection/append routines (marker-aware splicing).
-*   **[skill_bundle.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/skill_bundle.rb)**: Resolves complex directory skill-bundles, selectively caching sub-skills and parsing manifests.
-*   **[tui_selector.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/tui_selector.rb)**: Handles terminal keyboard inputs, formatted menu draws, and multi-selection prompts.
-*   **[build_pipeline.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/build_pipeline.rb)**: Orchestrates sequential build stage progression (:fetch → :translate → :schema_engine → :transform) and stage-transition validations.
-*   **[schema_engine.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/schema_engine.rb)**: Centralized Dynamic Schema Engine that normalizes document structure (YAML frontmatter, emoji policies, ATX heading style, dash bullets) using platform mappings.
+*   **[transaction.rb](lib/rulepack/lib/transaction.rb)**: Manages atomic transaction logs, backups, and safe directory rollbacks.
+*   **[install_handlers.rb](lib/rulepack/lib/install_handlers.rb)**: Coordinates low-level copy, symlink, and injection/append routines (marker-aware splicing).
+*   **[skill_bundle.rb](lib/rulepack/lib/skill_bundle.rb)**: Resolves complex directory skill-bundles, selectively caching sub-skills and parsing manifests.
+*   **[tui_selector.rb](lib/rulepack/lib/tui_selector.rb)**: Handles terminal keyboard inputs, formatted menu draws, and multi-selection prompts.
+*   **[build_pipeline.rb](lib/rulepack/build_pipeline.rb)**: Orchestrates sequential build stage progression (:fetch → :translate → :schema_engine → :transform) and stage-transition validations.
+*   **[schema_engine.rb](lib/rulepack/schema_engine.rb)**: Centralized Dynamic Schema Engine that normalizes document structure (YAML frontmatter, emoji policies, ATX heading style, dash bullets) using platform mappings.
 
 ### Programmatic Modules (Call-Aware)
 All procedural pipeline components (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`) are wrapped inside namespaces (e.g. `Rulepack::Build`). They use caller-aware runner hooks at their bottom margins, allowing them to run programmatically when required, or as standalone executables from the CLI without side effects.
 
 ### Command Line Parsing Unification
-*   **[cli_parser.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/cli_parser.rb)**: Implements `Rulepack::CliParser`, unifying `ARGV` parsing, pacman flag conversions (`-S`, `-R`, `-Qk`, `-F`), selective configurations, and project scopes under a single robust interface.
+*   **[cli_parser.rb](lib/rulepack/cli_parser.rb)**: Implements `Rulepack::CliParser`, unifying `ARGV` parsing, pacman flag conversions (`-S`, `-R`, `-Qk`, `-F`), selective configurations, and project scopes under a single robust interface.
 
 ---
 
