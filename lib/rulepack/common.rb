@@ -8,41 +8,18 @@ require 'digest'
 require 'json'
 
 module Rulepack
-  module Config
-    module_function
-
-    def max_redirects
-      Integer(ENV.fetch('RULEPACK_MAX_REDIRECTS', '3'))
-    end
-
-    def read_timeout
-      Integer(ENV.fetch('RULEPACK_READ_TIMEOUT', '30'))
-    end
-
-    def cache_dir_name
-      ENV.fetch('RULEPACK_CACHE_DIR', 'cache')
-    end
-
-    def git_clone_depth
-      Integer(ENV.fetch('RULEPACK_GIT_DEPTH', '1'))
-    end
-
-    def log_level
-      ENV.fetch('RULEPACK_LOG_LEVEL', 'info').to_sym
-    end
-  end
-
-require_relative 'logging'
-require_relative 'io'
-require_relative 'path_utils'
-require_relative 'platform'
-require_relative 'source'
-require_relative 'cache'
-require_relative 'version'
-require_relative 'validation'
-require_relative 'install_helpers'
-require_relative 'transform'
-require_relative 'backup'
+  require_relative 'config'
+  require_relative 'logging'
+  require_relative 'io'
+  require_relative 'path_utils'
+  require_relative 'validation'
+  require_relative 'install_helpers'
+  require_relative 'platform'
+  require_relative 'source'
+  require_relative 'cache'
+  require_relative 'version'
+  require_relative 'transform'
+  require_relative 'backup'
 
   module Common
     RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path
