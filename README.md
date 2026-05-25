@@ -97,7 +97,7 @@ rulepack/
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (276 runs, 846 assertions, 0 failures, 5 errors, 6 skips)
+├── test/                     # Test suite (276 runs, 854 assertions, 0 failures, 0 errors, 6 skips)
 
 ├── Rakefile
 ├── README.md

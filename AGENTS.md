@@ -343,4 +343,4 @@ All contributions must pass the absolute quality threshold before integration:
   ```bash
   rake test
   ```
-  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (276 runs, 846 assertions, 0 failures, 5 errors, 6 skips by default).
+  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (276 runs, 854 assertions, 0 failures, 0 errors, 6 skips by default).
