@@ -71,8 +71,8 @@ bin/rulepack query search security                  # Search packages by tag or 
 ```
 rulepack/
 ├── bin/rulepack              # CLI entry point
-├── lib/rulepack/             # Library modules (28 .rb files)
-│   ├── common.rb             # Constants, Config, basic IO
+├── lib/rulepack/             # Library modules (32 .rb files)
+│   ├── common.rb             # Facade — delegates to submodules (70 LOC)
 │   ├── installer.rb          # Installer orchestrator
 │   ├── cli_parser.rb         # Unified command-line argument parser
 │   ├── build.rb              # Build orchestrator namespace
@@ -97,7 +97,7 @@ rulepack/
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (277 tests, 855 assertions)
+├── test/                     # Test suite (276 runs, 846 assertions, 0 failures, 5 errors, 6 skips)
 
 ├── Rakefile
 ├── README.md

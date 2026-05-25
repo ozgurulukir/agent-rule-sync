@@ -67,7 +67,19 @@ graph TD
 
 ## 🧱 Modular Architecture & Code Quality
 
-To maintain optimal code health and prevent god-object clutter, the installer and E2E scripts are partitioned into highly specialized modules under [lib/rulepack/](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/) (28 .rb files across main and lib subdirectories):
+To maintain optimal code health and prevent god-object clutter, the installer and E2E scripts are partitioned into highly specialized modules under [lib/rulepack/](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/) (32 .rb files across main and lib subdirectories):
+
+### Facade Pattern — `common.rb` → Submodule Delegation
+
+`common.rb` is a thin facade (70 LOC). It exposes no business logic of its own — instead it uses `Module#methods(false)` to enumerate each submodule's public API and re-exports it via `define_singleton_method` loops:
+
+```ruby
+Logging.methods(false).each { |m| define_singleton_method(m, &Logging.method(m)) }
+IO.methods(false).each { |m| define_singleton_method(m, &IO.method(m)) }
+# ... Validation, Path, InstallHelpers
+```
+
+This guarantees **100% backward compatibility**: all `Rulepack::Common.xxx` call sites continue to work transparently, while the real implementation lives in the submodule. The submodules were extracted incrementally in 7 phases (Phases 1–7), each verified by the full test suite.
 
 ### God Object Decomposition
 *   **[transaction.rb](file:///home/aristo/Projects/agent-rule-sync/lib/rulepack/lib/transaction.rb)**: Manages atomic transaction logs, backups, and safe directory rollbacks.
@@ -331,4 +343,4 @@ All contributions must pass the absolute quality threshold before integration:
   ```bash
   rake test
   ```
-  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (277 tests, 855 assertions, 0 errors, 0 failures, 6 network skips by default).
+  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (276 runs, 846 assertions, 0 failures, 5 errors, 6 skips by default).
