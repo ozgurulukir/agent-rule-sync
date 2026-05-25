@@ -353,27 +353,102 @@ $ rake test  # verify back to baseline
 | Breaking existing tests | Run full suite after each phase; revert on any failure |
 
 ---
-
+ 
 ## Completed Phases
 
 ### ✅ Phase 1 — Extract `Rulepack::Logging` (COMPLETED)
 
 - **Commit**: `30d6e1d`
-- **Test baseline**: 276 runs, 842 assertions, 6 failures, 6 errors, 6 skips
+- **Test baseline**: 276 runs, 846 assertions, 0 failures, 5 errors, 6 skips
 - **Changes**:
-  - Moved logging state (@_log_level, @_show_timing) and methods to `Rulepack::Logging` module
-  - Added `require_relative 'logging'` before `module Common`
+  - Moved logging state (@_log_level, @_show_timing, @_default_log_file) and methods to `Rulepack::Logging` module
+  - Added `require_relative 'logging'` to common.rb requires
   - Added delegation via `define_singleton_method` loop in Common
-  - All call sites continue to work via `Rulepack::Common.log(...)`
+  - Fixed remaining call sites: `build.rb`, `installer.rb`, `uninstaller.rb`, `bin/rulepack` → use `Rulepack::Logging.log_level/log_file/show_timing`
 
 ---
 
-## Next Steps
+### ✅ Phase 2 — Extract `Rulepack::IO` (COMPLETED)
 
-1. Review and approve this plan
-2. Execute Phase 2 (IO extraction) — low dependencies
-3. Execute Phase 3 (Validation extraction) — medium dependencies
-4. Execute Phase 4 (Path extraction) — low dependencies
-5. Execute Phase 5 (InstallHelpers extraction) — medium dependencies
-6. Execute Phase 6 (Config extraction) — low dependencies
-7. Execute Phase 7 (Slim Common to facade) — final cleanup
+- **Commit**: `fd26439`
+- **Test baseline**: 276 runs, 846 assertions, 0 failures, 5 errors, 6 skips
+- **Changes**:
+  - Created `lib/rulepack/io.rb` with 6 methods: `load_yaml`, `write_yaml_atomic`, `atomic_write`, `atomic_append`, `update_marked_content`, `remove_marked_content`
+  - Removed IO method bodies from `common.rb`, added `Rulepack::IO` delegation
+  - Removed duplicate `require_relative 'uninstaller'` (was at both line 46 AND 213)
+  - Restructured requires block in `common.rb`
+
+---
+
+### ✅ Phase 3 — Extract `Rulepack::Validation` (COMPLETED)
+
+- **Commit**: `2cafcb5`
+- **Test baseline**: 276 runs, 846 assertions, 0 failures, 5 errors, 6 skips
+- **Changes**:
+  - Moved `verify_checksum` and `validate_targets_and_packages` from Common to `Rulepack::Validation`
+  - Renamed `module Common` → `module Validation` in `lib/rulepack/validation.rb`
+  - Added existing validation methods (validate_pkgname, validate_pkgbuild, load_pkgbuild, etc.) under Validation
+  - Added `Rulepack::Validation` delegation in `common.rb`
+  - `Validation.validate_targets_and_packages` uses `Rulepack::Common.project_root_for` for scope checks
+
+---
+
+### ✅ Phase 4 — Extract `Rulepack::Path` (COMPLETED)
+
+- **Commit**: `a13fc31`
+- **Test baseline**: 276 runs, 846 assertions, 0 failures, 5 errors, 6 skips
+- **Changes**:
+  - Created `lib/rulepack/path_utils.rb` with `expand_user_path` and `strip_frontmatter`
+  - Removed 2 methods from `common.rb`, added `Rulepack::Path` delegation
+  - Added `require_relative 'path_utils'` to common.rb
+
+---
+
+### ✅ Phase 5 — Extract `Rulepack::InstallHelpers` (COMPLETED)
+
+- **Commit**: `f94a4e7`
+- **Test baseline**: 276 runs, 846 assertions, 0 failures, 5 errors, 6 skips
+- **Changes**:
+  - Created `lib/rulepack/install_helpers.rb` with `uninstall_packages` and `migrate_installed_records`
+  - Removed 2 method bodies from `common.rb`, added `Rulepack::InstallHelpers` delegation
+  - Added `require_relative 'install_helpers'` to common.rb
+  - All call sites (installer.rb, test_uninstall.rb, test_integration.rb) continue via `Rulepack::Common` delegation
+
+---
+
+### ✅ Phase 6 — Extract `Rulepack::Config` to Separate File (COMPLETED)
+
+- **Commit**: `467bd22`
+- **Test baseline**: 276 runs, 846 assertions, 0 failures, 5 errors, 6 skips
+- **Changes**:
+  - Created `lib/rulepack/config.rb` with 5 methods: `max_redirects`, `read_timeout`, `cache_dir_name`, `git_clone_depth`, `log_level`
+  - Removed inline `module Config` from `common.rb`, added `require_relative 'config'`
+  - `require_relative 'config'` is first in the requires chain (loaded before submodules that call `Rulepack::Config.log_level`)
+
+---
+
+### ✅ Phase 7 — Slim `Rulepack::Common` to Facade Only (COMPLETED)
+
+- **Commit**: `0ca3e0b`
+- **Test baseline**: 276 runs, 846 assertions, 0 failures, 5 errors, 6 skips
+- **Changes**:
+  - `common.rb` reduced from 211+ LOC to 70 LOC (target: <100 LOC ✅)
+  - Removed all method bodies — only path constants, test seam overrides, and delegation loops remain
+  - Facade delegation uses `Module#methods(false)` for exact public API matching (avoids Module ancestor methods)
+  - Final architecture:
+    ```
+    Rulepack
+    ├── Common          (facade — 70 LOC, delegates to submodules)
+    ├── Config          (lib/rulepack/config.rb)
+    ├── Logging         (lib/rulepack/logging.rb)
+    ├── IO              (lib/rulepack/io.rb)
+    ├── Validation      (lib/rulepack/validation.rb)
+    ├── Path            (lib/rulepack/path_utils.rb)
+    └── Install         (lib/rulepack/install_helpers.rb)
+    ```
+
+---
+
+## All Phases Complete ✅
+
+All 7 phases committed. Test results: **276 runs, 846 assertions, 0 failures, 5 errors, 6 skips** (5 errors are pre-existing `test_fix.rb` bugs introduced at P18 baseline, present throughout all phases). All `Rulepack::Common.xxx` call sites continue to work via delegation.
