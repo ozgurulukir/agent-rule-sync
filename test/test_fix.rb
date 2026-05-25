@@ -114,8 +114,8 @@ class TestFix < Minitest::Test
     orphan_file.write('# Orphan content')
 
     # Mock verify to report orphan
-    verify_output = "  ? ORPHAN: #{orphan_file}"
-    Rulepack::Fix.stub(:run_verify, verify_output) do
+    verify_result = { drift: 0, orphans: [orphan_file.to_s], ok: 0 }
+    Rulepack::Fix.stub(:run_verify, verify_result) do
       result = Rulepack::Fix.run(
         target: 'opencode',
         dry_run: true,
@@ -131,8 +131,8 @@ class TestFix < Minitest::Test
     orphan_file.write('# Orphan content')
     assert orphan_file.exist?, 'orphan file should exist before fix'
 
-    verify_output = "  ? ORPHAN: #{orphan_file}"
-    Rulepack::Fix.stub(:run_verify, verify_output) do
+    verify_result = { drift: 0, orphans: [orphan_file.to_s], ok: 0 }
+    Rulepack::Fix.stub(:run_verify, verify_result) do
       Rulepack::Fix.stub(:fix_drift, false) do
         result = Rulepack::Fix.run(
           target: 'opencode',
@@ -151,8 +151,8 @@ class TestFix < Minitest::Test
     orphan_file.write('# Orphan content')
     assert orphan_file.exist?, 'orphan file should exist'
 
-    verify_output = "  ? ORPHAN: #{orphan_file}"
-    Rulepack::Fix.stub(:run_verify, verify_output) do
+    verify_result = { drift: 0, orphans: [orphan_file.to_s], ok: 0 }
+    Rulepack::Fix.stub(:run_verify, verify_result) do
       Rulepack::Fix.stub(:fix_drift, false) do
         result = Rulepack::Fix.run(
           target: 'opencode',
@@ -174,8 +174,8 @@ class TestFix < Minitest::Test
     index[:packages][:'test-pkg'][:installed][0][:checksum] = 'wrongchecksum'
     (@install_dir / 'index.yaml').write(index.to_yaml)
 
-    verify_output = "  ⚠ Checksum mismatch for test-rule.md"
-    Rulepack::Fix.stub(:run_verify, verify_output) do
+    verify_result = { drift: 1, orphans: [], ok: 0 }
+    Rulepack::Fix.stub(:run_verify, verify_result) do
       result = Rulepack::Fix.run(
         target: 'opencode',
         dry_run: true,
@@ -281,8 +281,8 @@ class TestFix < Minitest::Test
     }
     (@install_dir / 'index.yaml').write(index.to_yaml)
 
-    verify_output = "  ✓ No drift detected."
-    Rulepack::Fix.stub(:run_verify, verify_output) do
+    verify_result = { drift: 0, orphans: [], ok: 0 }
+    Rulepack::Fix.stub(:run_verify, verify_result) do
       result = Rulepack::Fix.run(
         target: 'opencode',
         exit_on_failure: false
