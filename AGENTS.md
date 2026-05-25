@@ -231,10 +231,22 @@ targets:
 ```
 
 > [!IMPORTANT]
-> **🤖 LLM / AI AGENT INSTRUCTION**: When asked to create a PKGBUILD:
-> 1. You **MUST** include targets for **ALL** 14 supported platforms (`opencode`, `cursor`, `windsurf`, `claude-code`, `antigravity`, `oh-my-pi`, `crush`, `goose`, `droid`, `gemini-cli`, `qwen-code`, `codex`, `github-copilot`, `agents`).
-> 2. **SCHEMA-DRIVEN ENGINE**: The build engine dynamically applies schema constraints (e.g. `frontmatter: strip`, `emoji_policy: strip`) based on `data/platforms/<agent>.yaml`. Therefore, you do **NOT** need to manually specify `transformer: strip-frontmatter` if the platform schema already declares it.
-> 3. **DYNAMIC TRANSLATORS**: Before adding a new platform or complex format conversion, actively read the `data/platforms/<agent>.yaml` schema. If a complex structural change is required that the SchemaEngine does not support out-of-the-box, you **MUST** write a custom Ruby script under `data/translators/` and map it via `translate: custom:data/translators/your_script.rb`.
+> **🤖 LLM / AI AGENT INSTRUCTION**: When creating or reviewing a PKGBUILD:
+> 
+> **Step 1 — Read the reference docs first:**
+> - [`docs/agents/REFERENCE.md`](docs/agents/REFERENCE.md) — complete PKGBUILD YAML grammar, all field definitions, validation rules, and the `pkg_type` / `format` / `install.type` taxonomy
+> - [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) — canonical list of all 14 platforms, their scope (`user`/`project`), expected formats, and install paths
+> - [`docs/agents/TRANSFORMS.md`](docs/agents/TRANSFORMS.md) — when a custom translator is needed vs. what the SchemaEngine handles automatically
+> 
+> **Step 2 — Read the per-platform schema:**
+> For each target platform, read `data/platforms/<agent>.yaml`. This file defines `frontmatter`, `emoji_policy`, `heading_style`, `bullet_style`, and `allowed_formats`. The build engine applies these automatically — **you must NOT duplicate them as manual `transformer` directives** unless the schema does not cover the transformation you need.
+> 
+> **Step 3 — Apply the rules:**
+> 1. You **MUST** include at least one `targets:` entry for each of the 14 platforms listed in `PLATFORMS.md`.
+> 2. Match the `format:` value to the platform's `allowed_formats` in its schema (e.g. `directory`, `skill`, `import`, `agent`).
+> 3. Match the `install.type` to the platform's `install_method` in `PLATFORMS.md` (e.g. `symlink`, `copy`, `inject`, `append`).
+> 4. If the platform schema already declares a transformer for a concern (e.g. `frontmatter: strip`), **do not add a redundant `translate:` or `transformer:` line**.
+> 5. For format conversions not covered by the SchemaEngine (structural changes, markdown-to-agent-manifest, etc.), write a custom Ruby script under `data/translators/` and map it with `translate: custom:data/translators/your_script.rb` (see `TRANSFORMS.md` for the full API).
 
 ```yaml
 ---
