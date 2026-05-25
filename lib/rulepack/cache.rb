@@ -19,6 +19,38 @@ module Rulepack
       RULEPACK_ROOT.join(Rulepack::Config.cache_dir_name, key.to_s)
     end
 
+    # Total size of the cache root directory in bytes.
+    def cache_total_bytes
+      root = RULEPACK_ROOT.join(Rulepack::Config.cache_dir_name)
+      return 0 unless root.exist?
+      sum = 0
+      root.find { |entry| sum += entry.size if entry.file? }
+      sum
+    end
+
+    # Evict least-recently-used cache entries until total size is under the limit.
+    # LRU key: entry directory mtime (oldest = least recently used).
+    # Called automatically from cache_source after every write.
+    def enforce_cache_limit!
+      max_mb = Rulepack::Config.cache_max_size_mb
+      return if max_mb <= 0 # 0 = disabled
+
+      limit_bytes = max_mb * 1024 * 1024
+      root = RULEPACK_ROOT.join(Rulepack::Config.cache_dir_name)
+      return unless root.exist?
+
+      while cache_total_bytes > limit_bytes
+        # Collect all top-level cache key directories with their mtime
+        entries = root.children.select(&:directory?).map { |d| [d.mtime, d] }
+        break if entries.empty?
+
+        # Sort ascending: oldest mtime first
+        entries.sort_by!(&:first)
+        _oldest_mtime, oldest_dir = entries.first
+        FileUtils.rm_rf(oldest_dir)
+      end
+    end
+
     def source_cached?(key)
       dir = cache_dir(key)
       dir.exist? && (dir.join('extracted').exist? || dir.join('source.tar.gz').exist?)
@@ -44,6 +76,7 @@ module Rulepack
         extracted.mkpath
         system('tar', '-xzf', Pathname.new(content_or_path).to_s, '-C', extracted.to_s)
       end
+      enforce_cache_limit!
     end
 
     def get_cached_source(key, output_filename = nil)

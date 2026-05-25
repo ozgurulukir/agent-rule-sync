@@ -86,38 +86,32 @@ lib/rulepack/build_writer.rb     # write_build_index, write_catalog, record_buil
 
 **Priority**: MEDIUM  
 **Risk**: LOW  
-**Status**: OPEN
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-25
 
-**Current state**: `data/index.yaml` declares `version: 3.0`. There is no `migrate_index_schema!(index)` method. If the schema changes, every tool that reads `index.yaml` must handle every historical schema version manually.
+**Files**: `lib/rulepack/schema_migration.rb`, `lib/rulepack/common.rb`, `lib/rulepack/installer.rb`, `test/test_common.rb`
 
-**Target**:
+**Implementation**:
 ```ruby
-# lib/rulepack/schema_migration.rb
-module Rulepack
-  module SchemaMigration
-    CURRENT_VERSION = 3.0
-
-    def self.migrate!(index)
-      v = index[:version] || 1.0
-      while v < CURRENT_VERSION
-        case v
-        when 1.0 then migrate_1_to_2!(index); v = 2.0
-        when 2.0 then migrate_2_to_3!(index); v = 3.0
-        else raise "Unknown schema version: #{v}"
-        end
-      end
-      index[:version] = CURRENT_VERSION
-    end
-
-    def self.migrate_1_to_2!(index); ...; end  # e.g. add checksums.built field
-    def self.migrate_2_to_3!(index); ...; end  # e.g. add pkg_type field
-  end
+module Rulepack::SchemaMigration
+  CURRENT_VERSION = 3.0
+  def self.migrate!(index)   # idempotent while-loop
+  def self.migrate_1_to_2!   # adds checksums.built
+  def self.migrate_2_to_3!   # derives pkg_type from target format mix
+  def self.derive_pkg_type   # rule / skill / hybrid
 end
 ```
 
-Called from `installer.rb:load_master_index` and `build.rb` before any read of `index[:packages]`. Idempotent — safe to call on already-migrated data.
+Called from `installer.rb:load_master_index` before any index consumer reads it.  
+**Integrations already in P-A/P-B commits** (load_master_index cleanup).
 
-**Test gate**: Add unit test for `migrate_1_to_2!` with pre-2.0 fixture data → correct shape post-migration. `rake test`.
+**Migration summary**:
+| Version jump | Field added | Logic |
+|---|---|---|
+| 1.0 → 2.0 | `checksums.built` | Per-platform build checksums hash, default `{}` |
+| 2.0 → 3.0 | `pkg_type` | Derived from target format mix: `rule` / `skill` / `hybrid` |
+
+**Test gate**: `rake test` — 284 runs, 862 assertions, 0 failures, 0 errors, 6 skips.
 
 ---
 

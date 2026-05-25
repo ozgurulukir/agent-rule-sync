@@ -192,6 +192,80 @@ class TestGetCachedGitSource < Minitest::Test
   end
 end
 
+# ─── Enforce Cache Limit ─────────────────────────────────────────────────────────
+
+class TestEnforceCacheLimit < Minitest::Test
+  def setup
+    @root = ROOT.join('cache')
+    # Use unique keys each run to avoid collisions
+    ts = Time.now.to_i.to_s
+    @old_key = "limit-old-#{ts}"
+    @new_key = "limit-new-#{ts}"
+    @old_dir = @root.join(@old_key)
+    @new_dir = @root.join(@new_key)
+  end
+
+  def teardown
+    FileUtils.rm_rf(@old_dir)
+    FileUtils.rm_rf(@new_dir)
+  end
+
+  def _write_cache_entry(dir, bytes)
+    FileUtils.mkpath(dir.join('extracted'))
+    File.write(dir.join('extracted', 'source'), 'x' * bytes)
+  end
+
+  def _total_cache_size
+    total = 0
+    @root.find { |e| total += e.size if e.file? }
+    total
+  end
+
+  def test_evicts_oldest_when_over_one_mb_limit
+    # Create two entries: ~700 KB each → total ~1.4 MB > 1 MB limit
+    _write_cache_entry(@old_dir, 700_000)
+    _write_cache_entry(@new_dir, 700_000)
+
+    # Temporarily set limit to 1 MB
+    orig = ENV['RULEPACK_CACHE_MAX_MB']
+    ENV['RULEPACK_CACHE_MAX_MB'] = '1'
+    Rulepack::Config.send(:remove_method, :cache_max_size_mb) if Rulepack::Config.method_defined?(:cache_max_size_mb)
+    Rulepack::Common.enforce_cache_limit!
+    ENV['RULEPACK_CACHE_MAX_MB'] = orig if orig
+    # Reload config to pick up original value
+    load File.join(__dir__, '..', 'lib', 'rulepack', 'config.rb')
+
+    # oldest entry should have been evicted
+    refute @old_dir.exist?, 'oldest cache entry should have been evicted'
+  end
+
+  def test_no_eviction_when_under_limit
+    _write_cache_entry(@new_dir, 1000)  # 1 KB
+
+    orig = ENV['RULEPACK_CACHE_MAX_MB']
+    ENV['RULEPACK_CACHE_MAX_MB'] = '10'
+    load File.join(__dir__, '..', 'lib', 'rulepack', 'config.rb')
+    Rulepack::Common.enforce_cache_limit!
+    ENV['RULEPACK_CACHE_MAX_MB'] = orig if orig
+    load File.join(__dir__, '..', 'lib', 'rulepack', 'config.rb')
+
+    assert @new_dir.exist?, 'small cache entry should not be evicted'
+  end
+
+  def test_disabled_when_max_mb_is_zero
+    _write_cache_entry(@new_dir, 100_000)
+
+    orig = ENV['RULEPACK_CACHE_MAX_MB']
+    ENV['RULEPACK_CACHE_MAX_MB'] = '0'
+    load File.join(__dir__, '..', 'lib', 'rulepack', 'config.rb')
+    Rulepack::Common.enforce_cache_limit!
+    ENV['RULEPACK_CACHE_MAX_MB'] = orig if orig
+    load File.join(__dir__, '..', 'lib', 'rulepack', 'config.rb')
+
+    assert @new_dir.exist?, 'cache entry should not be evicted when limit is 0 (disabled)'
+  end
+end
+
 class TestCachedFetchUrlErrors < Minitest::Test
   def test_raises_on_sha256_mismatch
     error = assert_raises(RuntimeError) do
