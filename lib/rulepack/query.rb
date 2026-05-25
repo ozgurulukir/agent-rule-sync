@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 # Query tool for Rulepack package database
+# P-E split: COMMANDS dispatch table + cmd_* per-command methods
 # Can be used as script: ruby lib/rulepack/query.rb <command>
 # Or as module: require "lib/rulepack/query"; Rulepack::Query.run(["list-packages"])
 
@@ -14,36 +15,16 @@ module Rulepack
   module Query
     module_function
 
+    # ─── Entry point ───────────────────────────────────────────────────────────────
+
     def run(argv = ARGV)
       argv = argv.dup
       argv.shift if argv.first == '-Q'
       command = argv.shift || 'help'
-      case command
-      when 'list-packages', 'ls'
-        list_packages
-      when 'list-platforms', 'lp'
-        list_platforms
-      when 'installed', 'i'
-        platform = argv.shift || 'opencode'
-        list_installed(platform)
-      when 'show', 'info'
-        pkgname = argv.shift
-        show_package(pkgname)
-      when 'search', 's'
-        keyword = argv.shift
-        search(keyword)
-      when 'check', 'c'
-        check_consistency
-      when 'orphans', 'o'
-        list_orphans
-      when 'depends', 'd'
-        pkgname = argv.shift
-        show_depends(pkgname)
-      when 'provides', 'p'
-        capability = argv.shift
-        show_provides(capability)
-      when 'help', 'h'
-        print_help
+
+      meth = COMMANDS[command]
+      if meth
+        send(meth, argv)
       else
         warn "Unknown command: #{command}"
         print_help
@@ -55,7 +36,70 @@ module Rulepack
       exit 1
     end
 
-    def print_help
+    # ─── Per-command methods ──────────────────────────────────────────────────────
+
+    def cmd_list_packages(_argv)
+      index = load_index
+      pkgs = index[:packages] || {}
+      puts "📦 Packages (#{pkgs.size}):"
+      pkgs.each do |name, pkg|
+        installed = Array(pkg[:installed]).map { |r| r[:platform] }.uniq
+        puts "  #{name} (#{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver],
+                                                           pkg[:pkgrel] || 1)}) [#{pkg[:status] || 'stable'}]"
+        puts "    Targets: #{Array(pkg[:available_targets]).join(', ')}"
+        puts "    Installed: #{installed.empty? ? 'none' : installed.join(', ')}"
+        puts "    Tags: #{Array(pkg[:tags]).join(', ')}"
+        puts
+      end
+    end
+
+    def cmd_list_platforms(_argv)
+      registry = Rulepack::Common.load_platform_registry
+      puts "🎯 Platforms (#{registry.size}):"
+      registry.each do |id, cfg|
+        puts "  #{id} (#{cfg[:display_name] || id})"
+        puts "    Type: #{cfg[:type]} | Scope: #{cfg[:scope] || 'user'}"
+        puts "    Base: #{cfg[:base_path]}"
+        puts
+      end
+    end
+
+    def cmd_installed(argv)
+      platform = argv.shift || 'opencode'
+      list_installed_impl(platform)
+    end
+
+    def cmd_show(argv)
+      pkgname = argv.shift
+      show_package_impl(pkgname)
+    end
+
+    def cmd_search(argv)
+      keyword = argv.shift
+      search_impl(keyword)
+    end
+
+    def cmd_check(_argv)
+      check_consistency_impl
+    end
+
+    def cmd_orphans(_argv)
+      list_orphans_impl
+    end
+
+    def cmd_depends(argv)
+      pkgname = argv.shift
+      show_depends_impl(pkgname)
+    end
+
+    def cmd_provides(argv)
+      capability = argv.shift
+      show_provides_impl(capability)
+    end
+
+    # ─── Help ─────────────────────────────────────────────────────────────────────
+
+    def print_help(_argv = [])
       puts <<~HELP
         Rulepack Database Query Tool
 
@@ -81,6 +125,8 @@ module Rulepack
           ruby lib/rulepack/query.rb search security
       HELP
     end
+
+    # ─── Shared helpers ──────────────────────────────────────────────────────────
 
     def load_index
       root = Pathname.new(__dir__).parent.parent.expand_path
@@ -122,33 +168,7 @@ module Rulepack
       build
     end
 
-    def list_packages
-      index = load_index
-      pkgs = index[:packages] || {}
-      puts "📦 Packages (#{pkgs.size}):"
-      pkgs.each do |name, pkg|
-        installed = Array(pkg[:installed]).map { |r| r[:platform] }.uniq
-        puts "  #{name} (#{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver],
-                                                           pkg[:pkgrel] || 1)}) [#{pkg[:status] || 'stable'}]"
-        puts "    Targets: #{Array(pkg[:available_targets]).join(', ')}"
-        puts "    Installed: #{installed.empty? ? 'none' : installed.join(', ')}"
-        puts "    Tags: #{Array(pkg[:tags]).join(', ')}"
-        puts
-      end
-    end
-
-    def list_platforms
-      registry = Rulepack::Common.load_platform_registry
-      puts "🎯 Platforms (#{registry.size}):"
-      registry.each do |id, cfg|
-        puts "  #{id} (#{cfg[:display_name] || id})"
-        puts "    Type: #{cfg[:type]} | Scope: #{cfg[:scope] || 'user'}"
-        puts "    Base: #{cfg[:base_path]}"
-        puts
-      end
-    end
-
-    def list_installed(platform)
+    def list_installed_impl(platform)
       index = load_index
       pkgs = index[:packages] || {}
       installed = pkgs.filter_map do |name, pkg|
@@ -171,7 +191,7 @@ module Rulepack
       end
     end
 
-    def show_package(pkgname)
+    def show_package_impl(pkgname)
       index = load_index
       pkg = index[:packages][pkgname.to_sym] || index[:packages][pkgname]
       unless pkg
@@ -192,7 +212,7 @@ module Rulepack
       puts "  Provides: #{Array(pkg[:provides]).join(', ') || 'none'}"
     end
 
-    def search(keyword)
+    def search_impl(keyword)
       index = load_index
       pkgs = index[:packages] || {}
       results = pkgs.select do |name, pkg|
@@ -211,7 +231,7 @@ module Rulepack
       end
     end
 
-    def list_orphans
+    def list_orphans_impl
       index = load_index
       pkgs = index[:packages] || {}
       orphans = []
@@ -235,7 +255,7 @@ module Rulepack
       end
     end
 
-    def show_depends(pkgname)
+    def show_depends_impl(pkgname)
       index = load_index
       pkg = index[:packages][pkgname.to_sym] || index[:packages][pkgname]
       unless pkg
@@ -252,7 +272,7 @@ module Rulepack
       end
     end
 
-    def show_provides(capability)
+    def show_provides_impl(capability)
       index = load_index
       pkgs = index[:packages] || {}
       providers = pkgs.filter_map do |name, pkg|
@@ -270,7 +290,7 @@ module Rulepack
       end
     end
 
-    def check_consistency
+    def check_consistency_impl
       index = load_index
       pkgs = index[:packages] || {}
       build_root = Pathname.new(__dir__).parent.parent.expand_path.join('build')
@@ -308,6 +328,77 @@ module Rulepack
         issues.each { |i| puts "  - #{i}" }
         exit 1
       end
+    end
+
+    # ─── Dispatch table (defined after all cmd_* methods) ─────────────────────────
+
+    COMMANDS = {
+      'list-packages'  => :cmd_list_packages,
+      'ls'             => :cmd_list_packages,
+      'list-platforms' => :cmd_list_platforms,
+      'lp'             => :cmd_list_platforms,
+      'installed'      => :cmd_installed,
+      'i'              => :cmd_installed,
+      'show'           => :cmd_show,
+      'info'           => :cmd_show,
+      'search'         => :cmd_search,
+      's'              => :cmd_search,
+      'check'          => :cmd_check,
+      'c'              => :cmd_check,
+      'orphans'        => :cmd_orphans,
+      'o'              => :cmd_orphans,
+      'depends'        => :cmd_depends,
+      'd'              => :cmd_depends,
+      'provides'       => :cmd_provides,
+      'p'              => :cmd_provides,
+      'help'           => :print_help,
+      'h'              => :print_help,
+    }.freeze
+
+    # ─── Backward-compatible public aliases ────────────────────────────────────────
+    # Tests and external callers may still use the original method names directly.
+    # Each alias delegates to its cmd_* counterpart.
+
+    module_function
+
+    def list_packages(*_args)
+      cmd_list_packages([])
+    end
+
+    def list_platforms(*_args)
+      cmd_list_platforms([])
+    end
+
+    def installed(platform = 'opencode')
+      list_installed_impl(platform)
+    end
+
+    def show(pkgname)
+      show_package_impl(pkgname)
+    end
+
+    def search(*args)
+      cmd_search(args)
+    end
+
+    def check(*_args)
+      cmd_check([])
+    end
+
+    def orphans(*_args)
+      cmd_orphans([])
+    end
+
+    def depends(pkgname)
+      show_depends_impl(pkgname)
+    end
+
+    def provides(capability)
+      show_provides_impl(capability)
+    end
+
+    def show_provides(capability)
+      show_provides_impl(capability)
     end
   end
 end
