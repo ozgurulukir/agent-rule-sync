@@ -32,7 +32,7 @@ module Rulepack
     @_build_index_override = nil
     module_function
 
-    # Overrideable build index path (for testing)
+    # Overrideable paths (test seam)
     def build_index_path
       @_build_index_override || BUILD_INDEX_PATH
     end
@@ -41,7 +41,6 @@ module Rulepack
       @_build_index_override = val
     end
 
-    # Overrideable index yaml path (for testing)
     def index_yaml_path
       @_index_yaml_override || INDEX_YAML_PATH
     end
@@ -50,7 +49,6 @@ module Rulepack
       @_index_yaml_override = val
     end
 
-    # Overrideable build dir (for testing)
     def build_dir
       @_build_dir_override || BUILD_DIR
     end
@@ -59,46 +57,14 @@ module Rulepack
       @_build_dir_override = val
     end
 
-    # ─── Basic IO Utilities ──────────────────────────────────────────────────────
-    # (Moved to lib/rulepack/io.rb — loaded above)
-
-    # ─── Delegation to Logging ──────────────────────────────────────────────────
-    # Maintains backward compatibility: Rulepack::Common.log(...) still works
-
-    Rulepack::Logging.public_methods(false).each do |m|
-      define_singleton_method(m, &Rulepack::Logging.method(m))
-    end
-
-    # ─── Delegation to IO ─────────────────────────────────────────────────────────
-    # Maintains backward compatibility: Rulepack::Common.load_yaml(...) etc. still works
-
-    Rulepack::IO.public_methods(false).each do |m|
-      define_singleton_method(m, &Rulepack::IO.method(m))
-    end
-
-    # ─── Delegation to Validation ─────────────────────────────────────────────────
-    # Maintains backward compatibility: Rulepack::Common.verify_checksum(...) etc. still works
-
-    Rulepack::Validation.public_methods(false).each do |m|
-      define_singleton_method(m, &Rulepack::Validation.method(m))
-    end
-
-    # ─── Delegation to Path ───────────────────────────────────────────────────────
-    # Maintains backward compatibility: Rulepack::Common.expand_user_path(...) etc. still works
-
-    Rulepack::Path.public_methods(false).each do |m|
-      define_singleton_method(m, &Rulepack::Path.method(m))
-    end
-
-    # ─── Delegation to InstallHelpers ────────────────────────────────────────────
-    # Maintains backward compatibility: Rulepack::Common.uninstall_packages(...) etc. still works
-
-    Rulepack::InstallHelpers.public_methods(false).each do |m|
-      define_singleton_method(m, &Rulepack::InstallHelpers.method(m))
-    end
-
+    # Facade — delegates to submodules
+    Logging.methods(false).each { |m| define_singleton_method(m, &Logging.method(m)) }
+    IO.methods(false).each { |m| define_singleton_method(m, &IO.method(m)) }
+    Validation.methods(false).each { |m| define_singleton_method(m, &Validation.method(m)) }
+    Path.methods(false).each { |m| define_singleton_method(m, &Path.method(m)) }
+    InstallHelpers.methods(false).each { |m| define_singleton_method(m, &InstallHelpers.method(m)) }
   end
+end
 
 # Load uninstaller after Common is fully defined to avoid circular dependency
 require_relative 'uninstaller'
-end
