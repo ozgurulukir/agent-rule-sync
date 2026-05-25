@@ -34,6 +34,7 @@ module Rulepack
 
 require_relative 'logging'
 require_relative 'io'
+require_relative 'path_utils'
 require_relative 'platform'
 require_relative 'source'
 require_relative 'cache'
@@ -83,16 +84,6 @@ require_relative 'backup'
     # ─── Basic IO Utilities ──────────────────────────────────────────────────────
     # (Moved to lib/rulepack/io.rb — loaded above)
 
-    # Expand user home directory in path (~/...)
-    def expand_user_path(path)
-      path.start_with?('~') ? File.expand_path(path) : path
-    end
-
-    # Remove YAML frontmatter (--- ... ---) from content
-    def strip_frontmatter(content)
-      content.sub(/\A---\s*\n.*?\n---\s*\n/m, '')
-    end
-
     # ─── Uninstall Helpers (thin wrappers around Uninstaller) ────────────────────
     # Maintains backward compatibility: Rulepack::Common.uninstall_packages(...) still works
 
@@ -128,6 +119,13 @@ require_relative 'backup'
 
     Rulepack::Validation.public_methods(false).each do |m|
       define_singleton_method(m, &Rulepack::Validation.method(m))
+    end
+
+    # ─── Delegation to Path ───────────────────────────────────────────────────────
+    # Maintains backward compatibility: Rulepack::Common.expand_user_path(...) etc. still works
+
+    Rulepack::Path.public_methods(false).each do |m|
+      define_singleton_method(m, &Rulepack::Path.method(m))
     end
 
   end
