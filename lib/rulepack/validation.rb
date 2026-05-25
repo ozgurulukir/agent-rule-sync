@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require 'pathname'
+
 module Rulepack
-  module Common
+  module Validation
     module_function
+
+    # ─── PKGBUILD Output Validation ───────────────────────────────────────────────
 
     # Validate output filename - no path traversal
     def validate_output_filename(output, pkgname)
@@ -24,6 +28,8 @@ module Rulepack
 
       raise "Invalid target_dir '#{target_dir}' in package '#{pkgname}': path traversal not allowed"
     end
+
+    # ─── PKGBUILD Structure Validation ───────────────────────────────────────────
 
     def validate_pkgbuild(pkg, _pkgdir)
       errors = []
@@ -124,6 +130,8 @@ module Rulepack
       end
     end
 
+    # ─── PKGBUILD Load & Validate ────────────────────────────────────────────────
+
     # Load and validate PKGBUILD YAML
     # Returns parsed hash with symbolized keys
     def load_pkgbuild(pkgdir)
@@ -171,6 +179,89 @@ module Rulepack
       end
 
       data
+    end
+
+    # ─── Drift CMS: Checksum & Target Validation ─────────────────────────────────
+
+    # Verify checksum of file, supporting marker-based content
+    def verify_checksum(path, expected_checksum, pkgname)
+      path = Pathname.new(path)
+      return false unless path.exist?
+
+      content = path.read
+      start_marker = "<!-- rulepack:#{pkgname} start -->"
+      end_marker = "<!-- rulepack:#{pkgname} end -->"
+
+      if content.include?(start_marker) && content.include?(end_marker)
+        pattern = /#{Regexp.escape(start_marker)}\n(.*?)\n#{Regexp.escape(end_marker)}/m
+        if content =~ pattern
+          extracted = $1
+          return Digest::SHA256.hexdigest(extracted) == expected_checksum
+        end
+      end
+
+      Digest::SHA256.hexdigest(content) == expected_checksum
+    end
+
+    # Validate and resolve target platforms against the installed index.
+    #
+    # @param target_arg [String, nil] "all" or comma-separated platform IDs
+    # @param package_arg [String, nil] optional package name to filter
+    # @param packages [Hash] index[:packages] — the installed-package index
+    # @param registry [Hash] platform registry from load_platform_registry
+    # @param exit_on_failure [Boolean] abort on error (CLI mode) vs raise
+    # @param project_arg [String, nil] --project path for project-scoped platforms
+    # @param enforce_project_scope [Boolean] call project_root_for during validation
+    # @return [Array(Array<String>, String|nil)] [targets, target_package]
+    def validate_targets_and_packages(target_arg, package_arg, packages, registry,
+                                      exit_on_failure: false, project_arg: nil,
+                                      enforce_project_scope: false)
+      # ── Package existence check ──────────────────────────────────────────────────
+      target_package = nil
+      if package_arg
+        unless packages.key?(package_arg) || packages.key?(package_arg.to_sym)
+          msg = "Package '#{package_arg}' is not registered as installed in index."
+          exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
+        end
+        target_package = packages.keys.find { |k| k.to_s == package_arg }.to_s
+      end
+
+      # ── Target arg required ──────────────────────────────────────────────────────
+      unless target_arg
+        msg = "Please specify target platform(s) with --target <platform> (or --target all)."
+        exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
+      end
+
+      # ── Expand targets ───────────────────────────────────────────────────────────
+      targets = []
+      if target_arg.to_s.downcase == 'all'
+        if target_package
+          pkg_idx = packages[target_package.to_sym] || packages[target_package.to_s] || {}
+          targets = (pkg_idx[:installed] || []).map { |i| i[:platform] }.uniq
+        else
+          platform_set = Set.new
+          packages.each_value do |pkg|
+            (pkg[:installed] || []).each { |i| platform_set << i[:platform] }
+          end
+          targets = platform_set.to_a
+        end
+      else
+        targets = target_arg.to_s.split(',').map(&:strip).reject(&:empty?)
+      end
+
+      return [targets, target_package] if targets.empty?
+
+      # ── Validate targets against registry ────────────────────────────────────────
+      targets.each do |p|
+        cfg = registry[p.to_sym] || registry[p.to_s]
+        unless cfg
+          msg = "Unknown target platform '#{p}'."
+          exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
+        end
+        Rulepack::Common.project_root_for(cfg, project_arg) if enforce_project_scope
+      end
+
+      [targets, target_package]
     end
   end
 end
