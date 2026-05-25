@@ -370,10 +370,12 @@ module Rulepack
       end
     end
 
+    EXCLUDE_KEYS = [:installed, :source_dir, :source_sha256].freeze
+
     def ensure_package_in_index(index, pkgname, pkgdata)
       pkg_index = index[:packages][pkgname] ||= {}
       pkg_index[:installed] ||= []
-      pkg_index.merge!(pkgdata.reject { |k, _| k == :installed })
+      pkg_index.merge!(pkgdata.reject { |k, _| EXCLUDE_KEYS.include?(k) })
     end
 
     def check_vendor_skill_present(platform_cfg, base_path)

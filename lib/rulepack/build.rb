@@ -122,7 +122,7 @@ module Rulepack
                 Rulepack::Common.log_error "Source path must be a directory for skill-bundle: #{source_dir}"
                 next
               end
-              pkg_index[:source_dir] = source_dir.to_s
+              pkg_index[:source_dir] = source_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT).to_s
               pkg_index[:source_sha256] = nil
 
               # Run pkgver_func if defined
@@ -142,7 +142,7 @@ module Rulepack
               FileUtils.rm_rf(persistent_dir)
               FileUtils.mkpath(persistent_dir.parent)
               FileUtils.cp_r(cached_dir, persistent_dir)
-              pkg_index[:source_dir] = persistent_dir.to_s
+              pkg_index[:source_dir] = persistent_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT).to_s
               pkg_index[:source_sha256] = commit_hash
               Rulepack::Common.log "  ✓ Git source cached/build dir (#{commit_hash[0..7]})"
               puts "  ✓ Git source cached/build dir (#{commit_hash[0..7]})"
