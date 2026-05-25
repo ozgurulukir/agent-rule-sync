@@ -62,6 +62,9 @@ module Rulepack
       begin
         uninstalled_total = execute_uninstall(targets_to_uninstall, index, registry, target_package, project_arg, dry_run)
 
+        # Pacman-R mimic: drop ghost packages with no remaining installed platforms
+        index[:packages].reject! { |_, pkg| (pkg[:installed] || []).empty? }
+
         # Save updated index
         if dry_run
           Rulepack::Common.log '[DRY-RUN] Index write skipped'

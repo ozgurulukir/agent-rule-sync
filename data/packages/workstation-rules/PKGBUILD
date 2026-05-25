@@ -76,13 +76,10 @@ targets:
 checksums:
   source:
   built: {}
-dependencies:
-- memory
-- shell
+dependencies: []
 conflicts: []
 provides:
-- workstation-constraints
-- shell-strategy
+- workstation-rules
 tags:
 - constraints
 - memory

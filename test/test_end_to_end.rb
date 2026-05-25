@@ -90,7 +90,7 @@ class TestEndToEndPipeline < Minitest::Test
     assert build_index[:packages], 'Should have packages key'
 
     pkg_names = build_index[:packages].keys.map(&:to_s)
-    %w[memory shell ast-grep workstation-rules windsurf-rules
+    %w[memory shell ast-grep workstation-rules
        line-repetition-control antigravity-skills vibe-security
        cc-skills-golang].each do |expected|
       assert_includes pkg_names, expected, "Build index should include #{expected}"
@@ -134,7 +134,7 @@ class TestEndToEndPipeline < Minitest::Test
     refute_nil build_index, 'Build index should exist'
 
     # Local packages (no git repos)
-    local_packages = %w[memory shell ast-grep workstation-rules windsurf-rules line-repetition-control]
+    local_packages = %w[memory shell ast-grep workstation-rules line-repetition-control]
     pkg_names = build_index[:packages].keys.map(&:to_s)
 
     # Verify all expected local packages are present

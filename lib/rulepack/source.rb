@@ -154,8 +154,14 @@ module Rulepack
                end
         raise "Local source not found: #{path}. Check that the path in PKGBUILD source is correct." unless path.exist?
 
-        content = path.read
-        checksum = Digest::SHA256.hexdigest(content)
+        if path.directory?
+          # Deterministic content hash: sort files by path, concatenate content, hash
+          content = path.find.to_a.sort_by(&:to_s).select(&:file?).map(&:read).join
+          checksum = Digest::SHA256.hexdigest(content)
+        else
+          content = path.read
+          checksum = Digest::SHA256.hexdigest(content)
+        end
         [content, checksum]
       when 'url'
         url = source_entry[:url]
