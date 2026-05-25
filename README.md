@@ -64,6 +64,9 @@ bin/rulepack uninstall -R memory -t cursor --project . # Uninstall single packag
 # Query database (query)
 bin/rulepack query show memory                      # Show package details
 bin/rulepack query search security                  # Search packages by tag or term
+
+# Install Git pre-commit hooks
+bin/rulepack init-hooks                             # Audits PKGBUILDs automatically on commit
 ```
 
 ## Project Structure
@@ -212,6 +215,34 @@ Packages use pacman-inspired versioning: `epoch:pkgver-pkgrel`.
 
 **Upgrade**: Automatic on re-install if newer version detected.
 **Downgrade**: Blocked by default; use `--force` to allow.
+
+## Git Pre-Commit Hook
+
+Install the pre-commit hook to automatically run strict audits before every git commit:
+
+```bash
+bin/rulepack init-hooks
+```
+
+This ensures no broken package descriptors (`PKGBUILD`) or platform schema violations escape into your shared repository.
+
+## Local Registry Overrides
+
+You can override target platform settings locally (e.g. custom installation paths for Cursor or Windsurf) without modifying the shared `data/registry/platforms.yaml` file.
+
+Create a file named `.rulepack.local.yaml` in your project root or `~/.config/rulepack/config.yaml` in your user home:
+
+```yaml
+platforms:
+  cursor:
+    base_path: "/my/custom/cursor-rules-directory"
+```
+
+This configuration will be merged automatically into the platforms registry at runtime.
+
+## Git HTTP Fallback
+
+If `git` is not installed on the system, or if a `git clone` fails due to network/firewall constraints, Rulepack automatically falls back to an HTTP tarball download. It parses the Git URL, downloads the appropriate branch/ref as a `.tar.gz` archive using Ruby's core HTTP client, and extracts it directly using standard library tools, maintaining a seamless, zero-dependency environment.
 
 ## Environment Variables
 

@@ -244,6 +244,32 @@ module Rulepack
       end
       if dry_run
         Rulepack::Common.log "    [DRY-RUN] Would remove: #{output}"
+        if target[:format] != 'skill-bundle' && target[:format] != 'agent'
+          begin
+            install_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
+            if install_path.exist? && install_path.file? && !install_path.symlink?
+              content = install_path.read
+              start_marker = "<!-- rulepack:#{pkgname} start -->"
+              end_marker = "<!-- rulepack:#{pkgname} end -->"
+              if content.include?(start_marker) && content.include?(end_marker)
+                puts "    \e[1;36m[DRY-RUN] Diff for #{install_path.basename} (Excising lines):\e[0m"
+                puts "    \e[31m- #{start_marker}\e[0m"
+                pattern = /#{Regexp.escape(start_marker)}\n(.*?)\n#{Regexp.escape(end_marker)}/m
+                if content =~ pattern
+                  extracted = $1
+                  extracted.each_line do |line|
+                    puts "    \e[31m- #{line.chomp}\e[0m"
+                  end
+                end
+                puts "    \e[31m- #{end_marker}\e[0m"
+              else
+                puts "    \e[1;33m[DRY-RUN] File will be completely deleted: #{install_path.basename}\e[0m"
+              end
+            end
+          rescue StandardError => e
+            Rulepack::Common.log_warn "Could not resolve dry-run diff: #{e.message}"
+          end
+        end
         return
       end
       remove_target_file(target, platform_cfg, base_path, pkgname, ctx)

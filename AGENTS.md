@@ -158,7 +158,11 @@ bin/rulepack audit --format json                    # Machine-readable JSON outp
 
 # De-registration (Uninstall / pacman -R)
 bin/rulepack uninstall [pkg] --target <plat|all>    # Surgically removes rule fragments and restores state
+bin/rulepack uninstall [pkg] -t <plat|all> --dry-run # Preview exact line-diff before removal (marker-aware)
 bin/rulepack uninstall -R [pkg] -t <plat|all>       # pacman -R flag option equivalent
+
+# Git Hook Integration
+bin/rulepack init-hooks                             # Installs pre-commit hook: enforces `bin/rulepack audit --strict`
 
 # Metadata Querying (query)
 bin/rulepack query show <pkgname>                   # Show package details
@@ -344,3 +348,57 @@ All contributions must pass the absolute quality threshold before integration:
   rake test
   ```
   Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (276 runs, 844 assertions, 0 failures, 0 errors, 6 skips by default).
+
+---
+
+## ⚙️ New Capabilities & Developer Notes
+
+### Git HTTP Fallback (`lib/rulepack/source.rb`)
+
+When `git` binary is not present on the host or a clone fails, the build engine transparently falls back to GitHub/GitLab tarball URLs:
+
+1. `git_available?` detects the binary at runtime.
+2. `translate_git_to_tarball` rewrites the git URL to the platform's `/archive/refs/heads/<branch>.tar.gz` endpoint.
+3. `extract_tar_gz` unpacks the archive using Ruby's built-in `Zlib` and `Gem::Package::TarReader`—**no shell subprocesses, no external dependencies**.
+
+> [!NOTE]
+> Supports both `github.com` and `gitlab.com` repository URLs. Arbitrary git hosts must use `type: url` with a direct archive link.
+
+### Local Registry Overrides (`lib/rulepack/platform.rb`)
+
+`load_platform_registry` performs a **deep merge** of up to two local override files before validating platform configs:
+
+| Priority | File | Scope |
+|---|---|---|
+| 1 (highest) | `.rulepack.local.yaml` | Per-repository (gitignored) |
+| 2 | `~/.config/rulepack/config.yaml` | User-global |
+| 3 (base) | `data/registry/platforms.yaml` | Canonical SSOT |
+
+Use this to pin custom install paths, override platform scopes, or add local-only platforms without touching the canonical registry.
+
+```yaml
+# .rulepack.local.yaml
+platforms:
+  opencode:
+    base_path: /custom/path/opencode
+```
+
+### Git Hook Integration (`bin/rulepack init-hooks`)
+
+Running `bin/rulepack init-hooks` installs a `.git/hooks/pre-commit` script that automatically runs `bin/rulepack audit --strict` before every commit. This prevents malformed PKGBUILD descriptors from entering the repository.
+
+* **Non-destructive**: Does not overwrite an existing hook—appends to it instead.
+* **Exit-code aware**: The hook exits non-zero on audit failure, blocking the commit.
+
+### Uninstall Dry-Run Diff Preview (`lib/rulepack/uninstaller.rb`)
+
+`bin/rulepack uninstall <pkg> -t <plat> --dry-run` now produces a colored line-level diff for **marker-injected** targets (e.g. `inject`, `append` formats), showing exactly which lines would be removed:
+
+```
+[DRY-RUN] Would remove from /path/to/file:
+  - <!-- rulepack:memory start -->
+  - ## Memory Management\n...
+  - <!-- rulepack:memory end -->
+```
+
+For symlink and copy targets, the preview reports the file path that would be deleted.

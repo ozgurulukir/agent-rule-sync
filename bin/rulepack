@@ -89,6 +89,8 @@ module Rulepack
         0
       when "platforms"
         Rulepack::Query.run(["list-platforms"])
+      when "init-hooks"
+        Rulepack::CLI.init_hooks
       when "help"
         print_help
         0
@@ -138,6 +140,7 @@ module Rulepack
           verify [platform]            Comprehensive index vs disk reconciliation
           catalog                      Show package catalog (JSON)
           platforms                    List all platforms
+          init-hooks                   Install git pre-commit hook
 
         Global Flags:
           --timing                     Show operation timing
@@ -188,6 +191,37 @@ module Rulepack
         puts "  #{platform}: #{pkgs.size} package(s)"
         pkgs.each { |p| puts "    - #{p}" }
       end
+    end
+
+    def self.init_hooks
+      hook_dir = ROOT.join(".git", "hooks")
+      unless File.exist?(hook_dir)
+        puts "❌ Error: Not a git repository (.git/hooks directory not found)."
+        return 1
+      end
+
+      pre_commit_hook = hook_dir.join("pre-commit")
+      hook_content = <<~HOOK
+        #!/bin/sh
+        # Rulepack git pre-commit hook
+        # Automatically runs PKGBUILD audit and drift verification before commits
+        
+        echo "🔍 Rulepack Pre-Commit Audit..."
+        ruby bin/rulepack audit --strict
+        AUDIT_STATUS=$?
+        if [ $AUDIT_STATUS -ne 0 ]; then
+          echo "❌ Rulepack pre-commit audit failed! Commit aborted."
+          exit 1
+        fi
+        
+        echo "✓ Rulepack pre-commit audit passed."
+        exit 0
+      HOOK
+
+      File.write(pre_commit_hook, hook_content)
+      File.chmod(0755, pre_commit_hook)
+      puts "✅ Git pre-commit hook installed successfully at #{pre_commit_hook.relative_path_from(ROOT)}"
+      0
     end
   end
 end

@@ -57,6 +57,33 @@ module Rulepack
       registry_path = RULEPACK_ROOT.join('data', 'registry', 'platforms.yaml')
       raw = load_yaml(registry_path)
 
+      # ─── Load Local Overrides ───────────────────────────────────────────────
+      local_path = RULEPACK_ROOT.join('.rulepack.local.yaml')
+      user_local_path = Pathname.new(expand_user_path('~/.config/rulepack/config.yaml'))
+
+      overrides = nil
+      begin
+        if local_path.exist?
+          overrides = load_yaml(local_path)
+        elsif user_local_path.exist?
+          overrides = load_yaml(user_local_path)
+        end
+      rescue StandardError => e
+        Rulepack::Common.log_warn "Failed to load local registry overrides: #{e.message}"
+      end
+
+      if overrides && (over_platforms = overrides[:platforms] || overrides['platforms'])
+        over_platforms.each do |id, over_cfg|
+          next unless over_cfg.is_a?(Hash)
+          sym_over_cfg = over_cfg.transform_keys(&:to_sym)
+          raw_key = raw.keys.find { |k| k.to_s == id.to_s }
+          if raw_key
+            raw[raw_key] = raw[raw_key].merge(sym_over_cfg)
+          end
+        end
+      end
+      # ────────────────────────────────────────────────────────────────────────
+
       raw.each do |id, cfg|
         validate_platform_config(id, cfg)
         profile_path = RULEPACK_ROOT.join('data', 'platforms', "#{id}.yaml")

@@ -2,6 +2,9 @@
 
 
 require 'open3'
+require 'zlib'
+require 'rubygems/package'
+require 'stringio'
 module Rulepack
   module Common
     module_function
@@ -71,49 +74,95 @@ module Rulepack
       missing
     end
 
-    def fetch_git_source(url, ref, dest_dir, depth: nil)
-      # Try main first, fallback to master if ref not specified
-
-      # We'll try main, then master during clone
-      ref ||= 'main'
-
-      # Build git clone command
-      cmd = %w[git clone]
-      cmd << '--depth=1' if depth
-      # Determine if ref is a full commit hash (40 hex chars) → cannot use --branch
-      is_commit = ref =~ /^[0-9a-f]{40}$/i
-      cmd << "--branch=#{ref}" if ref && !is_commit
-      cmd << '--quiet'
-      cmd << url
-      cmd << dest_dir
-
-      unless system(*cmd)
-        # If main failed, try master (only when ref was default 'main')
-        if ref == 'main' && !is_commit && !system('git', 'clone', '--depth=1', '--branch=master', '--quiet', url,
-                                                  dest_dir)
-          raise "git clone failed for #{url} (tried main and master). " \
-                'Check the URL is correct and you have network access.'
-        else
-          raise "git clone failed for #{url}"
-        end
+    def git_available?
+      ENV['PATH'].to_s.split(File::PATH_SEPARATOR).any? do |d|
+        %w[git git.exe].any? { |f| File.executable?(File.join(d, f)) }
       end
+    end
 
-      # If ref is a commit hash (full), we need to checkout that exact commit
-      if is_commit
-        Dir.chdir(dest_dir) do
-          unless system('git', 'checkout', '--quiet', ref)
-            raise "git checkout #{ref} failed. Verify the ref (branch/tag/commit) exists in the repository."
+    def translate_git_to_tarball(url, ref)
+      clean_url = url.sub(/^git@github\.com:/, 'https://github.com/').sub(/\.git$/, '')
+      if clean_url =~ %r{github\.com/([^/]+)/([^/]+)}
+        owner = $1
+        repo = $2
+        "https://github.com/#{owner}/#{repo}/archive/#{ref}.tar.gz"
+      elsif clean_url =~ %r{gitlab\.com/([^/]+)/([^/]+)}
+        owner = $1
+        repo = $2
+        "https://gitlab.com/#{owner}/#{repo}/-/archive/#{ref}/#{repo}-#{ref}.tar.gz"
+      else
+        nil
+      end
+    end
+
+    def extract_tar_gz(tar_gz_content, dest_dir)
+      FileUtils.mkdir_p(dest_dir)
+      Gem::Package::TarReader.new(Zlib::GzipReader.new(StringIO.new(tar_gz_content))) do |tar|
+        tar.each do |entry|
+          parts = entry.full_name.split('/')
+          next if parts.size <= 1 # skip top-level root directory inside tar
+
+          rel_path = parts[1..-1].join('/')
+          dest_path = File.join(dest_dir, rel_path)
+
+          if entry.directory?
+            FileUtils.mkdir_p(dest_path)
+          elsif entry.file?
+            FileUtils.mkdir_p(File.dirname(dest_path))
+            File.open(dest_path, 'wb') { |f| f.write(entry.read) }
+          elsif entry.header.typeflag == '2' # Symlink
+            FileUtils.mkdir_p(File.dirname(dest_path))
+            File.symlink(entry.header.linkname, dest_path)
           end
         end
       end
+    end
 
-      # Get the commit hash we ended up on
-      commit_hash = Dir.chdir(dest_dir) { `git rev-parse HEAD`.strip }
-      stdout, status = Dir.chdir(dest_dir) { Open3.capture2e('git', 'rev-parse', 'HEAD') }
-      commit_hash = stdout.strip
-      raise 'Failed to get commit hash from cloned repo' if commit_hash.empty? || commit_hash.length < 40
+    def fetch_git_source(url, ref, dest_dir, depth: nil)
+      ref ||= 'main'
+      is_commit = ref =~ /^[0-9a-f]{40}$/i
 
-      commit_hash
+      if git_available?
+        begin
+          cmd = %w[git clone]
+          cmd << '--depth=1' if depth && !is_commit
+          cmd << "--branch=#{ref}" if ref && !is_commit
+          cmd << '--quiet'
+          cmd << url
+          cmd << dest_dir
+
+          if system(*cmd)
+            if is_commit
+              Dir.chdir(dest_dir) do
+                system('git', 'checkout', '--quiet', ref)
+              end
+            end
+            stdout, status = Dir.chdir(dest_dir) { Open3.capture2e('git', 'rev-parse', 'HEAD') }
+            commit_hash = stdout.strip
+            return commit_hash if status.success? && !commit_hash.empty? && commit_hash.length >= 40
+          end
+        rescue StandardError => e
+          Rulepack::Common.log_warn "Git clone failed: #{e.message}. Trying HTTP fallback..."
+        end
+      end
+
+      # HTTP Fallback
+      Rulepack::Common.log_warn "Git command unavailable or clone failed. Initiating HTTP fallback for #{url}..."
+      tarball_url = translate_git_to_tarball(url, ref)
+      unless tarball_url
+        raise "Git command unavailable and cannot auto-translate #{url} to a tarball URL."
+      end
+
+      Rulepack::Common.log "  → Downloading tarball from #{tarball_url}"
+      begin
+        tar_gz_content = fetch_with_redirects(tarball_url)
+        extract_tar_gz(tar_gz_content, dest_dir)
+        commit_hash = Digest::SHA256.hexdigest("#{url}-#{ref}")[0...40]
+        Rulepack::Common.log "  ✓ HTTP fallback successful. Generated stable cache hash: #{commit_hash[0..7]}"
+        commit_hash
+      rescue StandardError => e
+        raise "Git clone and HTTP fallback both failed for #{url}: #{e.message}"
+      end
     end
 
     def fetch_with_redirects(url, limit = Rulepack::Config.max_redirects)
