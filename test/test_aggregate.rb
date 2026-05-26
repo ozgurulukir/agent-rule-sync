@@ -7,6 +7,23 @@
 require_relative 'helper'
 
 class TestAggregateSkills < Minitest::Test
+  # Minimal build index written once in setup so aggregate.rb (called as a
+  # backtick subprocess) always finds a valid build/index.yaml regardless of
+  # whether a real build has been run in the project root.
+  BUILD_INDEX = ROOT.join('build', 'index.yaml')
+
+  def setup
+    BUILD_INDEX.dirname.mkpath
+    unless BUILD_INDEX.exist?
+      BUILD_INDEX.write("---\nversion: 3.0\npackages: {}\n")
+    end
+  end
+
+  def teardown
+    # Clean up only if we created it
+    BUILD_INDEX.delete if BUILD_INDEX.exist? && BUILD_INDEX.read == "---\nversion: 3.0\npackages: {}\n"
+  end
+
   def test_aggregate_runs_without_error
     # Change to repo root so aggregate.rb finds paths correctly
     Dir.chdir(ROOT) do

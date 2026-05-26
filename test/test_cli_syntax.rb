@@ -5,26 +5,42 @@ require 'stringio'
 require 'json'
 
 class TestCliSyntax < Minitest::Test
-  def setup
-    @original_argv = ARGV.dup
-    ENV['RULEPACK_TEST'] = '1'
-    
-    # Create a dummy index.yaml if it doesn't exist
-    @index_path = Rulepack::Common.index_yaml_path
-    @created_dummy_index = false
-    unless @index_path.exist?
-      @index_path.dirname.mkpath
-      File.write(@index_path, "---\nversion: 3.0\npackages: {}\n")
-      @created_dummy_index = true
-    end
-  end
+   def setup
+     @original_argv = ARGV.dup
+     ENV['RULEPACK_TEST'] = '1'
 
-  def teardown
-    ARGV.replace(@original_argv)
-    if @created_dummy_index && @index_path.exist?
-      File.delete(@index_path)
-    end
-  end
+     # ── data/index.yaml (package database) ─────────────────────────────────────────
+     @index_path = Rulepack::Common.index_yaml_path
+     @created_dummy_index = false
+     unless @index_path.exist?
+       @index_path.dirname.mkpath
+       File.write(@index_path, "---\nversion: 3.0\npackages: {}\n")
+       @created_dummy_index = true
+     end
+
+     # ── build/index.yaml (build index) ───────────────────────────────────────────
+     # fix.rb / install.rb / verify.rb / uninstall.rb all check BUILD_INDEX_PATH
+     # before processing any command.  Without this file the scripts exit early
+     # with "Build index not found" — poisoning every CLI-syntax test that calls
+     # those scripts via capture_script_run.
+     @build_index_path = Rulepack::Common::BUILD_INDEX_PATH
+     @created_dummy_build_index = false
+     unless @build_index_path.exist?
+       @build_index_path.dirname.mkpath
+       File.write(@build_index_path, "---\nversion: 3.0\npackages: {}\n")
+       @created_dummy_build_index = true
+     end
+   end
+
+   def teardown
+     ARGV.replace(@original_argv)
+     if @created_dummy_index && @index_path.exist?
+       File.delete(@index_path)
+     end
+     if @created_dummy_build_index && @build_index_path.exist?
+       File.delete(@build_index_path)
+     end
+   end
 
   # Helper to capture exit code and standard out/err of a load command
   def capture_script_run(script_name, new_argv)

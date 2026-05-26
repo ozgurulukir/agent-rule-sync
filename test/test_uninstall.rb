@@ -103,8 +103,10 @@ class TestUninstallPackages < Minitest::Test
 
   def test_uninstall_skips_not_installed_packages
     # No packages installed on a different platform
-    result = Rulepack::Common.uninstall_packages(@index, 'crush', dry_run: false)
-    assert_empty result, 'should return empty list when nothing is installed on platform'
+    with_build_index_override do
+      result = Rulepack::Common.uninstall_packages(@index, 'crush', dry_run: false)
+      assert_empty result, 'should return empty list when nothing is installed on platform'
+    end
   end
 
   def test_uninstall_does_not_write_index_to_disk
