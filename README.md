@@ -99,14 +99,14 @@ rulepack/
 │             transform, validation, platform, aggregate,
 │             translate, generate-catalog, install CLI, uninstall CLI)
 ├── data/                     # Single Source of Truth (SSOT)
-│   ├── packages/             # Package definitions (10 packages)
+│   ├── packages/             # Package definitions (18 packages)
 │   ├── registry/platforms.yaml  # 14 platform configurations
 │   ├── platforms/            # Format profiles (informational)
 │   ├── translators/          # Custom translation layers (6 translators)
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database (schema v3.0)
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (287 runs, 865 assertions, 0 failures, 0 errors, 6 skips)
+├── test/                     # Test suite (287 runs, 929 assertions, 0 failures, 0 errors, 6 skips)
 │
 ├── Rakefile
 ├── README.md
@@ -207,7 +207,7 @@ bin/rulepack audit                            # Audit all PKGBUILD descriptors (
 bin/rulepack audit --strict                   # Strict audit (warn/error on partial platform coverage)
 bin/rulepack install opencode --dry-run       # Preview changes
 bin/rulepack uninstall opencode --dry-run      # Preview removal
-bin/rulepack check opencode                    # Verify installed state
+bin/rulepack install --check --target opencode        # Verify installed state
 rm -rf build/ && bin/rulepack build            # Full rebuild
 ```
 
