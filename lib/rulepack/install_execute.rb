@@ -181,14 +181,14 @@ module Rulepack
         platform_cfg, output, pkgname, ctx
       )
 
-      record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, format: format) unless dry_run
+      record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, format: format, install_path: install_path) unless dry_run
       Rulepack::Common.log "  ✓ Installed: #{pkgname}" unless quiet
       installed_this_run << pkgname
     end
 
     # ─── Record installation in index ─────────────────────────────────────────────
 
-    def record_installation(index, pkgname, platform_id, pkgdata, output, checksum, format: nil)
+    def record_installation(index, pkgname, platform_id, pkgdata, output, checksum, format: nil, install_path: nil)
       pkg_index = index[:packages][pkgname] || { installed: [] }
       pkg_index[:installed] ||= []
       record = {
@@ -199,6 +199,7 @@ module Rulepack
         output: output,
         checksum: checksum,
         format: format,
+        target_path: install_path ? install_path.to_s : nil,
         installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
       }
       if output == '.'

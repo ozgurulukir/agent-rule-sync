@@ -72,16 +72,22 @@ module Rulepack
 
           result = if format_type == 'skill' && platform_cfg[:type] == 'skill'
                      verify_skill_build_artifact(platform_id, pkgname, inst[:output], inst[:checksum])
-                   elsif format_type == 'agent'
-                     verify_agent_on_disk(platform_cfg, target, base_path, pkgname)
-                   else
-                     installed_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
-                     if format_type == 'skill-bundle'
-                       verify_skill_bundle_on_disk(installed_path, pkgname)
-                     else
-                       verify_single_file_on_disk(installed_path, inst[:checksum], pkgname, inst[:output])
-                     end
-                   end
+                      elsif format_type == 'agent'
+                      verify_agent_on_disk(platform_cfg, target, base_path, pkgname)
+                    else
+                      # Use recorded target_path if available (e.g. AGENTS.md append installs),
+                      # otherwise fall back to resolving the path from platform config.
+                      installed_path = if inst[:target_path]
+                                         Pathname.new(inst[:target_path])
+                                       else
+                                         Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
+                                       end
+                      if format_type == 'skill-bundle'
+                        verify_skill_bundle_on_disk(installed_path, pkgname)
+                      else
+                        verify_single_file_on_disk(installed_path, inst[:checksum], pkgname, inst[:output])
+                      end
+                    end
 
           if result == :ok
             platform_ok += 1
