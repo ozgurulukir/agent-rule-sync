@@ -22,6 +22,10 @@ class TestEndToEndPipeline < Minitest::Test
     @rulepack_root.mkpath
     FileUtils.cp_r(ROOT.join('lib').to_s, @rulepack_root.join('lib').to_s, preserve: false)
     FileUtils.cp_r(ROOT.join('data').to_s, @rulepack_root.join('data').to_s, preserve: false)
+    # data/index.yaml is a generated file (gitignored); never copy it into the sandbox
+    # — stale installed-package records would silently poison the install flow.
+    index_yaml = @rulepack_root.join('data', 'index.yaml')
+    FileUtils.rm_f(index_yaml) if index_yaml.exist?
 
     # Setup 5 local mock git repositories and rewrite target PKGBUILDs to point to them
     mock_git_packages(@rulepack_root.join('data', 'packages'), Pathname.new(@tmpdir).join('mock-repos'))
