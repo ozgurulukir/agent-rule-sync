@@ -1,0 +1,178 @@
+# frozen_string_literal: true
+
+# Build Schema — platform × format anahtarına göre varsayılan
+# translate ve transformer seçimlerini tanımlar.
+#
+# Kullanım:
+#   PKGBUILD'ta `translate:` veya `transformer:` AÇIKÇA belirtilmemişse
+#   bu şemadan ilgili (platform, format) satırı okunur ve uygulanır.
+#
+# PKGBUILD'taki explicit değer HER ZAMAN şema değerini ezgi-ovverride eder.
+#   translate: null  → hiç translate çalıştırma
+#   transformer: copy → hiç transform çalıştırma
+#
+# Anahtarlar:
+#   translate   → "custom:data/translators/xxx.rb" veya null
+#   transformer → "copy", "strip-frontmatter", "custom:data/transformers/xxx.rb", veya null
+
+schema:
+  # ─── Directory platforms (rules/ + skills/ dizinleri var) ─────────────────────
+
+  opencode:
+    rule:
+      translate: null
+      transformer: copy
+    directory:
+      translate: null
+      transformer: copy
+    skill:
+      translate: null
+      transformer: custom:data/translators/add_frontmatter.rb
+    import:
+      translate: null
+      transformer: copy
+    agent:
+      translate: custom:data/translators/agent_to_opencode.rb
+      transformer: copy
+
+  cursor:
+    rule:
+      translate: null
+      transformer: copy
+    directory:
+      translate: null
+      transformer: copy
+    skill:
+      translate: null
+      transformer: copy
+    import:
+      translate: null
+      transformer: copy
+    agent:
+      translate: custom:data/translators/agent_to_cursor.rb
+      transformer: copy
+
+  windsurf:
+    rule:
+      translate: null
+      transformer: copy
+    directory:
+      translate: null
+      transformer: copy
+    skill:
+      translate: null
+      transformer: copy
+    import:
+      translate: null
+      transformer: copy
+    agent:
+      translate: null
+      transformer: copy
+
+  claude-code:
+    rule:
+      translate: null
+      transformer: copy
+    directory:
+      translate: null
+      transformer: copy
+    skill:
+      translate: null
+      transformer: copy
+    import:
+      translate: null
+      transformer: copy
+    agent:
+      translate: custom:data/translators/agent_to_claude_code.rb
+      transformer: copy
+
+  oh-my-pi:
+    rule:
+      translate: null
+      transformer: copy
+    directory:
+      translate: null
+      transformer: copy
+    skill:
+      translate: null
+      transformer: copy
+    import:
+      translate: null
+      transformer: copy
+
+  antigravity:
+    rule:
+      translate: null
+      transformer: copy
+    directory:
+      translate: null
+      transformer: copy
+    skill:
+      translate: null
+      transformer: copy
+    import:
+      translate: null
+      transformer: copy
+
+  agents:
+    rule:
+      translate: null
+      transformer: copy
+    directory:
+      translate: null
+      transformer: copy
+    skill:
+      translate: null
+      transformer: copy
+    import:
+      translate: null
+      transformer: copy
+
+  # ─── Skill-only / import platforms ────────────────────────────────────────────
+
+  crush:
+    skill:
+      translate: custom:data/translators/rule_to_skill.rb
+      transformer: strip-frontmatter
+    import:
+      translate: null
+      transformer: copy
+
+  goose:
+    skill:
+      translate: custom:data/translators/rule_to_skill.rb
+      transformer: strip-frontmatter
+    import:
+      translate: null
+      transformer: copy
+
+  droid:
+    skill:
+      translate: custom:data/translators/rule_to_skill.rb
+      transformer: strip-frontmatter
+    import:
+      translate: null
+      transformer: copy
+
+  codex:
+    skill:
+      translate: custom:data/translators/rule_to_skill.rb
+      transformer: strip-frontmatter
+    import:
+      translate: null
+      transformer: copy
+
+  gemini-cli:
+    import:
+      translate: custom:data/translators/rule_to_import.rb
+      transformer: copy
+
+  qwen-code:
+    import:
+      translate: custom:data/translators/rule_to_import.rb
+      transformer: copy
+
+  github-copilot:
+    import:
+      translate: null
+      transformer: copy

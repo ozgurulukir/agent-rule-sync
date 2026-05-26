@@ -80,6 +80,7 @@ module Rulepack
     end
 
     # Auto-derive translator based on platform configuration and target format
+    # Falls back to build_schema.yaml if no explicit translator in PKGBUILD
     def auto_derive_translator(platform_cfg, target_format)
       # If platform type is skill/skill-bundle and target format is skill, automatically use rule_to_skill
       if %w[skill skill-bundle].include?(target_format) && platform_cfg[:type].to_s == 'skill'
@@ -87,6 +88,48 @@ module Rulepack
       else
         nil
       end
+    end
+
+    # Load build schema from data/build_schema.yaml (cached)
+    def build_schema
+      @build_schema ||= begin
+        schema_path = Rulepack::Common::RULEPACK_ROOT.join('data', 'build_schema.yaml')
+        if schema_path.exist?
+          YAML.safe_load(schema_path.read, permitted_classes: [Symbol]) || {}
+        else
+          {}
+        end
+      end
+    end
+
+    # Derive default translator from build_schema.yaml for (platform, format)
+    # Returns nil if schema has no entry or explicitly null
+    def schema_translator(platform_id, target_format)
+      entry = build_schema.dig('schema', platform_id.to_s, target_format.to_s)
+      return nil unless entry
+      entry['translate']
+    end
+
+    # Derive default transformer from build_schema.yaml for (platform, format)
+    # Returns 'copy' (safe default) if schema has no entry
+    def schema_transformer(platform_id, target_format)
+      entry = build_schema.dig('schema', platform_id.to_s, target_format.to_s)
+      return 'copy' unless entry
+      entry['transformer'] || 'copy'
+    end
+
+    # Resolve effective translator: explicit PKGBUILD value overrides schema default
+    def resolve_translator(explicit_translate, platform_id, target_format)
+      return explicit_translate unless explicit_translate.nil?
+      schema_translator(platform_id, target_format)
+    end
+
+    # Resolve effective transformer: explicit PKGBUILD value overrides schema default
+    # explicit_transformer=nil means "not set in PKGBUILD" → fall back to schema
+    # explicit_transformer='copy' means "PKGBUILD explicitly says copy" → no-op
+    def resolve_transformer(explicit_transformer, platform_id, target_format)
+      return explicit_transformer unless explicit_transformer.nil?
+      schema_transformer(platform_id, target_format)
     end
 
   end

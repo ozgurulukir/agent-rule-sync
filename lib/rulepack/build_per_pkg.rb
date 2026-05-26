@@ -252,7 +252,9 @@ module Rulepack
           pkgname: pkgname,
           target_format: tgt[:format],
           format_profile: format_profile,
-          transformer: transformer
+          transformer: transformer,       # explicit from PKGBUILD (may be 'copy')
+          explicit_translate: translate,  # explicit from PKGBUILD (nil if not set)
+          explicit_transformer: transformer
         )
         transformed = pipeline.run(platform_cfg)
       rescue StandardError => e

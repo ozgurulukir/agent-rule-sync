@@ -2,7 +2,7 @@
 
 module RulepackTranslator
   class Impl
-    def self.translate(content, _args: {})
+    def self.translate(content, args: {})
       lines = content.each_line.map do |line|
         line = line.gsub(/\t+/, ' ')
         line = line.gsub(/^[ \t]+$/, '')

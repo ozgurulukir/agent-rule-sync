@@ -9,13 +9,16 @@ module Rulepack
 
     attr_reader :current_stage, :content, :platform_id, :pkgname, :target_format, :format_profile, :transformer, :stage_log
 
-    def initialize(content, platform_id:, pkgname:, target_format:, format_profile:, transformer: 'copy')
+    def initialize(content, platform_id:, pkgname:, target_format:, format_profile:, transformer: 'copy', explicit_translate: nil, explicit_transformer: nil)
       @content = content
       @platform_id = platform_id.to_s
       @pkgname = pkgname.to_s
       @target_format = target_format.to_s
       @format_profile = format_profile || {}
-      @transformer = transformer || 'copy'
+      # explicit_transformer: 'copy' means "no-op" (PKGBUILD said copy)
+      # nil means "not specified" → use schema default
+      @explicit_transformer = explicit_transformer
+      @explicit_translate = explicit_translate
       @current_stage = :fetch
       @stage_log = [:fetch]
     end
@@ -41,7 +44,7 @@ module Rulepack
     def run(platform_cfg)
       # ─── TRANSLATE STAGE ──────────────────────────────────────────────────
       advance(:translate) do
-        translator_cfg = Rulepack::SchemaEngine.auto_derive_translator(platform_cfg, @target_format)
+        translator_cfg = Rulepack::SchemaEngine.resolve_translator(@explicit_translate, @platform_id, @target_format)
         if translator_cfg
           Rulepack::Common.log "  → Translating for #{@platform_id} (#{translator_cfg})"
           puts "  → Translating for #{@platform_id} (#{translator_cfg})"
@@ -58,7 +61,7 @@ module Rulepack
 
       # ─── TRANSFORM STAGE ──────────────────────────────────────────────────
       advance(:transform) do
-        transformer_cfg = @transformer
+        transformer_cfg = Rulepack::SchemaEngine.resolve_transformer(@explicit_transformer, @platform_id, @target_format)
         if transformer_cfg && transformer_cfg != 'copy'
           Rulepack::Common.log "  → Transforming for #{@platform_id} (#{transformer_cfg})"
           puts "  → Transforming for #{@platform_id} (#{transformer_cfg})"

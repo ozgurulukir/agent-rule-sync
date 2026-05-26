@@ -2,7 +2,7 @@
 
 module RulepackTranslator
   class Impl
-    def self.translate(content, _args: {})
+    def self.translate(content, args: {})
       clean = content.strip
 
       lines = clean.each_line.map do |line|

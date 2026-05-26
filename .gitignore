@@ -39,8 +39,11 @@ build/git-sources/
 # OS
 .DS_Store
 Thumbs.db
-inspration/
+inspiration/
 
 # Backups and Scratch
 data/backups/
 scratch/
+
+# Personal / machine-specific workstation rules (not for sharing)
+data/packages/workstation-rules/src/

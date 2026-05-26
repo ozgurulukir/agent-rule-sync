@@ -37,6 +37,8 @@ maintained in the Rulepack SSOT as local packages (`type: local` in their PKGBUI
 
 Packages authored specifically for the Rulepack project and maintained under the
 [`data/packages/`](data/packages/) tree.
+**code-reviewer** and **security-auditor** were created in the same session as the initial
+Rulepack commit by the repository maintainer (no upstream source declared in their PKGBUILD).
 
 | Package | Origin | License |
 |---|---|---|
