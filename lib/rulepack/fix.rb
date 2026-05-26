@@ -184,6 +184,16 @@ module Rulepack
                       !bundle_path.exist?
                     elsif format_type == 'skill' && platform_cfg[:type] == 'skill'
                       !Rulepack::Common.build_dir.join(platform_id, pkgname.to_s, inst[:output]).exist?
+                    elsif format_type == 'agent'
+                      # Agents are directories; checksum-based detection does not apply.
+                      # Platforms without agents_dir silently report "not broken".
+                      agents_dir = platform_cfg[:agents_dir]
+                      unless agents_dir
+                        is_broken = false
+                      else
+                        target_dir = (target[:install] && target[:install][:target_dir]) || inst[:output] || pkgname.to_s
+                        is_broken = !base_path.join(agents_dir, target_dir).exist?
+                      end
                     else
                       installed_path = resolve_install_path(platform_cfg, target, base_path)
                       !installed_path.exist? || !Rulepack::Common.verify_checksum(installed_path, inst[:checksum], pkgname.to_s)
