@@ -1,7 +1,7 @@
 # Improvement Plan — Post Phase 7
 
 **Goal**: Address structural debt identified during architecture review (2026-05-25).
-All items verified against the current HEAD (`37bd68b` — test baseline: 276 runs, 844 assertions, 0 failures, 0 errors, 6 skips).
+All items verified against the current HEAD (`37bd68b` — test baseline: 287 runs, 929 assertions, 0 failures, 0 errors, 6 skips).
 
 ---
 
@@ -116,8 +116,8 @@ Called from `installer.rb:load_master_index` before any index consumer reads it.
 
 ### 🟢 P-D — Add Explicit Cache Size Limit & LRU Eviction
 
-**Priority**: LOW  
-**Risk**: LOW  
+**Priority**: LOW
+**Risk**: LOW
 **Status**: OPEN
 
 **Current state**: `cache.rb` writes to `cache/<key>/` without any size constraint. The `cache_source` method (line 27) creates directories unconditionally. Repeated builds against remote sources (URL, git) will grow `cache/` without bounds.
@@ -133,6 +133,80 @@ end
 `cache_source` computes total `cache/` directory size after write; if it exceeds `cache_max_size_mb`, evicts least-recently-used entries (by `mtime` on cache dir) until under limit.
 
 **Test gate**: `rake test` — existing cache unit tests must not depend on directory size.
+
+---
+
+### 🟡 P-F — Fix `SchemaGenerator` YAML Parsing (`lib/rulepack/schema_generator.rb`)
+
+**Priority**: MEDIUM
+**Risk**: LOW
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-26
+
+**Root cause**: Two independent bugs in `schema_generator.rb` prevented ALL 18 PKGBUILD files from being parsed:
+
+1. **Bug 1 — `Dir.glob` returns String, not Pathname** (`schema_generator.rb:29`):
+   ```ruby
+   # BROKEN — Dir.glob returns Array of String; .read undefined on String
+   Dir.glob(packages_dir.join('*/PKGBUILD').to_s).each do |pkgbuild_path|
+   ```
+   → `NoMethodError: undefined method 'read' for String`, silently swallowed by `rescue StandardError`.
+
+2. **Bug 2 — Missing `symbolize_names: true`** (original `schema_generator.rb:31`):
+   ```ruby
+   # BROKEN — returns String-keyed hash, but code uses Symbol keys
+   pkg = begin YAML.safe_load(pkgbuild_path.read) rescue ... end
+   targets = pkg[:targets]   # always nil → empty schema
+   ```
+
+**Fix applied** (`lib/rulepack/schema_generator.rb` lines 29, 31–35):
+```ruby
+# Pathname#glob returns Pathname objects (consistent with build_loader.rb:15)
+packages_dir.glob('*/PKGBUILD').each do |pkgbuild_path|
+  pkg = begin
+          YAML.safe_load(pkgbuild_path.read,
+            permitted_classes: [Symbol, Pathname],
+            symbolize_names: true)
+        rescue StandardError => e
+          Rulepack::Common.log_warn "SchemaGenerator: failed to parse #{pkgbuild_path}: #{e.class}: #{e.message}, skipping"
+          next
+        end
+```
+
+**Verification**: `SchemaGenerator.generate!` now successfully scans all 18 PKGBUILD files → `data/build_schema.yaml` populated with 14 platforms × 49 formats. Zero parse warnings.
+
+**Files changed**: `lib/rulepack/schema_generator.rb`.
+
+---
+
+### 🟡 P-G — Wire SchemaGenerator into Build Pipeline (Pre-Build Auto-Generation)
+
+**Priority**: MEDIUM
+**Risk**: LOW
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-26
+
+**Problem**: Before this fix, `SchemaGenerator` was an uncalled utility. `data/build_schema.yaml` had to be manually maintained. Any drift between PKGBUILD `translate:`/`transformer:` declarations and the schema silently produced wrong build output.
+
+**Fix applied** (`lib/rulepack/build.rb` lines 43–52): Added `SchemaGenerator.generate!` as a pre-build step in `Build.run`, right after platform registry load and before any PKGBUILD discovery:
+
+```ruby
+# ─── Auto-generate build schema from PKGBUILD targets ──────────────────────────
+# SchemaGenerator scans all PKGBUILD files and derives the (platform, format)
+# → {translate, transformer} defaults for data/build_schema.yaml.
+begin
+  require_relative 'schema_generator'
+  Rulepack::SchemaGenerator.generate!
+rescue StandardError => e
+  Rulepack::Common.log_warn "SchemaGenerator: pre-build step failed (#{e.class}: #{e.message}); continuing with existing schema"
+end
+```
+
+**Idempotency**: `generate!` is a no-op when `data/build_schema.yaml` already matches current PKGBUILD targets — sets are collected and compared, output unchanged if identical.
+
+**Files changed**: `lib/rulepack/build.rb`, `lib/rulepack/schema_generator.rb`, `data/build_schema.yaml` (auto-generated).
+
+**Test gate**: `rake test_e2e` — 15 runs, 207 assertions, 0 failures, 0 errors, 1 skip. ✅
 
 ---
 
@@ -162,6 +236,6 @@ end
 
 **Backward compat**: `list_packages`, `list_platforms`, `installed`, `show`, `search`, `check`, `orphans`, `depends`, `provides`, `show_provides` aliases preserved.
 
-**Test gate**: `rake test` — 287 runs, 865 assertions, 0 failures, 0 errors, 6 skips.
+**Test gate**: `rake test` — 287 runs, 929 assertions, 0 failures, 0 errors, 6 skips.
 
 ---
