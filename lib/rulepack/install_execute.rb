@@ -119,10 +119,11 @@ module Rulepack
         return
       end
 
-      # Agent format: built_path is a directory, compute sha256 from manifest or skip
+      # Directory builds (skill-bundle, agent): checksum is not used downstream
+      # (verify skips agents; fix handles agent as existence-only). Keep nil.
       if built_path.directory?
         content = nil
-        content_sha256 = Digest::SHA256.hexdigest(built_path.to_s)
+        content_sha256 = nil
       else
         content = built_path.read
         content_sha256 = Digest::SHA256.hexdigest(content)
