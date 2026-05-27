@@ -11,71 +11,16 @@ source:
 - type: local
   path: src/00-memory.md
 targets:
-- platform: opencode
-  format: directory
-  output: 00-memory.md
-  install:
-    type: symlink
-- platform: gemini-cli
-  format: import
-  output: memory-rule.md
-  install:
-    type: copy
-- platform: qwen-code
-  format: import
-  output: memory-rule.md
-  install:
-    type: copy
-- platform: crush
-  format: skill
-  output: 00-memory.md
-- platform: goose
-  format: skill
-  output: 00-memory.md
-- platform: droid
-  format: skill
-  output: 00-memory.md
 - platform: cursor
-  format: directory
   output: workstation-memory.md
-  install:
-    type: symlink
 - platform: windsurf
-  format: directory
   output: memory.md
-  install:
-    type: symlink
-- platform: github-copilot
-  format: import
-  output: memory-instructions.md
-  install:
-    type: copy
 - platform: claude-code
-  format: directory
   output: memory.md
-  install:
-    type: symlink
 - platform: codex
-  format: skill
   output: 00-memory.md
-- platform: oh-my-pi
-  format: directory
-  output: 00-memory.md
-  install:
-    type: symlink
-- platform: agents
-  format: directory
-  output: 00-memory.md
-  install:
-    type: symlink
 - platform: antigravity
-  format: directory
   output: memory-rule.md
-checksums:
-  source:
-  built: {}
-dependencies: []
-conflicts: []
 provides:
 - workstation-constraint
 tags:

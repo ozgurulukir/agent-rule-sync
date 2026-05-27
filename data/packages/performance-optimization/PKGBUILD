@@ -7,80 +7,26 @@ pkgdesc: Best practices for writing high-performance, efficient code including a
 arch: any
 pkg_type: skill
 order: 220
-
+output: performance-optimization.md
 source:
 - type: local
   path: src/SKILL.md
-
 targets:
-- platform: opencode
-  format: skill
-  output: performance-optimization.md
-  install:
-    type: copy
-- platform: cursor
-  format: skill
-  output: performance-optimization.md
-  install:
-    type: copy
-- platform: gemini-cli
-  format: import
-  output: performance-optimization.md
-  install:
-    type: copy
-- platform: qwen-code
-  format: import
-  output: performance-optimization.md
-  install:
-    type: copy
-- platform: crush
-  format: skill
-  output: performance-optimization.md
-- platform: goose
-  format: skill
-  output: performance-optimization.md
-- platform: droid
-  format: skill
-  output: performance-optimization.md
 - platform: windsurf
   format: directory
-  output: performance-optimization.md
-  install:
-    type: symlink
-- platform: github-copilot
-  format: import
-  output: performance-optimization.md
-  install:
-    type: copy
 - platform: claude-code
   format: directory
-  output: performance-optimization.md
-  install:
-    type: symlink
-- platform: codex
-  format: skill
-  output: SKILL.md
 - platform: oh-my-pi
   format: directory
-  output: performance-optimization.md
-  install:
-    type: symlink
 - platform: agents
   format: directory
-  output: performance-optimization.md
-  install:
-    type: symlink
 - platform: antigravity
   format: directory
-  output: performance-optimization.md
-  install:
-    type: symlink
-
 tags:
-  - performance
-  - optimization
-  - algorithmic-complexity
-  - caching
-  - memory-management
+- performance
+- optimization
+- algorithmic-complexity
+- caching
+- memory-management
 maintainer: continuedev
 license: MIT

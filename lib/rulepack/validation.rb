@@ -87,13 +87,15 @@ module Rulepack
     end
 
     def validate_target_entries(pkg, errors)
-      errors << 'targets must be a non-empty array' unless pkg[:targets].is_a?(Array) && !pkg[:targets].empty?
+      unless pkg[:targets].nil? || (pkg[:targets].is_a?(Array) && !pkg[:targets].empty?)
+        errors << 'targets must be a non-empty array or omitted (auto-expanded)'
+      end
       return unless pkg[:targets].is_a?(Array)
 
       valid_formats = %w[directory import skill skill-bundle agent]
       pkg[:targets].each_with_index do |t, i|
         errors << "targets[#{i}]: missing platform" unless t[:platform].is_a?(String)
-        unless valid_formats.include?(t[:format])
+        if t[:format] && !valid_formats.include?(t[:format])
           errors << "targets[#{i}]: invalid format '#{t[:format]}' (must be #{valid_formats.join('/')})"
         end
         begin
@@ -107,7 +109,7 @@ module Rulepack
         end
         if t[:install]
           inst = t[:install]
-          unless %w[symlink copy inject append].include?(inst[:type])
+          if inst[:type] && !%w[symlink copy inject append].include?(inst[:type])
             errors << "targets[#{i}]: invalid install.type '#{inst[:type]}'"
           end
           validate_target_dir(inst[:target_dir], pkg[:pkgname]) if inst[:target_dir]
@@ -123,11 +125,9 @@ module Rulepack
     end
 
     def validate_target_entry_output(t, i, pkg, errors)
-      if t[:output].nil? || t[:output].empty?
-        errors << "targets[#{i}]: output cannot be empty"
-      else
-        validate_output_filename(t[:output], pkg[:pkgname])
-      end
+      return unless t[:output]
+
+      validate_output_filename(t[:output], pkg[:pkgname])
     end
 
     # ─── PKGBUILD Load & Validate ────────────────────────────────────────────────
@@ -145,7 +145,7 @@ module Rulepack
       data = YAML.safe_load(raw, permitted_classes: [Symbol, Pathname], symbolize_names: true)
 
       # Validate required fields
-      %i[pkgname pkgver source targets].each do |field|
+      %i[pkgname pkgver source].each do |field|
         unless data.key?(field)
           raise "PKGBUILD missing required field: #{field}. Ensure every PKGBUILD has #{field} defined."
         end
@@ -158,12 +158,19 @@ module Rulepack
         raise "Invalid source entry: #{src.inspect}" unless src[:type] && (src[:path] || src[:url])
       end
 
-      # Validate targets array
-      raise 'PKGBUILD must have at least one target' unless data[:targets].is_a?(Array) && !data[:targets].empty?
+      # Validate targets array (optional — auto-expanded when omitted)
+      return data unless data.key?(:targets)
+
+      unless data[:targets].is_a?(Array) && !data[:targets].empty?
+        raise 'PKGBUILD must have at least one target'
+      end
 
       valid_formats = %w[directory import skill skill-bundle agent]
       data[:targets].each do |t|
-        raise "Target missing required fields: #{t.inspect}" unless t[:platform] && t[:format] && t[:output]
+        raise "Target missing platform: #{t.inspect}" unless t[:platform]
+
+        next unless t[:format]
+
         raise "Invalid format '#{t[:format]}' for platform '#{t[:platform]}'" unless valid_formats.include?(t[:format])
 
         # skill-bundle/agent: output must be '.' (directory marker), target_dir required

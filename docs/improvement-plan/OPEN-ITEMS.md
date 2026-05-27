@@ -323,3 +323,139 @@ pkgver_func: "git describe --tags --always 2>/dev/null || date +%Y.%m.%d"
 **Test gate**: `rake test` — existing baseline + new bump tests must pass.
 
 ---
+
+### 🔴 P-I — PKGBUILD Target Auto-Expansion: Eliminate 1100+ Lines of Repetition
+
+**Priority**: HIGH
+**Risk**: MEDIUM
+**Status**: IN PROGRESS
+**Date**: 2026-05-27
+
+#### Problem
+
+All 18 PKGBUILD files contain 14 identical target blocks (one per platform). Analysis shows:
+
+| Profile | Count | Lines each | Pattern |
+|---|---|---|---|
+| Uniform bundle (skill-bundle/agent) | 5 | ~140 | All 14 targets completely identical |
+| Rule/skill with naming variation | 13 | ~86-100 | Same 4 platform groups, only `output` differs |
+
+Total: ~1700 lines of PKGBUILD targets, of which ~1100 are mechanical repetition.
+
+#### Root Cause
+
+1. **Format** is 100% derivable from `(pkg_type, platform.type)` — the mapping is fixed and never varies
+2. **Install type** already has a fallback to `platform.rule_install` / `platform.skill_install` in `install_execute.rb:163-167`
+3. **Output** follows 3 naming conventions, all derivable from `pkg_type` + source filename + platform type
+4. **install.target_dir** is always `"{pkgname}/"` for skill-bundle/agent — always derivable
+
+#### Format → Platform Type Mapping (fixed, no exceptions)
+
+| pkg_type | platform.type=directory | platform.type=skill | platform.type=import |
+|---|---|---|---|
+| `rule` | `directory` | `skill` | `import` |
+| `skill` | `skill` | `skill` | `import` |
+| `skill-bundle` | `skill-bundle` | `skill-bundle` | `skill-bundle` |
+| `agent` | `agent` | `agent` | `agent` |
+
+#### Output Naming Convention
+
+| Condition | Default output | Example |
+|---|---|---|
+| `format = skill-bundle` | `.` | antigravity-skills |
+| `format = agent` | `.` | ruby-update-signatures |
+| `format = skill` + source=`SKILL.md` | `SKILL.md` | code-reviewer |
+| `format = skill` + platform.type=`skill` (crush/goose/droid/codex) | source basename | `00-memory.md` |
+| `format = import` + platform=`github-copilot` | `{pkgname}-instructions.md` | `vibe-security-instructions.md` |
+| `format = import` + other | `{pkgname}-rule.md` | `memory-rule.md` |
+| `format = directory` | source basename | `00-memory.md`, `ast-grep.md` |
+| `format = skill` + platform=`codex` | `SKILL.md` | (continuedev packages) |
+
+Special cases (only these need explicit override):
+- `memory` → cursor: `workstation-memory.md`, windsurf: `memory.md`
+- `shell` → cursor: `workstation-shell.md`, windsurf: `shell.md`
+- `workstation-rules` → antigravity/gemini-cli/qwen-code: `{name}-rule.md` suffix
+
+#### Implementation: Target Expander
+
+New method in `build_loader.rb`: `expand_targets(pkg, registry)`
+
+**Algorithm**:
+1. If `pkg[:targets]` is a non-empty array → merge defaults, return expanded
+2. Build a target for each platform in registry
+3. Derive `format` from `(pkg_type, platform.type)` using the mapping table
+4. Derive `output` from naming convention
+5. Derive `install.type` from platform defaults (`rule_install` / `skill_install`)
+6. Derive `install.target_dir` = `"{pkgname}/"` for skill-bundle/agent
+7. Merge any explicit overrides from `pkg[:targets]` (matched by `platform` key)
+8. Set result back to `pkg[:targets]`
+
+**Override syntax** — PKGBUILD only specifies deviations:
+
+```yaml
+# Before (86 lines for memory):
+targets:
+- platform: opencode
+  format: directory
+  output: 00-memory.md
+  install: {type: symlink}
+# ... 13 more identical blocks with minor output name variations
+
+# After (~12 lines):
+targets:
+  cursor: {output: workstation-memory.md}
+  windsurf: {output: memory.md}
+  github-copilot: {output: memory-instructions.md}
+  antigravity: {output: memory-rule.md}
+```
+
+For completely uniform packages (skill-bundle):
+```yaml
+# Before (140 lines for antigravity-skills):
+targets:
+- platform: opencode
+  format: skill-bundle
+  output: .
+  transformer: copy
+  install: {type: copy, target_dir: antigravity-skills/}
+# ... 13 more identical blocks
+
+# After (0 target lines):
+# targets omitted entirely — all defaults apply
+```
+
+#### Validation Updates
+
+`validation.rb:validate_target_entries`:
+- Allow `targets` to be empty/missing (auto-expanded before validation)
+- Allow `targets` to be a hash (override map: `platform → {overrides}`)
+- Call `expand_targets` before validation
+
+#### Files to Create
+
+(none — all changes are in-place)
+
+#### Files to Modify
+
+- `lib/rulepack/build_loader.rb` — Add `expand_targets` method, call before validation
+- `lib/rulepack/validation.rb` — Allow empty/missing/hash targets, validate after expansion
+- `lib/rulepack/build.rb` — Call `expand_targets` after loading, before per-pkg processing
+- All 18 `data/packages/*/PKGBUILD` — Convert to compact form
+
+#### Expected Outcome
+
+| Metric | Before | After |
+|---|---|---|
+| Total PKGBUILD lines | ~1700 | ~550 |
+| Lines saved | — | ~1150 (~68%) |
+| Skill-bundle PKGBUILDs | 140 lines each | ~25 lines each |
+| Rule/skill PKGBUILDs | 86-100 lines each | ~20-35 lines each |
+| Build output | — | Byte-identical |
+
+#### Test Gate
+
+- `rake test` — all 305 tests pass
+- `bin/rulepack build` — identical `build/index.yaml` checksums before and after
+- `bin/rulepack audit --strict` — no validation errors
+
+---

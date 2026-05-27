@@ -11,71 +11,16 @@ source:
 - type: local
   path: src/01-shell.md
 targets:
-- platform: opencode
-  format: directory
-  output: 01-shell.md
-  install:
-    type: symlink
-- platform: gemini-cli
-  format: import
-  output: shell-rule.md
-  install:
-    type: copy
-- platform: qwen-code
-  format: import
-  output: shell-rule.md
-  install:
-    type: copy
-- platform: crush
-  format: skill
-  output: 01-shell.md
-- platform: goose
-  format: skill
-  output: 01-shell.md
-- platform: droid
-  format: skill
-  output: 01-shell.md
 - platform: cursor
-  format: directory
   output: workstation-shell.md
-  install:
-    type: symlink
 - platform: windsurf
-  format: directory
   output: shell.md
-  install:
-    type: symlink
-- platform: github-copilot
-  format: import
-  output: shell-instructions.md
-  install:
-    type: copy
 - platform: claude-code
-  format: directory
   output: shell.md
-  install:
-    type: symlink
 - platform: codex
-  format: skill
   output: 01-shell.md
-- platform: oh-my-pi
-  format: directory
-  output: 01-shell.md
-  install:
-    type: symlink
-- platform: agents
-  format: directory
-  output: 01-shell.md
-  install:
-    type: symlink
 - platform: antigravity
-  format: directory
   output: shell-rule.md
-checksums:
-  source:
-  built: {}
-dependencies: []
-conflicts: []
 provides:
 - shell-strategy
 tags:

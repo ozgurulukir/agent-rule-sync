@@ -7,80 +7,26 @@ pkgdesc: Universal coding standards covering naming, function design, DRY, SOLID
 arch: any
 pkg_type: skill
 order: 200
-
+output: general-coding-standards.md
 source:
 - type: local
   path: src/SKILL.md
-
 targets:
-- platform: opencode
-  format: skill
-  output: general-coding-standards.md
-  install:
-    type: copy
-- platform: cursor
-  format: skill
-  output: general-coding-standards.md
-  install:
-    type: copy
-- platform: gemini-cli
-  format: import
-  output: general-coding-standards.md
-  install:
-    type: copy
-- platform: qwen-code
-  format: import
-  output: general-coding-standards.md
-  install:
-    type: copy
-- platform: crush
-  format: skill
-  output: general-coding-standards.md
-- platform: goose
-  format: skill
-  output: general-coding-standards.md
-- platform: droid
-  format: skill
-  output: general-coding-standards.md
 - platform: windsurf
   format: directory
-  output: general-coding-standards.md
-  install:
-    type: symlink
-- platform: github-copilot
-  format: import
-  output: general-coding-standards.md
-  install:
-    type: copy
 - platform: claude-code
   format: directory
-  output: general-coding-standards.md
-  install:
-    type: symlink
-- platform: codex
-  format: skill
-  output: SKILL.md
 - platform: oh-my-pi
   format: directory
-  output: general-coding-standards.md
-  install:
-    type: symlink
 - platform: agents
   format: directory
-  output: general-coding-standards.md
-  install:
-    type: symlink
 - platform: antigravity
   format: directory
-  output: general-coding-standards.md
-  install:
-    type: symlink
-
 tags:
-  - coding-standards
-  - clean-code
-  - best-practices
-  - solid
-  - naming-conventions
+- coding-standards
+- clean-code
+- best-practices
+- solid
+- naming-conventions
 maintainer: continuedev
 license: MIT

@@ -7,77 +7,14 @@ pkgdesc: Structural code search rule for OpenCode — prefers ast-grep over text
 arch: any
 pkg_type: rule
 order: 10
-
 source:
 - type: local
   path: src/ast-grep.md
-
 targets:
-- platform: opencode
-  format: directory
-  output: ast-grep.md
-  install:
-    type: symlink
-- platform: agents
-  format: directory
-  output: ast-grep.md
-  install:
-    type: symlink
-- platform: cursor
-  format: directory
-  output: ast-grep.md
-  install:
-    type: symlink
-- platform: windsurf
-  format: directory
-  output: ast-grep.md
-  install:
-    type: symlink
-- platform: claude-code
-  format: directory
-  output: ast-grep.md
-  install:
-    type: symlink
-- platform: oh-my-pi
-  format: directory
-  output: ast-grep.md
-  install:
-    type: symlink
-- platform: antigravity
-  format: directory
-  output: ast-grep-rule.md
-- platform: crush
-  format: skill
-  output: ast-grep.md
-- platform: goose
-  format: skill
-  output: ast-grep.md
-- platform: droid
-  format: skill
-  output: ast-grep.md
 - platform: codex
-  format: skill
   output: ast-grep.md
-- platform: gemini-cli
-  format: import
+- platform: antigravity
   output: ast-grep-rule.md
-  install:
-    type: copy
-- platform: qwen-code
-  format: import
-  output: ast-grep-rule.md
-  install:
-    type: copy
-- platform: github-copilot
-  format: import
-  output: ast-grep-instructions.md
-  install:
-    type: copy
-checksums:
-  source:
-  built: {}
-dependencies: []
-conflicts: []
 provides:
 - ast-grep-rule
 tags:

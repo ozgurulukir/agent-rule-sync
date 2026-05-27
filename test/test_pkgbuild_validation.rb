@@ -102,9 +102,8 @@ class TestLoadPkgbuild < Minitest::Test
           path: src/file.md
     YAML
 
-    assert_raises(RuntimeError, /missing required field.*targets/) do
-      Rulepack::Common.load_pkgbuild(@pkgdir)
-    end
+    result = Rulepack::Common.load_pkgbuild(@pkgdir)
+    assert_nil result[:targets]
   end
 
   def test_raises_when_empty_source_array

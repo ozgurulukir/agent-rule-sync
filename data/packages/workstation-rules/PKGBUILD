@@ -7,77 +7,14 @@ pkgdesc: Combined workstation memory and shell strategy rules (memory + shell + 
 arch: any
 pkg_type: rule
 order: 0
-
 source:
 - type: local
   path: src/workstation-rules.md
-
 targets:
-- platform: opencode
-  format: directory
-  output: workstation-rules.md
-  install:
-    type: symlink
-- platform: agents
-  format: directory
-  output: workstation-rules.md
-  install:
-    type: symlink
-- platform: cursor
-  format: directory
-  output: workstation-rules.md
-  install:
-    type: symlink
-- platform: windsurf
-  format: directory
-  output: workstation-rules.md
-  install:
-    type: symlink
-- platform: claude-code
-  format: directory
-  output: workstation-rules.md
-  install:
-    type: symlink
-- platform: oh-my-pi
-  format: directory
-  output: workstation-rules.md
-  install:
-    type: symlink
-- platform: antigravity
-  format: directory
-  output: workstation-rules-rule.md
-- platform: crush
-  format: skill
-  output: workstation-rules.md
-- platform: goose
-  format: skill
-  output: workstation-rules.md
-- platform: droid
-  format: skill
-  output: workstation-rules.md
 - platform: codex
-  format: skill
   output: workstation-rules.md
-- platform: gemini-cli
-  format: import
+- platform: antigravity
   output: workstation-rules-rule.md
-  install:
-    type: copy
-- platform: qwen-code
-  format: import
-  output: workstation-rules-rule.md
-  install:
-    type: copy
-- platform: github-copilot
-  format: import
-  output: workstation-rules-instructions.md
-  install:
-    type: copy
-checksums:
-  source:
-  built: {}
-dependencies: []
-conflicts: []
 provides:
 - workstation-rules
 tags:

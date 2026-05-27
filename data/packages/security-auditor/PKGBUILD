@@ -14,79 +14,27 @@ source:
 
 targets:
 - platform: opencode
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: security-auditor/
 - platform: cursor
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: security-auditor/
 - platform: windsurf
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: security-auditor/
 - platform: claude-code
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: security-auditor/
-- platform: crush
-  format: skill
-  output: SKILL.md
-- platform: goose
-  format: skill
-  output: SKILL.md
-- platform: droid
-  format: skill
-  output: SKILL.md
-- platform: agents
-  format: skill
-  output: SKILL.md
-  install:
-    type: copy
-    target_dir: security-auditor/
-- platform: gemini-cli
-  format: import
-  output: security-auditor-rule.md
-  install:
-    type: copy
-- platform: qwen-code
-  format: import
-  output: security-auditor-rule.md
-  install:
-    type: copy
 - platform: oh-my-pi
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: security-auditor/
-- platform: github-copilot
-  format: import
-  output: security-auditor-instructions.md
+- platform: agents
   install:
-    type: copy
-- platform: codex
-  format: skill
-  output: SKILL.md
+    target_dir: security-auditor/
 - platform: antigravity
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: security-auditor/
-checksums:
-  source:
-  built: {}
-dependencies: []
-conflicts: []
+
 provides:
 - security
 - audit

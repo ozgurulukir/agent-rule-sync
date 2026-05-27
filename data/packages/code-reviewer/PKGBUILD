@@ -14,79 +14,27 @@ source:
 
 targets:
 - platform: opencode
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: code-reviewer/
 - platform: cursor
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: code-reviewer/
 - platform: windsurf
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: code-reviewer/
 - platform: claude-code
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: code-reviewer/
-- platform: crush
-  format: skill
-  output: SKILL.md
-- platform: goose
-  format: skill
-  output: SKILL.md
-- platform: droid
-  format: skill
-  output: SKILL.md
-- platform: agents
-  format: skill
-  output: SKILL.md
-  install:
-    type: copy
-    target_dir: code-reviewer/
-- platform: gemini-cli
-  format: import
-  output: code-reviewer-rule.md
-  install:
-    type: copy
-- platform: qwen-code
-  format: import
-  output: code-reviewer-rule.md
-  install:
-    type: copy
 - platform: oh-my-pi
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: code-reviewer/
-- platform: github-copilot
-  format: import
-  output: code-reviewer-instructions.md
+- platform: agents
   install:
-    type: copy
-- platform: codex
-  format: skill
-  output: SKILL.md
+    target_dir: code-reviewer/
 - platform: antigravity
-  format: skill
-  output: SKILL.md
   install:
-    type: copy
     target_dir: code-reviewer/
-checksums:
-  source:
-  built: {}
-dependencies: []
-conflicts: []
+
 provides:
 - code-review
 - review

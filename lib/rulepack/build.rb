@@ -72,6 +72,8 @@ module Rulepack
 
         pkg, pkgname = result
 
+        BuildLoader.expand_targets(pkg, platforms)
+
         Rulepack::Common.log "Building: #{pkgname} (#{Rulepack::Common.format_version(pkg[:epoch], pkg[:pkgver],
                                                                                       pkg[:pkgrel])})"
 

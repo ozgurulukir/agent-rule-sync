@@ -7,7 +7,7 @@ pkgdesc: "AI-assisted task management workflow: generate PRD specs, derive step-
 arch: any
 pkg_type: rule
 order: 250
-
+output: task-management.md
 source:
 - type: local
   path: src/create-prd.md
@@ -15,76 +15,14 @@ source:
   path: src/generate-tasks.md
 - type: local
   path: src/process-task-list.md
-
 targets:
-- platform: opencode
-  format: directory
-  output: task-management.md
-  install:
-    type: symlink
-- platform: cursor
-  format: directory
-  output: task-management.md
-  install:
-    type: symlink
-- platform: gemini-cli
-  format: import
-  output: task-management.md
-  install:
-    type: copy
-- platform: qwen-code
-  format: import
-  output: task-management.md
-  install:
-    type: copy
-- platform: crush
-  format: skill
-  output: task-management.md
-- platform: goose
-  format: skill
-  output: task-management.md
-- platform: droid
-  format: skill
-  output: task-management.md
-- platform: windsurf
-  format: directory
-  output: task-management.md
-  install:
-    type: symlink
-- platform: github-copilot
-  format: import
-  output: task-management.md
-  install:
-    type: copy
-- platform: claude-code
-  format: directory
-  output: task-management.md
-  install:
-    type: symlink
 - platform: codex
-  format: skill
   output: task-management.md
-- platform: oh-my-pi
-  format: directory
-  output: task-management.md
-  install:
-    type: symlink
-- platform: agents
-  format: directory
-  output: task-management.md
-  install:
-    type: symlink
-- platform: antigravity
-  format: directory
-  output: task-management.md
-  install:
-    type: symlink
-
 tags:
-  - task-management
-  - prd
-  - workflow
-  - project-planning
-  - agent-task
+- task-management
+- prd
+- workflow
+- project-planning
+- agent-task
 maintainer: continuedev
 license: MIT

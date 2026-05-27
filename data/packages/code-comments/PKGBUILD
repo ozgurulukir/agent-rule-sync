@@ -7,80 +7,26 @@ pkgdesc: Guidelines for writing meaningful and maintainable code comments, docst
 arch: any
 pkg_type: skill
 order: 240
-
+output: code-comments.md
 source:
 - type: local
   path: src/SKILL.md
-
 targets:
-- platform: opencode
-  format: skill
-  output: code-comments.md
-  install:
-    type: copy
-- platform: cursor
-  format: skill
-  output: code-comments.md
-  install:
-    type: copy
-- platform: gemini-cli
-  format: import
-  output: code-comments.md
-  install:
-    type: copy
-- platform: qwen-code
-  format: import
-  output: code-comments.md
-  install:
-    type: copy
-- platform: crush
-  format: skill
-  output: code-comments.md
-- platform: goose
-  format: skill
-  output: code-comments.md
-- platform: droid
-  format: skill
-  output: code-comments.md
 - platform: windsurf
   format: directory
-  output: code-comments.md
-  install:
-    type: symlink
-- platform: github-copilot
-  format: import
-  output: code-comments.md
-  install:
-    type: copy
 - platform: claude-code
   format: directory
-  output: code-comments.md
-  install:
-    type: symlink
-- platform: codex
-  format: skill
-  output: SKILL.md
 - platform: oh-my-pi
   format: directory
-  output: code-comments.md
-  install:
-    type: symlink
 - platform: agents
   format: directory
-  output: code-comments.md
-  install:
-    type: symlink
 - platform: antigravity
   format: directory
-  output: code-comments.md
-  install:
-    type: symlink
-
 tags:
-  - documentation
-  - code-comments
-  - docstrings
-  - clean-code
-  - best-practices
+- documentation
+- code-comments
+- docstrings
+- clean-code
+- best-practices
 maintainer: continuedev
 license: MIT
