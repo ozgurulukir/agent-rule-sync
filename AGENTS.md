@@ -246,11 +246,13 @@ targets:
 > For each target platform, read `data/platforms/<agent>.yaml`. This file defines `frontmatter`, `emoji_policy`, `heading_style`, and `bullet_style` formatting constraints. The build engine applies these automatically through the Schema Engine — **you must NOT duplicate them as manual `transformer` directives** unless the schema does not cover the transformation you need.
 > 
 > **Step 3 — Apply the rules:**
-> 1. You **MUST** include at least one `targets:` entry for each of the 14 platforms listed in `PLATFORMS.md`.
-> 2. Match the `format:` value to a format supported by the platform's type (e.g. `directory` platforms support `directory/skill/skill-bundle/agent`; `skill` platforms support `skill/skill-bundle`; `import` platforms support `import/skill`). The format → platform compatibility matrix is documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Format Types**.
-> 3. Match the `install.type` to the platform's install capabilities documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Install Types** (e.g. `symlink` for directory platforms, `copy` for skill platforms, `inject` for import platforms, `append` for vendor aggregation).
-> 4. If the platform schema already declares a transformer for a concern (e.g. `frontmatter: strip`), **do not add a redundant `translate:` or `transformer:` line**.
-> 5. For format conversions not covered by the SchemaEngine (structural changes, markdown-to-agent-manifest, etc.), write a custom Ruby script under `data/translators/` and map it with `translate: custom:data/translators/your_script.rb` (see `TRANSFORMS.md` for the full API).
+> 1. The `targets:` list is **optional**. If omitted, the build engine auto-expands to all 14 platforms using `pkg_type` and platform-specific logic.
+> 2. When present, partial target entries serve as **overrides** to customize `format`, `output`, or `install.type` for specific platforms. Include only the `platform` key and the fields you want to override.
+> 3. Auto-expansion handles platform-registry lookup (format, output, install.type) so you typically only need overrides for edge cases (e.g., skill packages that need `format: directory` on certain platforms).
+> 4. If you write full targets manually, match the `format:` value to a format supported by the platform's type (e.g. `directory` platforms support `directory/skill/skill-bundle/agent`; `skill` platforms support `skill/skill-bundle`; `import` platforms support `import/skill`). The format → platform compatibility matrix is documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Format Types**.
+> 5. Match the `install.type` to the platform's install capabilities documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Install Types** (e.g. `symlink` for directory platforms, `copy` for skill platforms, `inject` for import platforms, `append` for vendor aggregation).
+> 6. If the platform schema already declares a transformer for a concern (e.g. `frontmatter: strip`), **do not add a redundant `translate:` or `transformer:` line**.
+> 7. For format conversions not covered by the SchemaEngine (structural changes, markdown-to-agent-manifest, etc.), write a custom Ruby script under `data/translators/` and map it with `translate: custom:data/translators/your_script.rb` (see `TRANSFORMS.md` for the full API).
 
 ```yaml
 ---
@@ -266,33 +268,20 @@ order: 10
 source:
   - type: local
     path: src/memory.md
-  # Alternatively, fetch remote source:
-  # - type: url
-  #   url: https://raw.githubusercontent.com/owner/repo/main/memory.md
-  #   sha256: "d68c92a628a8d6e9f1a238bc321c89f5..."
 
+# Optional: target overrides for specific platforms
+# If omitted, build auto-expands to all 14 platforms using pkg_type logic
 targets:
-  - platform: opencode
-    format: directory
-    output: 00-memory.md
-    install:
-      type: symlink
   - platform: cursor
-    format: directory
     output: 00-memory.md
-    install:
-      type: symlink
-  - platform: gemini-cli
-    format: import
-    output: memory-rule.md
-    install:
-      type: inject
-  - platform: crush
-    format: skill
+  - platform: windsurf
+    output: 00-memory.md
+  - platform: claude-code
+    output: 00-memory.md
+  - platform: codex
     output: memory.md
-    install:
-      type: copy
-  # ... (include all other targets here)
+  - platform: antigravity
+    output: memory.md
 
 tags:
   - rules

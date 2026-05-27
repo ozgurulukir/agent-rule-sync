@@ -19,7 +19,8 @@ Technical reference for PKGBUILD format, transformer API, index schema, and vali
 | `pkg_type` | string | yes | Package type: `rule`, `skill`, `agent`, or `hybrid` |
 | `order` | integer | yes | Order in vendor skill aggregation (lower = earlier) |
 | `source` | array | yes | Source entries (local, url, or git) |
-| `targets` | array | yes | Deployment targets (platform, format, output, transformer, install) |
+| `targets` | array | no | Deployment targets (auto-expanded if omitted; overrides can customize platform-specific format, output, or install.type) |
+| `output` | string | no | Global default output filename (e.g., `"my-rule.md"`). Used for all platforms unless a target override specifies `output`. Codex always uses `"SKILL.md"` (checked first). |
 | `checksums` | hash | auto | `{source: null, built: {}}` (auto-populated by build) |
 | `dependencies` | array | no | Package dependencies (future: resolution) |
 | `conflicts` | array | no | Conflicting packages |
@@ -77,8 +78,8 @@ source:
 ```yaml
 targets:
   - platform: <platform-id>         # Required: platform key from registry
-    format: directory|import|skill|skill-bundle|agent  # Required: output format
-    output: <filename|.>            # Required: output filename (or "." for skill-bundle)
+    format: directory|import|skill|skill-bundle|agent  # Optional: output format (auto-derived if omitted)
+    output: <filename|.>            # Optional: output filename (or "." for skill-bundle; auto-derived if omitted)
     translate: copy|custom:<path>   # Optional: content conversion (runs BEFORE schema engine + transformer)
     transformer: copy|strip-frontmatter|custom:<path>  # Optional (default: copy)
     agent_config:                   # Optional: for format=agent on Cursor (generates agent.json)
@@ -86,11 +87,20 @@ targets:
       temperature: <float>
       triggers:
         file_patterns: [<glob>, ...]
-    install:                        # Optional: overrides platform defaults
+    install:                        # Optional: overrides platform defaults (auto-derived if omitted)
       type: symlink|copy|inject|append
       target_dir: <path>            # Optional: override install directory (required for skill-bundle)
       directive: '@import'          # Optional: for inject type
 ```
+
+**Auto-Expansion**:
+- If `targets` is omitted or partially specified, the build engine automatically expands to all 14 platforms.
+- Auto-expansion derives `format`, `output`, and `install.type` from:
+  - `pkg_type` (rule, skill, agent, hybrid)
+  - Platform registry entry (type: directory/import/skill)
+  - Source structure (directory vs single file, for skill-bundle detection)
+- Override entries can customize specific platforms by including only the target keys that differ from auto-derived values.
+- Top-level `output:` field provides a global default output filename (checked before format-specific conventions; Codex always uses `"SKILL.md"`).
 
 **Format types**:
 - `directory` — individual rule files in `rules_dir`
@@ -442,7 +452,7 @@ Downgrades are blocked by default; use `--force` to allow.
 - Field types correct (string, integer, array)
 - `pkgname` format (lowercase, alphanumeric + hyphens)
 - `source` entries have required fields per type
-- `targets` entries have required fields per format
+- `targets` entries (if present): `platform` required; `format`, `output`, `install.type` optional (can be auto-derived)
 - `checksums` structure correct
 
 ### Platform Registry Validation
