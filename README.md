@@ -23,6 +23,11 @@ bin/rulepack build
 # Build with timing info
 bin/rulepack build --timing
 
+# Check upstream for new versions (git-sourced packages)
+bin/rulepack bump                                  # Check all
+bin/rulepack bump vibe-security                    # Check single
+bin/rulepack bump --apply                          # Auto-update + rebuild
+
 # Install to a user-level platform (Zero Assumptions: target is mandatory)
 bin/rulepack install --target opencode              # Real install (all built packages)
 bin/rulepack install memory --target opencode       # Real install of a single package (exact match)
@@ -107,7 +112,7 @@ rulepack/
 │   └── index.yaml            # Master package database (schema v3.0)
 ├── build/                    # Build artifacts (generated)
 ├── test/                     # Test suite (287 runs, 929 assertions, 0 failures, 0 errors, 6 skips)
-│
+├── docs/agents/              # Developer reference (ARCHITECTURE, PLATFORMS, REFERENCE, TRANSFORMS)
 ├── Rakefile
 ├── README.md
 └── AGENTS.md

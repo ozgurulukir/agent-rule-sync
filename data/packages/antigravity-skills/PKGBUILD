@@ -15,6 +15,7 @@ source:
     path: skills/
     depth: 1
 
+pkgver_func: "git log -1 --format=%cd --date=short 2>/dev/null | tr -d '-' || date +%Y.%m.%d"
 targets:
   - platform: opencode
     format: skill-bundle

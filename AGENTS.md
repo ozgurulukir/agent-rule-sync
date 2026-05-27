@@ -135,6 +135,10 @@ Rulepack commands are wrapped inside `bin/rulepack` for convenience. Under the h
 bin/rulepack build                                  # Compiles all packages to build/
 bin/rulepack build --timing                         # Compiles with execution step timing
 
+# Upstream Version Tracking (makepkg-style)
+bin/rulepack bump [pkg]                             # Check upstream for new versions
+bin/rulepack bump --apply [pkg]                     # Auto-update pkgver + rebuild
+
 # Platform Deployment (Install / pacman -S option)
 bin/rulepack install [pkg] --target <plat|all>     # Installs package(s) to target platform(s)
 bin/rulepack install [pkg] -t <plat|all> --select <names> # Non-interactive: install specific sub-skills
@@ -420,3 +424,17 @@ Running `bin/rulepack init-hooks` installs a `.git/hooks/pre-commit` script that
 ```
 
 For symlink and copy targets, the preview reports the file path that would be deleted.
+
+---
+
+### Fix: Agent Drift False-Positive Elimination (`lib/rulepack/fix.rb`)
+
+`find_broken_packages` now has an explicit `elsif format_type == 'agent'` branch. Agent records are broken **only** if the `agents_dir` value is defined in the platform registry **and** the target path is missing from disk. Platforms that expose no `agents_dir` (e.g. Crush as a skill-only platform) silently report `false` — not broken — without `next`-ing out of the outer `each` loop. This prevents the upstream `each.with_index` enumerator from silently stopping short of processing all packages.
+
+This resolves two interacting bugs:
+1. Pre-fix, the raw `else` branch (same path as rules and skills) called `verify_checksum(installed_path, inst[:checksum])`. For agent records, `inst[:checksum]` held a sha256 of the build path string (set in `install_execute.rb`), while `installed_path` was an agent directory — checksum verification always failed, reporting every agent install as "broken" on every `fix --target` invocation.
+2. The original guard `next unless agents_dir` broke the outer `each.with_index` enumerator, silently skipping all remaining packages after the first agent-format record on an `agents_dir`-less platform.
+
+### Fix: Directory Build Checksum Removed (`lib/rulepack/install_execute.rb`)
+
+When `built_path` is a directory (agent and skill-bundle builds), `content_sha256` is now always set to `nil` instead of `Digest::SHA256.hexdigest(built_path.to_s)`. The prior code hashed the build path string (e.g. `/abs/build/opencode/.`) rather than any file content, producing a deterministic but meaningless value that polluted the install index and fed into the drift false-positive described above. Checksums are only meaningful for single-file artifacts; directory packages are verified by existence in `fix.rb` and `verify.rb`.

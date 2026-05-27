@@ -239,3 +239,87 @@ end
 **Test gate**: `rake test` — 287 runs, 929 assertions, 0 failures, 0 errors, 6 skips.
 
 ---
+
+### 🔴 P-H — Upstream Tracking: `bump` Command & `pkgver_func` for Git-Sourced Packages
+
+**Priority**: HIGH
+**Risk**: LOW
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-26
+
+**Problem**: Three git-sourced packages use `ref: main` (a moving target), but the system has no mechanism to detect upstream changes:
+
+| Package | Source | Current `ref` |
+|---|---|---|
+| `vibe-security` | `raroque/vibe-security-skill` | `main` |
+| `antigravity-skills` | `rmyndharis/antigravity-skills` | `main` |
+| `cc-skills-golang` | `samber/cc-skills-golang` | `main` |
+| `ruby-update-signatures` | `DmitryPogrebnoy/ruby-agent-skills` | `main` |
+
+Each `bin/rulepack build` silently re-fetches `main` HEAD — if upstream changed, artifacts change but `pkgver` stays stale (`0.1.0`, `2026.05`). No version bump, no changelog, no user notification.
+
+**Arch Linux parallel**:
+- `makepkg -g` → auto-generate `.SRCINFO` checksums → `bin/rulepack bump` (detect + update)
+- `pkgver()` function → `pkgver_func` field (already implemented in `build_per_pkg.rb:301-321`, validated in `validation.rb:52-54`, but **unused** by any PKGBUILD and **undocumented** in `REFERENCE.md`)
+
+**Implementation plan**:
+
+#### Phase 1: `bump` command (upstream change detection)
+
+New file: `lib/rulepack/bump.rb`
+
+```
+bin/rulepack bump                     # Check all git-sourced packages
+bin/rulepack bump vibe-security       # Check single package
+bin/rulepack bump --apply             # Auto-update pkgver + rebuild
+bin/rulepack bump --apply vibe-security
+```
+
+**Algorithm**:
+1. Load `build/index.yaml` → extract `source_sha256` (commit hash) for each git-sourced package
+2. For each git source: `git ls-remote <url> <ref>` → get remote HEAD commit
+3. Compare remote HEAD vs cached commit hash
+4. Report: `[CHANGED]`, `[CURRENT]`, or `[ERROR]`
+5. With `--apply`:
+   - Update `PKGBUILD` `pkgver` to new value (from `pkgver_func` or date-based default `YYYY.MM.DD`)
+   - Invalidate cache for changed packages
+   - Run `bin/rulepack build` for changed packages only
+
+#### Phase 2: Wire `pkgver_func` into git-sourced PKGBUILDs
+
+Add `pkgver_func` to git-sourced packages:
+```yaml
+source:
+  - type: git
+    url: https://github.com/raroque/vibe-security-skill.git
+    ref: main
+    path: vibe-security/SKILL.md
+    depth: 1
+pkgver_func: "git describe --tags --always 2>/dev/null || date +%Y.%m.%d"
+```
+
+#### Phase 3: Documentation
+
+- `REFERENCE.md`: Add `pkgver_func` field to PKGBUILD schema
+- `UPSTREAM.md`: Replace manual SHA256 instructions with `bump` workflow
+- `README.md`: Add `bump` to command reference
+- `bin/rulepack help`: Add `bump` entry
+
+**Files to create**:
+- `lib/rulepack/bump.rb` — Bump command implementation
+
+**Files to modify**:
+- `bin/rulepack` — Add `bump` command dispatch
+- `lib/rulepack/cli_parser.rb` — Add `--apply` flag
+- `data/packages/vibe-security/PKGBUILD` — Add `pkgver_func`
+- `data/packages/antigravity-skills/PKGBUILD` — Add `pkgver_func`
+- `data/packages/cc-skills-golang/PKGBUILD` — Add `pkgver_func`
+- `data/packages/ruby-update-signatures/PKGBUILD` — Add `pkgver_func`
+- `docs/agents/REFERENCE.md` — Document `pkgver_func`
+- `docs/agents/UPSTREAM.md` — Document bump workflow
+- `README.md` — Add bump command
+- `AGENTS.md` — Add bump to CLI reference
+
+**Test gate**: `rake test` — existing baseline + new bump tests must pass.
+
+---

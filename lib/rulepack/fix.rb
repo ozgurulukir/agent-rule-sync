@@ -180,8 +180,12 @@ module Rulepack
         format_type = target ? target[:format] : 'directory'
 
         is_broken = if format_type == 'skill-bundle'
-                      bundle_path = resolve_install_path(platform_cfg, target, base_path)
-                      !bundle_path.exist?
+                      if !platform_cfg[:skills_dir] && %w[skill import].include?(platform_cfg[:type].to_s)
+                        false
+                      else
+                        bundle_path = resolve_install_path(platform_cfg, target, base_path)
+                        !bundle_path.exist?
+                      end
                     elsif format_type == 'skill' && platform_cfg[:type] == 'skill'
                       !Rulepack::Common.build_dir.join(platform_id, pkgname.to_s, inst[:output]).exist?
                     elsif format_type == 'agent'

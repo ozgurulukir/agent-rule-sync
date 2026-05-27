@@ -129,8 +129,6 @@ class TestEndToEndPipeline < Minitest::Test
   end
 
   def test_build_creates_local_packages_fast
-    skip "Use RULEPACK_RUN_NETWORK_E2E=1 for full E2E" if NETWORK_E2E
-
     run_build
 
     # Build index exists with local packages only (no git clones)

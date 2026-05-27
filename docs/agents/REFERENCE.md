@@ -26,6 +26,7 @@ Technical reference for PKGBUILD format, transformer API, index schema, and vali
 | `provides` | array | no | Virtual capabilities |
 | `requires` | hash | no | System tool requirements (informational): `{ python: ">=3.8", ruby: ">=2.7" }` |
 | `tags` | array | no | Tags for search/categorization |
+| `pkgver_func` | string | no | Shell command to auto-derive `pkgver` from upstream source (makepkg `pkgver()` parallel). Runs inside the fetched source directory. Example: `"git log -1 --format=%cd --date=short 2>/dev/null | tr -d '-'"` |
 | `maintainer` | string | no | Maintainer identifier |
 | `license` | string | no | License (default: MIT) |
 

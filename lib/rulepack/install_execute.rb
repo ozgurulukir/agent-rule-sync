@@ -227,6 +227,11 @@ module Rulepack
         return nil if actual_sha == expected_checksum
 
         return "Build artifact checksum mismatch: #{pkgname}"
+      elsif format_type == 'skill-bundle' && !platform_cfg[:skills_dir]
+        return nil if %w[skill import].include?(platform_cfg[:type].to_s)
+        build_artifact = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s)
+        return "Build artifact missing: #{pkgname} (#{build_artifact})" unless build_artifact.exist?
+        nil
       elsif format_type == 'agent'
         agents_dir = platform_cfg[:agents_dir]
         return nil unless agents_dir

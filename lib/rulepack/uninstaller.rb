@@ -279,8 +279,13 @@ module Rulepack
       install_cfg = target[:install] || {}
       case target[:format]
       when 'skill-bundle'
+        skills_dir = platform_cfg[:skills_dir]
+        unless skills_dir
+          return if %w[skill import].include?(platform_cfg[:type].to_s)
+          raise "Platform #{platform_cfg[:display_name] || platform_cfg} has no skills_dir for skill-bundle"
+        end
         target_dir = install_cfg[:target_dir] || raise("Missing target_dir: #{pkgname}")
-        dest_dir = base_path.join(platform_cfg[:skills_dir]).join(target_dir)
+        dest_dir = base_path.join(skills_dir).join(target_dir)
         remove_path(dest_dir, pkgname, ctx)
       else
         install_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)

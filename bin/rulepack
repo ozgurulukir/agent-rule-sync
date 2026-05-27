@@ -89,6 +89,8 @@ module Rulepack
         0
       when "platforms"
         Rulepack::Query.run(["list-platforms"])
+      when "bump"
+        invoke("lib/rulepack/bump.rb", full_argv)
       when "init-hooks"
         Rulepack::CLI.init_hooks
       when "help"
@@ -129,6 +131,7 @@ module Rulepack
 
         Makepkg-style commands:
           build                        Build all packages (fetch → transform → artifacts)
+          bump [pkg] [--apply]         Check upstream for new versions; --apply to auto-update
 
         Other commands:
           list                         List all packages

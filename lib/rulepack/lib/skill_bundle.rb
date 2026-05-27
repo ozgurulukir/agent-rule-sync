@@ -36,6 +36,12 @@ module Rulepack
 
       skills_dir_name = platform_cfg[:skills_dir]
       unless skills_dir_name
+        if %w[skill import].include?(platform_cfg[:type].to_s)
+          installer_inst.record_installation(index, pkgname, platform_id, pkgdata, '.', nil, format: 'skill-bundle') unless dry_run
+          Rulepack::Common.log "  ✓ Installed: #{pkgname}" unless quiet
+          installed_this_run << pkgname
+          return true
+        end
         Rulepack::Common.log "  ⊘ platform '#{platform_id}' does not support skill-bundles, skipping" unless quiet
         return false
       end
