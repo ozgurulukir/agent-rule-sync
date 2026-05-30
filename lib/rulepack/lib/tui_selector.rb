@@ -53,80 +53,83 @@ module Rulepack
       puts ""
  
       $stdout.write(cursor_hide)
- 
+
       begin
-        loop do
-          total = sub_skills.size
-          effective_page_size = [page_size, total].min
- 
-          # Adjust sliding window based on cursor index
-          if cursor_index < start_index
-            start_index = cursor_index
-          elsif cursor_index >= start_index + effective_page_size
-            start_index = cursor_index - effective_page_size + 1
-          end
-          # Enforce bounds
-          start_index = [0, [start_index, total - effective_page_size].min].max
- 
-          # We will clear effective_page_size lines + 1 footer line
-          lines_to_clear = effective_page_size + 1
- 
-          # Print the visible page
-          (start_index...(start_index + effective_page_size)).each do |idx|
-            ss = sub_skills[idx]
-            is_cursor = (idx == cursor_index)
-            is_selected = selected_indices.include?(idx)
- 
-            cursor_str = is_cursor ? "\e[38;5;220m▸\e[0m" : " "
-            checkbox_str = is_selected ? "\e[38;5;46m⬢ [x]\e[0m" : "\e[38;5;240m⬡ [ ]\e[0m"
-            
-            name_str = ss['name']
-            if is_cursor
-              name_str = "\e[48;5;236m\e[1m\e[38;5;51m #{name_str} \e[0m"
-            else
-              name_str = "\e[37m#{name_str}\e[0m"
+        timeout_duration = 120
+        Timeout.timeout(timeout_duration, TimeoutError, "TUI selection timed out after #{timeout_duration}s") do
+          loop do
+            total = sub_skills.size
+            effective_page_size = [page_size, total].min
+
+            # Adjust sliding window based on cursor index
+            if cursor_index < start_index
+              start_index = cursor_index
+            elsif cursor_index >= start_index + effective_page_size
+              start_index = cursor_index - effective_page_size + 1
             end
- 
-            desc = ss['description'] || ss['path'] || ''
-            desc_str = desc.empty? ? '' : " \e[90m— #{desc}\e[0m"
- 
-            puts "#{cursor_str} #{checkbox_str} #{name_str}#{desc_str}#{cls_line}"
-          end
- 
-          # Print pagination footer
-          puts "  \e[36m(Showing #{start_index + 1}-#{start_index + effective_page_size} of #{total} sub-skills, [Space] to toggle, [Enter] to confirm)\e[0m#{cls_line}"
- 
-          # Read character
-          char = read_keyboard_char
- 
-          case char
-          when "\e[A", "k" # Up arrow or 'k'
-            cursor_index = (cursor_index - 1) % sub_skills.size
-          when "\e[B", "j" # Down arrow or 'j'
-            cursor_index = (cursor_index + 1) % sub_skills.size
-          when " " # Spacebar
-            if selected_indices.include?(cursor_index)
-              selected_indices.delete(cursor_index)
-            else
-              selected_indices.add(cursor_index)
+            # Enforce bounds
+            start_index = [0, [start_index, total - effective_page_size].min].max
+
+            # We will clear effective_page_size lines + 1 footer line
+            lines_to_clear = effective_page_size + 1
+
+            # Print the visible page
+            (start_index...(start_index + effective_page_size)).each do |idx|
+              ss = sub_skills[idx]
+              is_cursor = (idx == cursor_index)
+              is_selected = selected_indices.include?(idx)
+
+              cursor_str = is_cursor ? "\e[38;5;220m▸\e[0m" : " "
+              checkbox_str = is_selected ? "\e[38;5;46m⬢ [x]\e[0m" : "\e[38;5;240m⬡ [ ]\e[0m"
+
+              name_str = ss['name']
+              if is_cursor
+                name_str = "\e[48;5;236m\e[1m\e[38;5;51m #{name_str} \e[0m"
+              else
+                name_str = "\e[37m#{name_str}\e[0m"
+              end
+
+              desc = ss['description'] || ss['path'] || ''
+              desc_str = desc.empty? ? '' : " \e[90m— #{desc}\e[0m"
+
+              puts "#{cursor_str} #{checkbox_str} #{name_str}#{desc_str}#{cls_line}"
             end
-          when "a" # Select All
-            selected_indices = Set.new((0...sub_skills.size).to_a)
-          when "n" # Select None
-            selected_indices.clear
-          when "i" # Invert selection
-            all_indices = Set.new((0...sub_skills.size).to_a)
-            selected_indices = all_indices - selected_indices
-          when "\r", "\n" # Enter
-            break
-          when "q", "\e", "\u0003" # Quit/ESC/Ctrl-C
-            # Default to all if cancelled
-            selected_indices = Set.new((0...sub_skills.size).to_a)
-            break
+
+            # Print pagination footer
+            puts "  \e[36m(Showing #{start_index + 1}-#{start_index + effective_page_size} of #{total} sub-skills, [Space] to toggle, [Enter] to confirm)\e[0m#{cls_line}"
+
+            # Read character
+            char = read_keyboard_char
+
+            case char
+            when "\e[A", "k" # Up arrow or 'k'
+              cursor_index = (cursor_index - 1) % sub_skills.size
+            when "\e[B", "j" # Down arrow or 'j'
+              cursor_index = (cursor_index + 1) % sub_skills.size
+            when " " # Spacebar
+              if selected_indices.include?(cursor_index)
+                selected_indices.delete(cursor_index)
+              else
+                selected_indices.add(cursor_index)
+              end
+            when "a" # Select All
+              selected_indices = Set.new((0...sub_skills.size).to_a)
+            when "n" # Select None
+              selected_indices.clear
+            when "i" # Invert selection
+              all_indices = Set.new((0...sub_skills.size).to_a)
+              selected_indices = all_indices - selected_indices
+            when "\r", "\n" # Enter
+              break
+            when "q", "\e", "\u0003" # Quit/ESC/Ctrl-C
+              # Default to all if cancelled
+              selected_indices = Set.new((0...sub_skills.size).to_a)
+              break
+            end
+
+            # Move cursor back up
+            $stdout.write("\e[#{lines_to_clear}A")
           end
- 
-          # Move cursor back up
-          $stdout.write("\e[#{lines_to_clear}A")
         end
       ensure
         $stdout.write(cursor_show)

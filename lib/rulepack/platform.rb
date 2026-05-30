@@ -65,8 +65,10 @@ module Rulepack
       begin
         if local_path.exist?
           overrides = load_yaml(local_path)
-        elsif user_local_path.exist?
-          overrides = load_yaml(user_local_path)
+        end
+        if user_local_path.exist?
+          user_overrides = load_yaml(user_local_path)
+          overrides = overrides ? deep_merge(overrides, user_overrides) : user_overrides
         end
       rescue StandardError => e
         Rulepack::Common.log_warn "Failed to load local registry overrides: #{e.message}"
@@ -129,6 +131,8 @@ module Rulepack
 
     # Resolve install path for directory-type platforms
     def resolve_directory_path(platform_cfg, target_cfg, base)
+      raise ArgumentError, "resolve_directory_path called for non-directory platform: #{platform_cfg[:type]}" unless platform_cfg[:type] == 'directory'
+
       install_cfg = target_cfg[:install] || {}
       target_dir = install_cfg[:target_dir]
 

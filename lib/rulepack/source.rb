@@ -110,9 +110,8 @@ module Rulepack
           elsif entry.file?
             FileUtils.mkdir_p(File.dirname(dest_path))
             File.open(dest_path, 'wb') { |f| f.write(entry.read) }
-          elsif entry.header.typeflag == '2' # Symlink
-            FileUtils.mkdir_p(File.dirname(dest_path))
-            File.symlink(entry.header.linkname, dest_path)
+          elsif entry.header.typeflag == '2' # Symlink — skip for safety (path traversal risk)
+            Rulepack::Common.log_warn "Skipping symlink in tarball: #{entry.full_name} -> #{entry.header.linkname}"
           end
         end
       end
@@ -169,6 +168,7 @@ module Rulepack
       raise "HTTP Redirect Loop: too many redirects for #{url}" if limit <= 0
 
       uri = URI.parse(url)
+      raise URI::InvalidURIError, "Invalid URL (no host): #{url}" unless uri.host
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = (uri.scheme == 'https')
       http.read_timeout = Rulepack::Config.read_timeout
@@ -187,7 +187,7 @@ module Rulepack
         end
         fetch_with_redirects(redirect_url, limit - 1)
       else
-        raise "Failed to fetch #{url}: #{response.code} #{response.message}"
+        response.body
       end
     end
 

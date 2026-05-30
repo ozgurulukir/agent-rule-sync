@@ -77,6 +77,17 @@ module Rulepack
         when '--check'
           options[:check_mode] = true
           i += 1
+        when '--strict', '-s'
+          options[:strict] = true
+          i += 1
+        when '--format'
+          raise 'Missing value for --format' if i + 1 >= args.length
+          fmt_val = args[i + 1].downcase
+          unless %w[text json].include?(fmt_val)
+            raise "Invalid --format value: #{fmt_val}. Valid: text, json"
+          end
+          options[:format] = fmt_val.to_sym
+          i += 2
         when '--rules-to'
           raise 'Missing value for --rules-to' if i + 1 >= args.length
           val = args[i + 1].downcase

@@ -115,7 +115,8 @@ class TestPlatformConfig < Minitest::Test
   def test_lookup_hyphenated_platform_by_symbol
     cfg = Rulepack::Common.platform_config(:"gemini-cli", @registry)
     assert cfg, 'Should find gemini-cli by hyphenated symbol'
-    assert_equal 'import', cfg[:type]
+    assert_equal 'directory', cfg[:type]
+    assert_equal 'GEMINI.md', cfg[:rules_file]
   end
 
   def test_raises_on_unknown_platform_string
@@ -156,11 +157,19 @@ class TestResolveInstallPath < Minitest::Test
   end
 
   def test_resolves_import_platform_path
-    platform_cfg = @registry[:"gemini-cli"]
+    platform_cfg = @registry[:"qwen-code"]
     target_cfg = { format: 'import', output: 'memory-rule.md' }
     path = Rulepack::Common.resolve_install_path(platform_cfg, target_cfg)
     assert_kind_of Pathname, path
-    assert_match(/cli_config\.yaml/, path.to_s)
+    assert_match(/config\.yaml/, path.to_s)
+  end
+
+  def test_resolves_gemini_cli_directory_path
+    platform_cfg = @registry[:"gemini-cli"]
+    target_cfg = { format: 'directory', output: 'memory-rule.md' }
+    path = Rulepack::Common.resolve_install_path(platform_cfg, target_cfg)
+    assert_kind_of Pathname, path
+    assert_match(/GEMINI\.md/, path.to_s)
   end
 
   def test_resolves_with_base_override

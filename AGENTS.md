@@ -228,10 +228,21 @@ targets:
       type: copy
       target_dir: my-skill/
   - platform: opencode
-    format: directory       # → rules/my-rule.md or AGENTS.md (symlink/append)
+    format: directory       # → rules/my-rule.md (symlink)
     output: my-skill-rule.md
     install:
       type: symlink
+  - platform: cursor
+    format: directory       # → .cursor/rules/my-skill-rule.md (inject)
+    output: my-skill-rule.md
+    install:
+      type: inject
+  - platform: codex
+    format: skill           # → skills/vendor/my-skill/SKILL.md (copy, then aggregate)
+    output: SKILL.md
+    install:
+      type: copy
+      target_dir: skills/vendor/my-skill/
 ```
 
 > [!IMPORTANT]
@@ -245,14 +256,20 @@ targets:
 > **Step 2 — Read the per-platform schema:**
 > For each target platform, read `data/platforms/<agent>.yaml`. This file defines `frontmatter`, `emoji_policy`, `heading_style`, and `bullet_style` formatting constraints. The build engine applies these automatically through the Schema Engine — **you must NOT duplicate them as manual `transformer` directives** unless the schema does not cover the transformation you need.
 > 
-> **Step 3 — Apply the rules:**
-> 1. The `targets:` list is **optional**. If omitted, the build engine auto-expands to all 14 platforms using `pkg_type` and platform-specific logic.
-> 2. When present, partial target entries serve as **overrides** to customize `format`, `output`, or `install.type` for specific platforms. Include only the `platform` key and the fields you want to override.
-> 3. Auto-expansion handles platform-registry lookup (format, output, install.type) so you typically only need overrides for edge cases (e.g., skill packages that need `format: directory` on certain platforms).
-> 4. If you write full targets manually, match the `format:` value to a format supported by the platform's type (e.g. `directory` platforms support `directory/skill/skill-bundle/agent`; `skill` platforms support `skill/skill-bundle`; `import` platforms support `import/skill`). The format → platform compatibility matrix is documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Format Types**.
-> 5. Match the `install.type` to the platform's install capabilities documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Install Types** (e.g. `symlink` for directory platforms, `copy` for skill platforms, `inject` for import platforms, `append` for vendor aggregation).
-> 6. If the platform schema already declares a transformer for a concern (e.g. `frontmatter: strip`), **do not add a redundant `translate:` or `transformer:` line**.
-> 7. For format conversions not covered by the SchemaEngine (structural changes, markdown-to-agent-manifest, etc.), write a custom Ruby script under `data/translators/` and map it with `translate: custom:data/translators/your_script.rb` (see `TRANSFORMS.md` for the full API).
+> **Step 3 — Determine target overrides (or skip):**
+> The `targets:` list is **optional**. If omitted, the build engine auto-expands to all 14 platforms using `pkg_type` and platform-specific logic. When present, partial target entries serve as **overrides** to customize `format`, `output`, `install.type`, `translate`, or `agent_config` for specific platforms. Include only the `platform` key and the fields you want to override — **do not duplicate keys inherited from the platform registry** (format, install.type, arch).
+> 
+> **Step 4 — Match format compatibility:**
+> If you write full targets manually, match the `format:` value to a format supported by the platform's type (e.g. `directory` platforms support `directory/skill/skill-bundle/agent`; `skill` platforms support `skill/skill-bundle`; `import` platforms support `import/skill`). The format → platform compatibility matrix is documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Format Types**.
+> 
+> **Step 5 — Match install type:**
+> Match the `install.type` to the platform's install capabilities documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Install Types** (e.g. `symlink` for directory platforms, `copy` for skill platforms, `inject` for import platforms, `append` for vendor aggregation).
+> 
+> **Step 6 — Avoid redundant transformers:**
+> If the platform schema already declares a transformer for a concern (e.g. `frontmatter: strip`), **do not add a redundant `translate:` or `transformer:` line**. For format conversions not covered by the SchemaEngine (structural changes, markdown-to-agent-manifest, etc.), write a custom Ruby script under `data/translators/` and map it with `translate: custom:data/translators/your_script.rb` (see `TRANSFORMS.md` for the full API).
+> 
+> **Step 7 — Validate before considering done:**
+> After writing or editing a PKGBUILD, run `bin/rulepack audit --strict` and fix all reported errors before submitting. For full install dry-run, use `bin/rulepack install <pkg> -t <platform> --dry-run` to preview file and symlink actions without modifying disk.
 
 ```yaml
 ---
@@ -331,6 +348,28 @@ targets:
     format: skill-bundle  # fallback: install as skill on non-agent platforms
 ```
 
+### Package Directory Structure
+
+A package lives under `data/packages/<pkgname>/` and must contain at minimum:
+
+```
+data/packages/<pkgname>/
+├── PKGBUILD          # Required: YAML descriptor (see schema above)
+├── src/              # Optional: source markdown files
+│   ├── main.md
+│   └── extra.md
+├── data/             # Optional: package-specific fixtures or metadata
+└── translators/      # Optional: custom translator scripts (rare)
+```
+
+**Rules:**
+- `PKGBUILD` must be in the package root — not nested.
+- `source.path` entries are relative to the package root (e.g. `src/main.md`).
+- Multiple source files are merged in declared order.
+- Do **not** place build outputs (`build/`) inside a package directory.
+
+---
+
 #### Agent Translators
 
 The build pipeline applies platform-specific translators to agent markdown files during the build stage:
@@ -345,6 +384,56 @@ Oh My Pi and Windsurf need no translator — plain markdown is auto-discovered b
 
 The `agent_config` field in PKGBUILD targets generates the `agent.json` manifest for Cursor. Supported keys: `model`, `temperature`, `triggers` (with `file_patterns`).
 
+#### Sealed Agent Package Starter
+
+Use the matrix below to select the correct `translate` and `agent_config` combination for your target platform. No trial and error — pick the row that matches your platform and copy the target block into your PKGBUILD:
+
+| Platform | Scope | `translate:` | `agent_config:` | `install.target_dir:` |
+|---|---|---|---|---|
+| `opencode` | user | `custom:data/translators/agent_to_opencode.rb` | *(none)* | `my-agent/` |
+| `oh-my-pi` | user | *(none — plain markdown)* | *(none)* | `my-agent/` |
+| `cursor` | project | `custom:data/translators/agent_to_cursor.rb` | `model`, `temperature`, `triggers.file_patterns` | `my-agent/` |
+| `windsurf` | project | *(none — plain markdown)* | *(none)* | `my-agent/` |
+| `claude-code` | project | `custom:data/translators/agent_to_claude_code.rb` | *(none)* | `my-agent/` |
+
+**Copy-paste starter template:**
+
+```yaml
+pkg_type: agent
+
+targets:
+  - platform: opencode
+    format: agent
+    output: .
+    translate: custom:data/translators/agent_to_opencode.rb
+    install:
+      type: copy
+      target_dir: my-agent/
+
+  - platform: cursor
+    format: agent
+    output: .
+    translate: custom:data/translators/agent_to_cursor.rb
+    agent_config:
+      model: claude-3.5-sonnet
+      temperature: 0.3
+      triggers:
+        file_patterns: ["*.rb", "*.rbs"]
+    install:
+      type: copy
+      target_dir: my-agent/
+
+  - platform: claude-code
+    format: agent
+    output: .
+    translate: custom:data/translators/agent_to_claude_code.rb
+    install:
+      type: copy
+      target_dir: my-agent/
+```
+
+Platforms without `agents_dir` in their registry config will skip `format: agent` targets automatically — no additional guard needed.
+
 ---
 
 ## 🧪 Testing & Code Conventions
@@ -358,7 +447,7 @@ All contributions must pass the absolute quality threshold before integration:
   ```bash
   rake test
   ```
-  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (287 runs, 929 assertions, 0 failures, 0 errors, 6 skips).
+  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (290 runs, 0 failures, 0 errors, 2 skips).
 
 ---
 
@@ -427,3 +516,14 @@ This resolves two interacting bugs:
 ### Fix: Directory Build Checksum Removed (`lib/rulepack/install_execute.rb`)
 
 When `built_path` is a directory (agent and skill-bundle builds), `content_sha256` is now always set to `nil` instead of `Digest::SHA256.hexdigest(built_path.to_s)`. The prior code hashed the build path string (e.g. `/abs/build/opencode/.`) rather than any file content, producing a deterministic but meaningless value that polluted the install index and fed into the drift false-positive described above. Checksums are only meaningful for single-file artifacts; directory packages are verified by existence in `fix.rb` and `verify.rb`.
+
+---
+
+## Code Quality & Security Improvements (2026-05-29)
+
+Full details with claim-verify-act evidence: [`docs/improvement-plan/OPEN-ITEMS.md`](docs/improvement-plan/OPEN-ITEMS.md) — 29 items completed in a single session using Claim-Verify-Act methodology.
+
+Key highlights: `pkgver_func` shell execution fixed (P-J), HTTP redirect handling added (P-K), deprecated `strip-frontmatter` enforced as rejection (P-L), multi-package checksum regex corrected (P-M), symlink extraction skipped for safety (P-N), library functions now `raise ArgumentError` instead of `exit 1` (P-O), dry-run index mutation prevented (P-R), TUI selector has 120s timeout (P-T).
+
+**Test gate**: 290 unit/integration tests — **0 failures, 0 errors** (E2E gated behind `NETWORK_E2E`).
+

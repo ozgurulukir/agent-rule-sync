@@ -303,8 +303,8 @@ module Rulepack
       build_index = Rulepack::Common::BUILD_INDEX_PATH
       FileUtils.rm_f(build_index) if build_index.exist?
 
-      load Rulepack::Common::RULEPACK_ROOT.join('lib', 'rulepack', 'build.rb').to_s
-      load Rulepack::Common::RULEPACK_ROOT.join('lib', 'rulepack', 'aggregate.rb').to_s
+      Rulepack::Build.run
+      Rulepack::Aggregate.run
     end
   end
 end

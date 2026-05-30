@@ -39,7 +39,7 @@ class TestSchemaEngine < Minitest::Test
     result = Rulepack::SchemaEngine.apply(@sample_content, profile, 'skill')
     assert_match(/---/, result) # Frontmatter should be kept
     refute_match(/🚀✨🔥/, result)
-    assert_match(/Here is some text with emojis  and normal text\./, result)
+    assert_match(/Here is some text with emojis and normal text\./, result)
   end
 
   def test_both_strip_frontmatter_and_emojis
@@ -47,7 +47,7 @@ class TestSchemaEngine < Minitest::Test
     result = Rulepack::SchemaEngine.apply(@sample_content, profile, 'directory')
     refute_match(/---/, result)
     refute_match(/🚀✨🔥/, result)
-    assert_match(/Here is some text with emojis  and normal text\./, result)
+    assert_match(/Here is some text with emojis and normal text\./, result)
   end
 
   def test_setext_heading_conversion

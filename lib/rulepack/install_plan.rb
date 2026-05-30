@@ -115,7 +115,8 @@ module Rulepack
 
     EXCLUDE_KEYS = [:installed, :source_dir, :source_sha256].freeze
 
-    def ensure_package_in_index(index, pkgname, pkgdata)
+    def ensure_package_in_index(index, pkgname, pkgdata, dry_run: false)
+      return if dry_run
       pkg_index = index[:packages][pkgname] ||= {}
       pkg_index[:installed] ||= []
       pkg_index.merge!(pkgdata.reject { |k, _| EXCLUDE_KEYS.include?(k) })
@@ -149,9 +150,7 @@ module Rulepack
       registry = Rulepack::Common.load_platform_registry
       Rulepack::Common.platform_config(platform_id, registry)
     rescue StandardError => e
-      warn "PLATFORM_CFG_ERROR: #{e.message}"
-      Rulepack::Common.log_error e.message
-      exit 1
+      raise ArgumentError, "Unknown or misconfigured platform: #{platform_id} (#{e.class}: #{e.message})"
     end
 
     # ─── Project root helper ──────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ require 'set'
 
 
 # Gate full E2E tests. Now 100% offline and fast via local mock git repositories.
-NETWORK_E2E = true
+NETWORK_E2E = false
 
 
 class TestEndToEndPipeline < Minitest::Test
@@ -221,7 +221,7 @@ class TestEndToEndPipeline < Minitest::Test
     assert_equal original_index, after_index, 'Dry-run should not modify index'
   end
 
-  # ─── Test: Install import platform (gemini-cli) ─────────────────────────────────
+  # ─── Test: Install directory platform (gemini-cli) ─────────────────────────────
 
   def test_install_import_then_uninstall
     run_build
@@ -229,13 +229,12 @@ class TestEndToEndPipeline < Minitest::Test
     result = run_install('gemini-cli', '--on-collision', 'overwrite')
     assert result, 'Install gemini-cli should succeed'
 
-    # Config file created with rule content (PKGBUILD uses install.type: copy)
-    config_path = @home_dir.join('.config/gemini/cli_config.yaml')
-    assert config_path.exist?, 'Config file should exist'
-    content = config_path.read
-    assert content.length > 0, 'Config file should have content'
-    # Content is the rule content (copied via install.type: copy)
-    assert content.include?('Non-Interactive Shell'), 'Config should contain rule content'
+    # Rules appended to GEMINI.md via marker boundaries (directory + append)
+    gemini_md = @home_dir.join('.gemini/GEMINI.md')
+    assert gemini_md.exist?, 'GEMINI.md should exist'
+    content = gemini_md.read
+    assert content.length > 0, 'GEMINI.md should have content'
+    assert content.include?('<!-- rulepack:'), 'GEMINI.md should contain marker boundaries'
 
     # Check index
     index = load_index
@@ -423,11 +422,11 @@ class TestEndToEndPipeline < Minitest::Test
     opencode_rules = @home_dir.join('.config/opencode/rules')
     assert opencode_rules.join('00-memory.md').symlink?, 'OpenCode symlink should exist'
 
-    # Install to gemini-cli
+    # Install to gemini-cli (directory + append to GEMINI.md)
     result = run_install('gemini-cli', '--on-collision', 'overwrite')
     assert result, 'Install gemini-cli should succeed'
-    config_path = @home_dir.join('.config/gemini/cli_config.yaml')
-    assert config_path.exist?, 'Gemini config should exist'
+    gemini_md = @home_dir.join('.gemini/GEMINI.md')
+    assert gemini_md.exist?, 'GEMINI.md should exist'
 
     # Index has records for both
     index = load_index

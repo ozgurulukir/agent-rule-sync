@@ -9,6 +9,7 @@ module Rulepack
     # ─── PKGBUILD Output Validation ───────────────────────────────────────────────
 
     # Validate output filename - no path traversal
+    # Returns true if valid, raises ArgumentError if invalid
     def validate_output_filename(output, pkgname)
       # Must not contain '..' or absolute path
       if output.include?('..') || Pathname.new(output).absolute?
@@ -99,13 +100,13 @@ module Rulepack
           errors << "targets[#{i}]: invalid format '#{t[:format]}' (must be #{valid_formats.join('/')})"
         end
         begin
-          validate_target_entry_output(t, i, pkg, errors)
+          validate_target_entry_output(t, i, pkg)
         rescue StandardError => e
           errors << "targets[#{i}]: #{e.message}"
         end
         tf = t[:transformer]
-        if tf && tf != 'copy' && tf != 'strip-frontmatter' && tf !~ /\Acustom:.+\z/
-          errors << "targets[#{i}]: invalid transformer '#{tf}'"
+        if tf && tf != 'copy' && tf !~ /\Acustom:.+\z/
+          errors << "targets[#{i}]: invalid transformer '#{tf}' (strip-frontmatter is deprecated; remove it — frontmatter is handled automatically by SchemaEngine)"
         end
         if t[:install]
           inst = t[:install]
@@ -124,10 +125,10 @@ module Rulepack
       end
     end
 
-    def validate_target_entry_output(t, i, pkg, errors)
+    def validate_target_entry_output(t, _i, _pkg)
       return unless t[:output]
 
-      validate_output_filename(t[:output], pkg[:pkgname])
+      validate_output_filename(t[:output], _pkg[:pkgname])
     end
 
     # ─── PKGBUILD Load & Validate ────────────────────────────────────────────────
@@ -201,8 +202,9 @@ module Rulepack
 
       if content.include?(start_marker) && content.include?(end_marker)
         pattern = /#{Regexp.escape(start_marker)}\n(.*?)\n#{Regexp.escape(end_marker)}/m
-        if content =~ pattern
-          extracted = $1
+        blocks = content.scan(pattern).map(&:first)
+        unless blocks.empty?
+          extracted = blocks.join("\n")
           return Digest::SHA256.hexdigest(extracted) == expected_checksum
         end
       end

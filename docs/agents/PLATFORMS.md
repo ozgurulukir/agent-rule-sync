@@ -11,7 +11,7 @@ Complete reference for all supported agent platforms, their configuration locati
 | [Crush](#crush) | user | skill | `~/.config/crush/crush.md` | `bin/rulepack install crush` |
 | [Goose](#goose) | user | skill | `~/.local/share/goose/goose.md` | `bin/rulepack install goose` |
 | [Droid](#droid) | user | skill | `~/.factory/AGENTS.md` | `bin/rulepack install droid` |
-| [Gemini CLI](#gemini-cli) | user | import | `~/.config/gemini/cli_config.yaml` | `bin/rulepack install gemini-cli` |
+| [Gemini CLI](#gemini-cli) | user | directory | `~/.gemini/GEMINI.md` | `bin/rulepack install gemini-cli` |
 | [Qwen Code](#qwen-code) | user | import | `~/.config/qwen/config.yaml` | `bin/rulepack install qwen-code` |
 | [Cursor](#cursor) | project | directory | `.cursor/rules/` | `bin/rulepack install cursor --project .` |
 | [Windsurf](#windsurf) | project | directory | `.windsurf/rules/` | `bin/rulepack install windsurf --project .` |
@@ -84,6 +84,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Scope**: user
 - **Base path**: `~/.local/share/goose/`
 - **Skill file**: `goose.md` (guardrails)
+- **Recipes dir**: `.goose/recipes/` (YAML recipe-based agent configuration, supported as of late 2025)
 - **Install method**: copy (vendor skill file)
 - **Persistent instructions**: `GOOSE_MOIM_MESSAGE_FILE` env var → `~/.config/goose/guardrails.md` (re-read every turn, 64KB limit)
 - **Update**: `goose update` (npm)
@@ -206,6 +207,8 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Rules loading**: Searches up directory tree for `AGENTS.md`; supports `AGENTS.override.md`
 - **Features**: Terminal agent, project-aware, supports subagents
 - **Update**: `codex update` (npm)
+
+**⚠️ Important**: Codex uses `AGENTS.md` as a **project-level instruction file** (layered guidance discovered by walking up the directory tree). This is completely different from `format: agent`. Codex has no `agents_dir` — do NOT write `format: agent` targets for codex; they will be silently skipped. The `skill_file: AGENTS.md` field means vendor rules are aggregated into a single `AGENTS.md` file at the project root.
 
 **Rulepack integration**: `bin/rulepack install codex --project .` → generates vendor skill and writes to `AGENTS.md`
 
@@ -354,10 +357,11 @@ Prepends an `@import` directive line to the platform's config file. Deduplicates
 
 ### Append (`append`)
 
-Appends content to the target file. Used for vendor skill aggregation or rules-file injection.
+Appends content to the target file using marker-boundary blocks. Used for vendor skill aggregation, rules-file injection into single-file platforms, or multi-rule platforms that consolidate into one file.
 
-- Used by: Codex CLI (vendor skill file), Antigravity (GEMINI.md)
-- Concatenates with `---\n\n` separator
+- Used by: Antigravity (`GEMINI.md`), platforms using `--rules-to rules_file` (e.g., OpenCode, Oh My Pi, Claude Code injecting into `AGENTS.md`)
+- Supports marker-aware replace: re-install updates the block between `<!-- rulepack:<pkg> start -->` / `<!-- rulepack:<pkg> end -->` instead of duplicating
+- Concatenates with `---\n\n` separator when no prior marker exists
 
 ---
 

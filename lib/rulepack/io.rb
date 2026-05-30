@@ -33,7 +33,7 @@ module Rulepack
     end
 
     # Append to file atomically (create if doesn't exist)
-    def atomic_append(path, content)
+    def safe_append(path, content)
       path = Pathname.new(path)
       path.dirname.mkpath
 
@@ -59,7 +59,7 @@ module Rulepack
         else
           # Append new block (with separation if file not empty)
           sep = existing.empty? || existing.end_with?("\n\n") ? '' : (existing.end_with?("\n") ? "\n" : "\n\n")
-          atomic_append(path, sep + new_block)
+          safe_append(path, sep + new_block)
           :appended
         end
       else

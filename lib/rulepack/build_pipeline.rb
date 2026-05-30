@@ -15,8 +15,7 @@ module Rulepack
       @pkgname = pkgname.to_s
       @target_format = target_format.to_s
       @format_profile = format_profile || {}
-      # explicit_transformer: 'copy' means "no-op" (PKGBUILD said copy)
-      # nil means "not specified" → use schema default
+      @transformer = transformer
       @explicit_transformer = explicit_transformer
       @explicit_translate = explicit_translate
       @current_stage = :fetch

@@ -105,13 +105,10 @@ module Rulepack
 
     # ─── Cache-Aware Source Fetchers ────────────────────────────────────────
 
-    # Fetch URL with cache support
+    # Fetch URL with cache support (follows 30x redirects via Source.fetch_with_redirects)
     def cached_fetch_url(url, expected_sha256)
-      uri = URI.parse(url)
-      response = Net::HTTP.get_response(uri)
-      raise "Failed to fetch #{url}: #{response.code} #{response.message}" unless response.is_a?(Net::HTTPSuccess)
-
-      content = response.body
+      Rulepack::Common.log "  [cache] Fetching URL: #{url}"
+      content = fetch_with_redirects(url)
       actual_sha256 = Digest::SHA256.hexdigest(content)
 
       if expected_sha256 && actual_sha256 != expected_sha256

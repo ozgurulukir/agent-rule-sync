@@ -11,8 +11,7 @@ module Rulepack
       when 'copy'
         content
       when 'strip-frontmatter'
-        Rulepack::Common.log_warn "strip-frontmatter transformer is deprecated; SchemaEngine handles this automatically via platform schema."
-        strip_frontmatter(content)
+        raise ArgumentError, "strip-frontmatter transformer is permanently removed. Frontmatter is handled automatically by the SchemaEngine via platform schema (frontmatter: strip). Remove the transformer field from your PKGBUILD."
       when /^custom:(.+)/
         custom_rel = Regexp.last_match(1)
         # Resolve relative to repo root (RULEPACK_ROOT)

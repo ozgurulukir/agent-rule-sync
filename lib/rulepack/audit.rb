@@ -6,46 +6,18 @@ require 'json'
 require 'time'
 require_relative 'common'
 require_relative 'validation'
+require_relative 'build_loader'
+require_relative 'build_loader'
 
 module Rulepack
   module Audit
     module_function
 
     def run(argv)
-      strict = false
-      target_filter = nil
-      format = :text
-      
-      # Parse arguments
-      args = argv.dup
-      while (arg = args.shift)
-        case arg
-        when '--strict', '-s'
-          strict = true
-        when '--target', '-t'
-          target_filter = args.shift
-          unless target_filter
-            $stderr.puts "❌ Error: --target requires a platform name."
-            exit 1
-          end
-        when '--format'
-          fmt_val = args.shift
-          if fmt_val == 'json'
-            format = :json
-          elsif fmt_val == 'text'
-            format = :text
-          else
-            $stderr.puts "❌ Error: --format must be 'text' or 'json'."
-            exit 1
-          end
-        when '--help', '-h'
-          print_help
-          return 0
-        else
-          $stderr.puts "❌ Error: Unknown argument '#{arg}'. Run 'rulepack audit --help' for usage."
-          exit 1
-        end
-      end
+      opts = Rulepack::CliParser.parse(argv)
+      strict = opts.fetch(:strict, false)
+      target_filter = opts[:target]
+      format = opts.fetch(:format, :text)
 
       # Locate root and directories
       root = Rulepack::Common::RULEPACK_ROOT
@@ -134,9 +106,11 @@ module Rulepack
         end
 
         # 4. Target Platforms Check
-        targets = data[:targets] || []
-        targeted_platforms = targets.map { |t| t[:platform] }.uniq
-        
+        # Apply auto-expansion (same logic as build engine) for strict audit
+        # expand_targets mutates data[:targets] in-place and returns the expanded array
+        expanded_targets = Rulepack::BuildLoader.expand_targets(data.dup, platforms_registry) || []
+        targeted_platforms = expanded_targets.map { |t| t[:platform] }.uniq
+
         # Check for unknown platforms in targets
         unknown_platforms = targeted_platforms - all_platforms
         unless unknown_platforms.empty?
@@ -153,7 +127,7 @@ module Rulepack
           end
         end
 
-        # Strict check: all 14 platforms must be targeted
+        # Strict check: all 14 platforms must be targeted (after auto-expansion)
         if strict
           missing_platforms = all_platforms - targeted_platforms
           unless missing_platforms.empty?

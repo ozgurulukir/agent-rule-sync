@@ -303,7 +303,7 @@ module Rulepack
 
       Rulepack::Common.log "  Running pkgver_func: #{pkg[:pkgver_func]}"
       stdout_err, status = Dir.chdir(source_dir) do
-        Open3.capture2e(pkg[:pkgver_func])
+        Open3.capture2e("sh", "-c", pkg[:pkgver_func])
       end
       new_pkgver = stdout_err.strip
       unless status.success?

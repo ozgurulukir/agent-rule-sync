@@ -45,7 +45,7 @@ module Rulepack
 
       fixed_anything = false
       targets_to_fix.each do |platform_id|
-        fixed_anything |= fix_platform(platform_id, target_package, project_arg, dry_run, auto_mode)
+        fixed_anything |= fix_platform(platform_id, target_package, project_arg, dry_run, auto_mode, index)
       end
 
       if fixed_anything
@@ -70,7 +70,7 @@ module Rulepack
       )
     end
 
-    def fix_platform(platform_id, package_arg, project_arg, dry_run, auto_mode)
+    def fix_platform(platform_id, package_arg, project_arg, dry_run, auto_mode, index)
       puts "\n── #{platform_id} ──"
 
       result = run_verify(platform_id, package_arg, project_arg)
@@ -84,7 +84,7 @@ module Rulepack
 
       fixed_drift = false
       if has_drift
-        fixed_drift = fix_drift(platform_id, package_arg, project_arg, dry_run)
+        fixed_drift = fix_drift(platform_id, package_arg, project_arg, dry_run, index)
       end
 
       fixed_orphans = false
@@ -94,13 +94,12 @@ module Rulepack
 
       fixed_drift || fixed_orphans
     end
-    def fix_drift(platform_id, package_arg, project_arg, dry_run)
+    def fix_drift(platform_id, package_arg, project_arg, dry_run, index)
       if dry_run
         puts "  [DRY-RUN] Would reinstall packages on #{platform_id}"
         return false
       end
 
-      index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
       broken = find_broken_packages(platform_id, package_arg, project_arg, index)
 
       if broken.empty?

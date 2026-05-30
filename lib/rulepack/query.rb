@@ -65,7 +65,7 @@ module Rulepack
     end
 
     def cmd_installed(argv)
-      platform = argv.shift || 'opencode'
+      platform = argv.shift || 'opencode'  # default: opencode (user's home platform)
       list_installed_impl(platform)
     end
 
@@ -361,11 +361,13 @@ module Rulepack
 
     module_function
 
-    def list_packages(*_args)
+    def list_packages(*args)
+      raise ArgumentError, "list_packages takes no arguments (got #{args.size})" unless args.empty?
       cmd_list_packages([])
     end
 
-    def list_platforms(*_args)
+    def list_platforms(*args)
+      raise ArgumentError, "list_platforms takes no arguments (got #{args.size})" unless args.empty?
       cmd_list_platforms([])
     end
 
@@ -381,11 +383,13 @@ module Rulepack
       cmd_search(args)
     end
 
-    def check(*_args)
+    def check(*args)
+      raise ArgumentError, "check takes no arguments (got #{args.size})" unless args.empty?
       cmd_check([])
     end
 
-    def orphans(*_args)
+    def orphans(*args)
+      raise ArgumentError, "orphans takes no arguments (got #{args.size})" unless args.empty?
       cmd_orphans([])
     end
 

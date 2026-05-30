@@ -13,9 +13,6 @@ require_relative 'installer'
 require_relative 'common'
 require_relative 'cli_parser'
 
-# Gracefully shift pacman -S flag if passed as first argument
-ARGV.shift if ARGV.first == '-S'
-
 begin
   opts = Rulepack::CliParser.parse(ARGV)
 rescue StandardError => e

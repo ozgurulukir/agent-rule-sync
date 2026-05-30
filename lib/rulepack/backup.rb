@@ -11,9 +11,9 @@ module Rulepack
     def backup_index(index_path = RULEPACK_ROOT.join('data', 'index.yaml'))
       return nil unless index_path.exist?
 
-      # Use monotonic counter to ensure unique backup filenames even when called rapidly
-      @_backup_counter ||= 0
-      @_backup_counter += 1
+      # Use monotonic counter with mutex to ensure unique backup filenames even when called rapidly
+      @_backup_mutex ||= Monitor.new
+      @_backup_mutex.synchronize { @_backup_counter ||= 0; @_backup_counter += 1 }
       ts = Time.now.utc.strftime('%Y%m%dT%H%M%S')
       backup_path = index_path.parent.join("#{index_path.basename}.bak.#{ts}.#{@_backup_counter}")
       FileUtils.cp(index_path, backup_path)

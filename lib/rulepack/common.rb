@@ -39,6 +39,8 @@ module Rulepack
     end
 
     def build_index_path=(val)
+      return nil if val.nil?
+      raise TypeError, "build_index_path must be a Pathname" unless val.is_a?(Pathname)
       @_build_index_override = val
     end
 
@@ -59,6 +61,7 @@ module Rulepack
     end
 
     # Facade — delegates to submodules
+    # NOTE: methods(false) is captured at load time; submodules are not expected to change after require.
     Logging.methods(false).each { |m| define_singleton_method(m, &Logging.method(m)) }
     IO.methods(false).each { |m| define_singleton_method(m, &IO.method(m)) }
     Validation.methods(false).each { |m| define_singleton_method(m, &Validation.method(m)) }

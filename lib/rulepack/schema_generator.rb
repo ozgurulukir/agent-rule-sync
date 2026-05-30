@@ -72,7 +72,9 @@ module Rulepack
           translate = resolve_effective(entry_data[:translates], default: nil)
 
           # Resolve transformer: prefer any explicitly set value; if only nil/copy observed → 'copy'
-          transformer = resolve_effective(entry_data[:transformers], default: 'copy')
+          # strip-frontmatter is permanently removed — filter it out
+          raw_transformers = entry_data[:transformers].reject { |v| v == 'strip-frontmatter' }
+          transformer = resolve_effective(raw_transformers, default: 'copy')
 
           new_schema[platform_id][format] = {
             'translate'   => translate,
@@ -136,13 +138,20 @@ module Rulepack
       existing_preamble + rendered
     end
 
-    # Extract non-schema comment lines at the top of the file
+    # Extract non-schema comment lines at the top of the file.
+    # Skips the auto-generated header block (frozen_string_literal + Auto-generated)
+    # to avoid accumulating duplicates on each build.
     def extract_preamble(raw)
       lines = raw.each_line.to_a
       preamble = []
+      header_seen = 0
       lines.each do |line|
         stripped = line.strip
         break if stripped.start_with?('schema:')
+        if stripped.empty? || stripped.start_with?('#')
+          header_seen += 1 if stripped.start_with?('# frozen_string_literal') || stripped.start_with?('# Auto-generated')
+          next if header_seen <= 2  # skip the canonical header block
+        end
         preamble << line
       end
       preamble.join

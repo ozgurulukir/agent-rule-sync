@@ -22,24 +22,24 @@ crush:
   display_name: Crush
   base_path: "~/.config/crush/"
   skill_file: crush.md
-  rule_install:
+  rule_install: null
   skill_install:
     type: copy
   prerequisites:
     tools:
     - ruby
 gemini-cli:
-  type: import
+  type: directory
   scope: user
   display_name: Gemini CLI
-  base_path: "~/.config/gemini/"
-  config_file: cli_config.yaml
+  base_path: "~/.gemini/"
+  rules_dir: rules/
+  skills_dir: skills/
+  rules_file: GEMINI.md
   rule_install:
-    type: inject
-    directive: "@import"
+    type: append
   skill_install:
-    type: inject
-    directive: "@import"
+    type: copy
   prerequisites:
     tools:
     - python
@@ -49,7 +49,8 @@ goose:
   display_name: Goose
   base_path: "~/.local/share/goose/"
   skill_file: goose.md
-  rule_install:
+  recipes_dir: ".goose/recipes/"
+  rule_install: null
   skill_install:
     type: copy
   prerequisites:
@@ -61,7 +62,7 @@ droid:
   display_name: Droid
   base_path: "~/.factory/"
   skill_file: AGENTS.md
-  rule_install:
+  rule_install: null
   skill_install:
     type: copy
   prerequisites:
@@ -167,7 +168,7 @@ codex:
   display_name: Codex CLI
   base_path: "."
   skill_file: AGENTS.md
-  rule_install:
+  rule_install: null
   skill_install:
     type: copy
   prerequisites:
@@ -189,9 +190,9 @@ antigravity:
   type: directory
   scope: user
   display_name: Google Antigravity
-  base_path: "~/.gemini/antigravity/"
-  skills_dir: ".agent/skills/"
+  base_path: "~/.gemini/"
   rules_file: GEMINI.md
+  skills_dir: ".agent/skills/"
   rule_install:
     type: append
   skill_install:

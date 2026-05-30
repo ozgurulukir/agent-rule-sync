@@ -42,7 +42,7 @@ module Rulepack
 
         next unless InstallPlan.should_install_or_upgrade?(pkgname, pkgdata, ctx)
 
-        InstallPlan.ensure_package_in_index(ctx.index, pkgname, pkgdata)
+        InstallPlan.ensure_package_in_index(ctx.index, pkgname, pkgdata, dry_run: ctx.dry_run)
 
         targets.each do |target|
           install_single_target(pkgname, pkgdata, target, ctx)

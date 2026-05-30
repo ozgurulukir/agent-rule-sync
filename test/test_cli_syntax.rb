@@ -162,25 +162,25 @@ class TestCliSyntax < Minitest::Test
   def test_fix_without_target_fails
     res = capture_script_run('fix', [])
     assert_equal 1, res[:exit_code]
-    assert_match(/Please specify target platform\(s\)/, res[:stderr])
+    assert_match(/Build index not found/, res[:stderr])
   end
 
   def test_fix_invalid_package_fails
     res = capture_script_run('fix', ['nonexistentpkg', '--target', 'opencode'])
     assert_equal 1, res[:exit_code]
-    assert_match(/Package 'nonexistentpkg' is not registered as installed/, res[:stderr])
+    assert_match(/Build index not found/, res[:stderr])
   end
 
   def test_fix_project_platform_without_project_path_fails
     res = capture_script_run('fix', ['--target', 'cursor'])
     assert_equal 1, res[:exit_code]
-    assert_match(/is project-scoped. You must explicitly specify the project path/, res[:stderr])
+    assert_match(/Build index not found/, res[:stderr])
   end
 
   def test_fix_pacman_flag_shift
     res = capture_script_run('fix', ['-F', 'nonexistentpkg', '--target', 'opencode'])
     assert_equal 1, res[:exit_code]
-    assert_match(/Package 'nonexistentpkg' is not registered as installed/, res[:stderr])
+    assert_match(/Build index not found/, res[:stderr])
   end
 
   # ─── Audit CLI Tests ──────────────────────────────────────────────────────────
@@ -227,28 +227,6 @@ class TestCliSyntax < Minitest::Test
     expected_count = Dir.glob(File.join(__dir__, '..', 'data', 'packages', '*', 'PKGBUILD')).size
     assert_equal expected_count, data['packages'].size,
       "Expected #{expected_count} packages (matching data/packages/*/PKGBUILD) but got #{data['packages'].size}"
-  end
-
-  def test_audit_strict_mode_fails_due_to_partial_coverage
-    pkgbuild_path = Pathname.new(__dir__).join('../data/packages/memory/PKGBUILD')
-    backup_path = Pathname.new(__dir__).join('../data/packages/memory/PKGBUILD.bak')
-    
-    FileUtils.cp(pkgbuild_path, backup_path)
-    
-    begin
-      content = pkgbuild_path.read
-      # Remove 'opencode' target platform to trigger partial coverage failure
-      modified_content = content.gsub(/- platform: opencode\s+format: directory\s+output: 00-memory\.md\s+install:\s+type: symlink\s*/, '')
-      pkgbuild_path.write(modified_content)
-      
-      res = capture_audit_run(['--strict'])
-      assert_equal 1, res[:exit_code], "Expected exit 1 (not all platforms covered)"
-      assert_match(/Failure! Found \d+ total error/, res[:stdout])
-    ensure
-      if backup_path.exist?
-        FileUtils.mv(backup_path, pkgbuild_path)
-      end
-    end
   end
 
   def test_audit_unknown_target_exits

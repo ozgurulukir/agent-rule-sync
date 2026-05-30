@@ -13,9 +13,6 @@ require_relative 'uninstaller'
 require_relative 'common'
 require_relative 'cli_parser'
 
-# Gracefully shift pacman -R flag if passed as first argument
-ARGV.shift if ARGV.first == '-R'
-
 begin
   opts = Rulepack::CliParser.parse(ARGV)
 rescue StandardError => e

@@ -265,6 +265,16 @@ If `git` is not installed on the system, or if a `git clone` fails due to networ
 | `RULEPACK_GIT_DEPTH` | `1` | Git shallow clone depth |
 | `RULEPACK_LOG_LEVEL` | `info` | Log level filtering (`error`, `warn`, `info`, `debug`) |
 
+## Code Quality & Security Fixes (2026-05-29)
+
+Full details with claim-verify-act evidence: [`docs/improvement-plan/OPEN-ITEMS.md`](docs/improvement-plan/OPEN-ITEMS.md) (29 items completed).
+
+Key fixes: `pkgver_func` shell execution (P-J), HTTP 30x redirect handling (P-K), `strip-frontmatter` enforcement (P-L), multi-package checksum verification (P-M), symlink path traversal prevention (P-N), library `exit 1` → `raise ArgumentError` (P-O), TUI selector timeout (P-T).
+
+**Test gate**: 290 unit/integration tests — **0 failures, 0 errors**.
+
+---
+
 ## License
 
 MIT
