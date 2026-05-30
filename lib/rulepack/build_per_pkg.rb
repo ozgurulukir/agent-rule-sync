@@ -203,7 +203,8 @@ module Rulepack
         puts "    ✓ Agent files translated (#{translator_cfg})"
       end
 
-      # Agent format: generate agent.json manifest from agent_config (Cursor)
+      apply_schema_engine_to_directory(build_pkg_dir, tgt, platforms, format)
+
       if format == 'agent' && tgt[:agent_config]
         agent_cfg = tgt[:agent_config]
         manifest = {
@@ -318,6 +319,38 @@ module Rulepack
       pkg[:pkgver] = new_pkgver
       pkg_index[:pkgver] = new_pkgver
       true
+    end
+
+    def apply_schema_engine_to_directory(build_pkg_dir, tgt, platforms, format)
+      platform_id = tgt[:platform]
+      format_profile = begin
+        Rulepack::Common.platform_config(platform_id, platforms)[:format_profile]
+      rescue StandardError
+        {}
+      end
+      return if format_profile.nil? || format_profile.empty?
+
+      schema_section = %w[skill skill-bundle].include?(format) ? :skills : :rules
+      ruleset = format_profile[schema_section]
+      return unless ruleset
+
+      md_files = Dir.glob(build_pkg_dir.join('**', '*.md'))
+      return if md_files.empty?
+
+      applied = 0
+      md_files.each do |md_file|
+        content = File.read(md_file)
+        normalized = Rulepack::SchemaEngine.apply(content, format_profile, format)
+        unless normalized == content
+          File.write(md_file, normalized)
+          applied += 1
+        end
+      end
+
+      if applied > 0
+        Rulepack::Common.log "    ✓ Schema Engine applied to #{applied} file(s) in directory build"
+        puts "    ✓ Schema Engine applied to #{applied} file(s) in directory build"
+      end
     end
   end
 end

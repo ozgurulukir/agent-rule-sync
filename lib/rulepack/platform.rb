@@ -90,6 +90,7 @@ module Rulepack
         validate_platform_config(id, cfg)
         profile_path = RULEPACK_ROOT.join('data', 'platforms', "#{id}.yaml")
         cfg[:format_profile] = profile_path.exist? ? load_yaml(profile_path) : {}
+        validate_format_profile(cfg[:format_profile], id)
       end
 
       @_platform_registry = raw
@@ -117,6 +118,28 @@ module Rulepack
         raise "Platform '#{id}' (skill) missing :skill_file" unless cfg[:skill_file]
       else
         raise "Platform '#{id}' has unknown type: #{cfg[:type]}"
+      end
+    end
+
+    VALID_PROFILE_KEYS = %w[frontmatter heading_style bullet_style emoji_policy max_heading_depth
+                            format content_type code_block section_separator link_style
+                            code_highlight sections_order references_format file_name note
+                            injection_method config_file content no_frontmatter_required
+                            no_code_blocks special].freeze
+
+    def validate_format_profile(profile, platform_id)
+      return if profile.nil? || profile.empty?
+
+      %w[rules skills].each do |section|
+        section_data = profile[section.to_sym] || profile[section]
+        next unless section_data.is_a?(Hash)
+
+        section_data.each_key do |key|
+          key_s = key.to_s
+          next if VALID_PROFILE_KEYS.include?(key_s)
+
+          log_warn "Platform #{platform_id}: unknown key '#{key_s}' in format_profile.#{section}"
+        end
       end
     end
 

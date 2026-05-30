@@ -5,6 +5,7 @@
 # Extracted from build.rb (P-B: split 430 LOC build.rb into 3 focused files).
 
 require 'pathname'
+require 'tsort'
 require_relative 'common'
 
 module Rulepack
@@ -76,7 +77,10 @@ module Rulepack
       %w[skill-bundle import]    => 'skill-bundle',
       %w[agent directory]        => 'agent',
       %w[agent skill]            => 'agent',
-      %w[agent import]           => 'agent'
+      %w[agent import]           => 'agent',
+      %w[hybrid directory]       => 'directory',
+      %w[hybrid skill]           => 'skill',
+      %w[hybrid import]          => 'import'
     }.freeze
 
     def resolve_format(pkg_type, platform_type)
@@ -120,6 +124,10 @@ module Rulepack
     def expand_targets(pkg, platforms)
       pkg_type = pkg[:pkg_type].to_s
       pkgname = pkg[:pkgname].to_s
+
+      if pkg_type == 'hybrid' && (pkg[:targets].nil? || pkg[:targets].empty?)
+        raise ArgumentError, "hybrid pkg_type requires explicit targets in PKGBUILD (ambiguous format mix)"
+      end
 
       src = (pkg[:source] || []).first || {}
       source_path = src[:path].to_s
@@ -168,6 +176,62 @@ module Rulepack
       end
 
       pkg[:targets] = expanded
+    end
+
+    VALID_PKG_TYPES = %w[rule skill skill-bundle agent hybrid].freeze
+
+    def validate_pkg_type(pkg, errors)
+      pkg_type = pkg[:pkg_type]
+      if pkg_type.nil? || !pkg_type.is_a?(String) || !VALID_PKG_TYPES.include?(pkg_type)
+        errors << "Invalid or missing pkg_type '#{pkg_type}': must be one of #{VALID_PKG_TYPES.join('/')}"
+      end
+    end
+
+    def validate_dependencies(pkg_index, errors)
+      pkg_names = pkg_index.keys.map(&:to_s)
+      virtual = {}
+      pkg_index.each do |_name, idx|
+        (idx[:provides] || []).each { |v| virtual[v.to_s] = _name.to_s }
+      end
+
+      pkg_index.each do |name, idx|
+        (idx[:dependencies] || []).each do |dep|
+          resolved = pkg_names.include?(dep.to_s) ? dep.to_s : virtual[dep.to_s]
+          unless resolved
+            errors << "Package '#{name}' has unresolvable dependency: '#{dep}'"
+          end
+        end
+      end
+    end
+
+    def resolve_install_order(pkg_index)
+      graph = {}
+      virtual = {}
+      pkg_index.each do |name, idx|
+        name_s = name.to_s
+        deps = (idx[:dependencies] || []).map do |dep|
+          dep_s = dep.to_s
+          virtual[dep_s] ? virtual[dep_s] : (pkg_index.key?(dep_s.to_sym) || pkg_index.key?(dep_s) ? dep_s : nil)
+        end.compact
+        graph[name_s] = deps
+        (idx[:provides] || []).each { |v| virtual[v.to_s] = name_s }
+      end
+
+      resolver = DependencyGraph.new(graph)
+      begin
+        resolver.tsort
+      rescue TSort::Cyclic => e
+        raise "Circular dependency detected: #{e.message}"
+      end
+    end
+
+    class DependencyGraph < Hash
+      include TSort
+      alias tsort_each_node each_key
+
+      def tsort_each_child(node, &blk)
+        fetch(node, []).each(&blk)
+      end
     end
   end
 end

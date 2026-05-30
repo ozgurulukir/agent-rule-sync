@@ -146,7 +146,7 @@ module RulepackTranslator
     end
 
     def self.split_paragraphs(text)
-      text.split(/\n{2,}/).reject(&:strip.empty?)
+      text.split(/\n{2,}/).reject { |p| p.strip.empty? }
     end
 
     def self.extract_bullet_items(text)

@@ -83,7 +83,6 @@ module Rulepack
         return :not_found
       end
 
-      # Excise the block
       pattern = /#{Regexp.escape(start_marker)}.*?#{Regexp.escape(end_marker)}/m
       updated = content.gsub(pattern, '').gsub(/\n{3,}/, "\n\n").strip
 
@@ -94,6 +93,19 @@ module Rulepack
         atomic_write(path, updated + "\n")
         :removed
       end
+    end
+
+    def deep_merge(base, override)
+      merger = proc { |_key, v1, v2|
+        if v1.is_a?(Hash) && v2.is_a?(Hash)
+          v1.merge(v2, &merger)
+        elsif v1.is_a?(Array) && v2.is_a?(Array)
+          v1 | v2
+        else
+          v2
+        end
+      }
+      base.merge(override, &merger)
     end
   end
 end

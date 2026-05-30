@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'json'
+require 'yaml'
 require 'fileutils'
 require_relative 'transaction'
 
@@ -28,8 +30,20 @@ module Rulepack
         else
           do_inject_append(install_path, content, install_type, platform_cfg, output, pkgname, ctx)
         end
+      when 'json_merge'
+        if ctx.dry_run
+          Rulepack::Common.log "    [DRY-RUN] Would json_merge: #{built_path} → #{install_path}" unless ctx.quiet
+        else
+          do_json_merge(built_path, install_path, pkgname, ctx)
+        end
+      when 'yaml_merge'
+        if ctx.dry_run
+          Rulepack::Common.log "    [DRY-RUN] Would yaml_merge: #{built_path} → #{install_path}" unless ctx.quiet
+        else
+          do_yaml_merge(built_path, install_path, pkgname, ctx)
+        end
       else
-        Rulepack::Common.log_error "Unknown install type: #{install_type}. Valid types: symlink, copy, inject, append."
+        Rulepack::Common.log_error "Unknown install type: #{install_type}. Valid types: symlink, copy, inject, append, json_merge, yaml_merge."
       end
     end
 
@@ -152,6 +166,62 @@ module Rulepack
       return false unless path.exist?
 
       path.read.include?(content)
+    end
+
+    def do_json_merge(built_path, install_path, pkgname, ctx)
+      new_data = begin
+        JSON.parse(built_path.read)
+      rescue StandardError
+        {}
+      end
+
+      existing = if install_path.exist?
+                   backup_path = Rulepack::Common.backup_file(install_path)
+                   Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
+                   begin
+                     JSON.parse(install_path.read)
+                   rescue StandardError
+                     {}
+                   end
+                 else
+                   Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
+                   {}
+                 end
+
+      merged = Rulepack::Common.deep_merge(existing, new_data)
+      Rulepack::Common.atomic_write(install_path, JSON.pretty_generate(merged) + "\n")
+      Rulepack::Common.log '    ✓ JSON merged'
+    rescue StandardError => e
+      Rulepack::Common.log_error "JSON merge failed: #{e.message}"
+      raise e
+    end
+
+    def do_yaml_merge(built_path, install_path, pkgname, ctx)
+      new_data = begin
+        YAML.safe_load(built_path.read, permitted_classes: [Symbol], symbolize_names: true) || {}
+      rescue StandardError
+        {}
+      end
+
+      existing = if install_path.exist?
+                   backup_path = Rulepack::Common.backup_file(install_path)
+                   Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
+                   begin
+                     YAML.safe_load(install_path.read, permitted_classes: [Symbol], symbolize_names: true) || {}
+                   rescue StandardError
+                     {}
+                   end
+                 else
+                   Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
+                   {}
+                 end
+
+      merged = Rulepack::Common.deep_merge(existing, new_data)
+      Rulepack::Common.atomic_write(install_path, YAML.dump(merged).sub(/\A---\n/, ''))
+      Rulepack::Common.log '    ✓ YAML merged'
+    rescue StandardError => e
+      Rulepack::Common.log_error "YAML merge failed: #{e.message}"
+      raise e
     end
   end
 end

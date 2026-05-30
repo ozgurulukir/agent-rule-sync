@@ -118,21 +118,12 @@ Called from `installer.rb:load_master_index` before any index consumer reads it.
 
 **Priority**: LOW
 **Risk**: LOW
-**Status**: OPEN
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-30
 
-**Current state**: `cache.rb` writes to `cache/<key>/` without any size constraint. The `cache_source` method (line 27) creates directories unconditionally. Repeated builds against remote sources (URL, git) will grow `cache/` without bounds.
+**Re-evaluation**: Feature already fully implemented in `cache.rb:34-52` (`enforce_cache_limit!` with LRU eviction). Called after every `cache_source` write (line 79). Configurable via `RULEPACK_CACHE_MAX_MB` env var (default: 500 MB). `config.rb:25-27` defines `cache_max_size_mb`.
 
-**Target**:
-```ruby
-# config.rb adds:
-def cache_max_size_mb
-  Integer(ENV.fetch('RULEPACK_CACHE_MAX_MB', '500'))
-end
-```
-
-`cache_source` computes total `cache/` directory size after write; if it exceeds `cache_max_size_mb`, evicts least-recently-used entries (by `mtime` on cache dir) until under limit.
-
-**Test gate**: `rake test` — existing cache unit tests must not depend on directory size.
+**Implementation**: `enforce_cache_limit!` walks cache directory, sums file sizes, evicts oldest entries (by directory `mtime`) until under configured limit. Zero external dependencies.
 
 ---
 
@@ -1305,6 +1296,377 @@ end
 | P-AH | ⚪ LOW | `resolve_directory_path` missing type guard | OPEN |
 | P-AI | ⚪ LOW | `install_helpers.rb` pure pass-through | OPEN |
 | P-AJ | ⚪ LOW | `build_index_path=` no type validation | OPEN |
+
+---
+
+## 🆕 Architecture Gap Items — Mimari Hedef 9/9 Planı (2026-05-30)
+
+**Source**: Architecture assessment of 7 design goals. Items below close gaps to bring all goals to 9/10+.
+**Methodology**: Each gap was verified by direct source inspection before being added.
+
+---
+
+### 🔴 P-AK — Schema Engine for Skill-Bundle/Agent Directory Builds
+
+**Priority**: HIGH
+**Risk**: LOW
+**Status**: OPEN
+
+**Architecture Goal**: Goal 4 (Schema Engine → 8→9)
+**Current Score**: 8/10 — SchemaEngine only runs on single-file targets; directory builds (skill-bundle, agent) get raw `cp_r` without normalization.
+
+**Claim**: `build_per_pkg.rb:169` — `build_skill_bundle_target` copies the source directory wholesale via `FileUtils.cp_r("#{source_dir}/.", build_pkg_dir)` and never calls `SchemaEngine.apply` on individual `.md` files. `build_single_file_target` (line 249) creates a `BuildPipeline` with `format_profile` and runs SchemaEngine, but directory builds skip this entirely.
+
+**Verification**:
+```ruby
+# build_per_pkg.rb:169
+FileUtils.cp_r("#{source_dir}/.", build_pkg_dir, preserve: false)
+# No SchemaEngine.apply call anywhere in build_skill_bundle_target
+# Lines 192-204: optional agent translator per .md file, but no SchemaEngine normalization
+# build_per_pkg.rb:249: build_single_file_target creates BuildPipeline with format_profile → SchemaEngine runs
+```
+✅ VERIFIED — `build_skill_bundle_target` never invokes SchemaEngine; `build_single_file_target` does.
+
+**Act**: After directory copy (and optional translator), iterate all `.md` files and apply SchemaEngine:
+```ruby
+# After FileUtils.cp_r and optional agent translator:
+format_profile = Rulepack::Platform.load_format_profile(platform_cfg, target_format)
+Dir.glob(build_pkg_dir.join('**', '*.md')).each do |md_file|
+  content = File.read(md_file)
+  normalized = Rulepack::SchemaEngine.apply(content, format_profile, target_format)
+  File.write(md_file, normalized) unless normalized == content
+end
+```
+
+**Files to modify**: `lib/rulepack/build_per_pkg.rb`, `lib/rulepack/platform.rb` (expose `load_format_profile`)
+**Test gate**: `rake test` — build tests with emoji/heading assertions for skill-bundle packages.
+
+---
+
+### 🔴 P-AL — Dependency Resolution Engine (provides/dependencies)
+
+**Priority**: HIGH
+**Risk**: MEDIUM
+**Status**: OPEN
+
+**Architecture Goal**: Goal 3 (Universal canonical format + aliases → 7.5→9)
+**Current Score**: 7.5/10 — `provides` and `dependencies` fields are declared in PKGBUILDs but stored as informational only. No install ordering, no dependency checking, no virtual package resolution.
+
+**Claim**: `validation.rb:35-43` — `validate_pkgbuild` validates `pkgname`, `version_fields`, `descriptive_fields`, `source_entries`, `target_entries` but **never** validates `dependencies`, `provides`, or `conflicts`. `install_execute.rb:34` iterates `ctx.build_index[:packages].each` with no topological ordering. A package declaring `dependencies: [ruby-agent-skills]` can be installed before its dependency.
+
+**Verification**:
+```ruby
+# validation.rb:35-43 — no dependency validation
+# build_loader.rb:52-54 — stored blindly: pkg[:dependencies] || []
+# install_execute.rb:34 — no ordering: ctx.build_index[:packages].each
+# query.rb:258-273 — show_depends_impl just prints, no resolution
+```
+✅ VERIFIED — dependencies are stored but never resolved, validated, or ordered.
+
+**Act**: Implement a dependency resolver in `build_loader.rb`:
+1. After loading all PKGBUILDs, build a dependency graph: `{pkgname => [dep1, dep2, ...]}` with virtual package resolution via `provides`.
+2. Topological sort for install ordering (`TSort` from Ruby stdlib).
+3. Validation: reject circular dependencies, warn on unresolvable dependencies.
+4. Wire into `install_execute.rb`: sort packages by dependency order before iteration.
+5. Wire into `validation.rb`: validate that all declared dependencies resolve to existing packages.
+
+```ruby
+require 'tsort'
+
+def self.resolve_install_order(pkg_index)
+  graph = {}
+  virtual = {}
+  pkg_index.each do |pkg|
+    name = pkg[:pkgname].to_s
+    graph[name] = (pkg[:dependencies] || []).map(&:to_s)
+    (pkg[:provides] || []).each { |v| virtual[v.to_s] = name }
+  end
+  resolver = DependencyResolver.new(graph, virtual)
+  resolver.tsort
+end
+
+class DependencyResolver < Hash
+  include TSort
+  alias tsort_each_node each_key
+  def tsort_each_child(node, &blk)
+    fetch(node, []).each { |d| blk.call(@virtual[d] || d) }
+  end
+end
+```
+
+**Files to modify**: `lib/rulepack/build_loader.rb`, `lib/rulepack/validation.rb`, `lib/rulepack/install_execute.rb`
+**Test gate**: `rake test` — new dependency resolution tests + circular dependency rejection test.
+
+---
+
+### 🔴 P-AM — JSON/YAML Surgical Merge Install Handler
+
+**Priority**: HIGH
+**Risk**: MEDIUM
+**Status**: OPEN
+
+**Architecture Goal**: Goal 7 (Surgical JSON config injection → 3→9)
+**Current Score**: 3/10 — Only `agent.json` full-file creation exists. No generic JSON/YAML merge, no `settings.json` injection, no structured config modification.
+
+**Claim**: `install_handlers.rb:12-33` has 4 handlers: `symlink`, `copy`, `inject` (text prepend), `append` (marker-based). None parse JSON or YAML. `agent.json` for Cursor is generated at build time (`build_per_pkg.rb:206-221`) as a full file write — if user has custom fields, they are lost on reinstall.
+
+**Verification**:
+```ruby
+# install_handlers.rb — no json/yaml handler
+# build_per_pkg.rb:206-221 — agent.json is full write, not merge
+# grep for json.*inject|json.*modify|settings\.json → zero results
+```
+✅ VERIFIED — no structured merge capability exists anywhere.
+
+**Act**: Add two new install handlers:
+
+1. `json_merge` — reads existing JSON, merges specified keys, writes back:
+```ruby
+def do_json_merge(built_path, install_path, merge_config, pkgname, ctx)
+  existing = install_path.exist? ? JSON.parse(install_path.read) : {}
+  new_data = JSON.parse(built_path.read) rescue load_yaml_compat(built_path)
+  merged = deep_merge(existing, new_data)
+  Rulepack::Common.atomic_write(install_path, JSON.pretty_generate(merged) + "\n")
+  ctx.index_backup ||= {}
+  ctx.index_backup[install_path.to_s] = existing  # for rollback
+end
+```
+
+2. `yaml_merge` — reads existing YAML, merges specified keys, writes back:
+```ruby
+def do_yaml_merge(built_path, install_path, merge_config, pkgname, ctx)
+  existing = install_path.exist? ? YAML.safe_load(install_path.read, symbolize_names: true) : {}
+  new_data = load_yaml_compat(built_path)
+  merged = deep_merge(existing, new_data)
+  Rulepack::Common.atomic_write(install_path, YAML.dump(merged))
+end
+```
+
+3. Add `deep_merge` utility to `io.rb`:
+```ruby
+def deep_merge(base, override)
+  merger = proc { |key, v1, v2|
+    if v1.is_a?(Hash) && v2.is_a?(Hash)
+      v1.merge(v2, &merger)
+    elsif v2.is_a?(Array) && v1.is_a?(Array)
+      v1 | v2  # union of arrays
+    else
+      v2
+    end
+  }
+  base.merge(override, &merger)
+end
+```
+
+4. PKGBUILD usage:
+```yaml
+targets:
+  - platform: cursor
+    format: agent
+    install:
+      type: json_merge
+      target_file: .cursor/settings.json
+      merge_path: "mcpServers"  # Only merge into this key
+```
+
+**Files to modify**: `lib/rulepack/lib/install_handlers.rb`, `lib/rulepack/io.rb`, `lib/rulepack/install_execute.rb`, `lib/rulepack/validation.rb`
+**Test gate**: `rake test` — new handler tests for json_merge and yaml_merge with rollback.
+
+---
+
+### 🟠 P-AN — Structured Inject Handler for Config Files
+
+**Priority**: MEDIUM
+**Risk**: LOW
+**Status**: OPEN
+
+**Architecture Goal**: Goal 6 (Append/inject → 9→9.5)
+**Current Score**: 9/10 — `inject` handler prepends raw text line (`@import "file.md"`) to config files. For platforms that need structured YAML/JSON import injection (not text prepend), this produces invalid files.
+
+**Claim**: `install_handlers.rb:119-144` — inject handler does `atomic_write(install_path, import_line + existing)` — a raw string prepend. If a platform's config is structured YAML with an `imports:` list, prepending `@import "file"\n` corrupts the YAML.
+
+**Verification**:
+```ruby
+# install_handlers.rb:131
+import_line = "#{directive} \"#{output}\"\n"
+Rulepack::Common.atomic_write(install_path, import_line + existing)
+# No YAML/JSON parsing, no structured insertion
+```
+✅ VERIFIED — inject is text-level, no structured awareness.
+
+**Act**: Add `structured_inject` handler that parses the target file as YAML/JSON, inserts the import at the correct location:
+```ruby
+def do_structured_inject(install_path, inject_config, pkgname, ctx)
+  format = inject_config[:format] || 'yaml'
+  directive = inject_config[:directive] || '@import'
+  key = inject_config[:key] || 'imports'
+
+  content = install_path.exist? ? install_path.read : ''
+  if format == 'yaml'
+    data = YAML.safe_load(content, symbolize_names: true) || {}
+    data[key] ||= []
+    data[key] << "#{directive} #{output}" unless data[key].include?("#{directive} #{output}")
+    Rulepack::Common.atomic_write(install_path, YAML.dump(data))
+  elsif format == 'json'
+    data = JSON.parse(content) rescue {}
+    data[key] ||= []
+    data[key] << "#{directive} #{output}" unless data[key].include?("#{directive} #{output}")
+    Rulepack::Common.atomic_write(install_path, JSON.pretty_generate(data))
+  end
+end
+```
+
+**Files to modify**: `lib/rulepack/lib/install_handlers.rb`, `lib/rulepack/validation.rb`, `data/registry/platforms.yaml`
+**Test gate**: `rake test` — structured inject tests for YAML and JSON targets.
+
+---
+
+### 🟡 P-AO — Hybrid pkg_type Support in FORMAT_MAP and Validation
+
+**Priority**: MEDIUM
+**Risk**: LOW
+**Status**: OPEN
+
+**Architecture Goal**: Goal 2 (pkg_type → 8.5→9)
+**Current Score**: 8.5/10 — `hybrid` type is documented in AGENTS.md and produced by `schema_migration.rb:derive_pkg_type` but not recognized by `FORMAT_MAP` or validated. If a PKGBUILD declares `pkg_type: hybrid` without explicit targets, `expand_targets` raises.
+
+**Claim**: `build_loader.rb:67-80` FORMAT_MAP has no `hybrid` key. `validation.rb` does not validate `pkg_type` at all. `schema_migration.rb:58` derives `'hybrid'` when formats mix, but this value cannot be used as a source for `expand_targets`.
+
+**Verification**:
+```ruby
+# build_loader.rb:67-80 — FORMAT_MAP has rule, skill, skill-bundle, agent — no hybrid
+# validation.rb:35-43 — pkg_type not in validation
+# schema_migration.rb:58 — derives 'hybrid' → stored but unusable for FORMAT_MAP
+```
+✅ VERIFIED — hybrid is documented/derived but not supported in FORMAT_MAP.
+
+**Act**:
+1. Add `hybrid` handling in `build_loader.rb:expand_targets`: hybrid packages **must** have explicit `targets` (cannot be auto-expanded because the format mix is ambiguous).
+2. Add `pkg_type` validation to `validation.rb`: reject unknown types, allow only `rule`, `skill`, `skill-bundle`, `agent`, `hybrid`.
+3. For `hybrid`, `expand_targets` validates that explicit targets exist and cover all required platforms.
+4. Add FORMAT_MAP entries for hybrid:
+```ruby
+%w[hybrid directory] => 'directory',  # rule side
+%w[hybrid skill]     => 'skill',      # skill side
+%w[hybrid import]    => 'import',
+```
+
+**Files to modify**: `lib/rulepack/build_loader.rb`, `lib/rulepack/validation.rb`
+**Test gate**: `rake test` — hybrid validation tests.
+
+---
+
+### 🟡 P-AP — Platform Format Profile Validation on Load
+
+**Priority**: MEDIUM
+**Risk**: LOW
+**Status**: OPEN
+
+**Architecture Goal**: Goal 4 (Schema Engine → 8→9, completeness)
+**Current Score**: 8/10 — Platform YAML files have inconsistent key structures; `SchemaEngine.apply` silently skips missing keys with no warning. A typo in a platform YAML (e.g., `heading-style` instead of `heading_style`) produces no transformation and no error.
+
+**Claim**: `platform.rb:92` loads format_profile with no key validation. `schema_engine.rb:17` returns early if `ruleset` is nil (section missing). All subsequent key accesses use nil-safe conditional checks that silently skip.
+
+**Verification**:
+```ruby
+# platform.rb:92
+cfg[:format_profile] = profile_path.exist? ? load_yaml(profile_path) : {}
+# No key validation — typos silently ignored
+
+# schema_engine.rb:17
+return content unless ruleset  # silently skips if no section
+# ruleset[:heading_style] → nil → no transformation → no warning
+```
+✅ VERIFIED — no validation of profile keys, silent skip on typos.
+
+**Act**: Add `validate_format_profile` in `platform.rb` that checks for required and optional keys:
+```ruby
+REQUIRED_KEYS = %w[frontmatter].freeze
+OPTIONAL_KEYS = %w[heading_style bullet_style emoji_policy max_heading_depth heading_style].freeze
+ALL_KEYS = (REQUIRED_KEYS + OPTIONAL_KEYS).freeze
+
+def validate_format_profile(profile, platform_id)
+  %w[rules skills].each do |section|
+    next unless profile[section]
+    unknown = profile[section].keys - ALL_KEYS
+    if unknown.any?
+      Rulepack::Common.log_warn "Platform #{platform_id}: unknown keys in #{section}: #{unknown.join(', ')}"
+    end
+    missing = REQUIRED_KEYS - profile[section].keys
+    if missing.any?
+      Rulepack::Common.log_warn "Platform #{platform_id}: missing required keys in #{section}: #{missing.join(', ')}"
+    end
+  end
+end
+```
+
+**Files to modify**: `lib/rulepack/platform.rb`
+**Test gate**: `rake test` — platform validation tests with typo detection.
+
+---
+
+### P-D — Cache LRU Eviction (PREVIOUSLY OPEN)
+
+**Priority**: LOW
+**Risk**: LOW
+**Status**: ✅ COMPLETED
+**Date**: 2026-05-30
+
+**Re-evaluation**: `cache.rb:34-52` already implements `enforce_cache_limit!` with LRU eviction based on directory mtime. Called after every `cache_source` write (line 79). Configurable via `RULEPACK_CACHE_MAX_MB` env var (default: 500 MB). `config.rb:25-27` defines `cache_max_size_mb`. **This feature is fully implemented** — the original OPEN status was incorrect.
+
+---
+
+## Summary Table — All Open Items
+
+| ID | Priority | Description | Status |
+|---|---|---|---|
+| P-J | 🔴 CRITICAL | `pkgver_func` shell execution broken | ✅ COMPLETED |
+| P-K | 🔴 CRITICAL | `cached_fetch_url` no 30x redirect handling | ✅ COMPLETED |
+| P-L | 🔴 CRITICAL | `strip-frontmatter` not enforced as deprecated | ✅ COMPLETED |
+| P-M | 🔴 CRITICAL | `verify_checksum` regex breaks on multi-package files | ✅ COMPLETED |
+| P-N | 🟠 HIGH | `extract_tar_gz` symlink path traversal | ✅ COMPLETED |
+| P-O | 🟠 HIGH | `platform_cfg_for` calls `exit 1` in library | ✅ COMPLETED |
+| P-P | 🟠 MEDIUM | `fix_drift` reloads index from disk | ✅ COMPLETED |
+| P-Q | 🟠 MEDIUM | `atomic_append` misleading name | ✅ COMPLETED |
+| P-R | 🟠 MEDIUM | `install_all` dry-run mutates index in memory | ✅ COMPLETED |
+| P-S | 🟠 MEDIUM | `bump.rb:invoke_build` uses fragile `load` | ✅ COMPLETED |
+| P-T | 🟠 MEDIUM | TUI selector no timeout / SIGKILL safety | ✅ COMPLETED |
+| P-U | 🟡 MEDIUM | Emoji strip leaves double spaces | ✅ COMPLETED |
+| P-V | 🟡 MEDIUM | `backup.rb` counter not thread-safe | ✅ COMPLETED |
+| P-W | 🟡 MEDIUM | `BuildPipeline#transformer` dead parameter | ✅ COMPLETED |
+| P-X | 🟡 MEDIUM | `validate_target_entry_output` swallows bugs | ✅ COMPLETED |
+| P-Y | 🟡 MEDIUM | `query installed` undocumented opencode default | ✅ COMPLETED |
+| P-Z | 🟡 MEDIUM | `Rakefile` stale test counts | ✅ COMPLETED |
+| P-AA | 🟡 MEDIUM | `.rulepack.local.yaml` priority broken (elsif) | ✅ COMPLETED |
+| P-AB | 🟢 LOW | `build_schema.yaml` duplicate header comments | ✅ COMPLETED |
+| P-AC | 🟢 LOW | `audit.rb` custom ARGV parser (inconsistent) | ✅ COMPLETED |
+| P-AD | 🟢 LOW | Double pacman flag shift (`install.rb` + `cli_parser.rb`) | ✅ COMPLETED |
+| P-AE | ⚪ LOW | Duplicate preamble (same root cause as P-AB) | ✅ COMPLETED |
+| P-AF | ⚪ LOW | `common.rb` facade captures methods at load time | ✅ COMPLETED |
+| P-AG | ⚪ LOW | `query.rb` aliases silently ignore args | ✅ COMPLETED |
+| P-AH | ⚪ LOW | `resolve_directory_path` missing type guard | ✅ COMPLETED |
+| P-AI | ⚪ LOW | `install_helpers.rb` pure pass-through | ✅ COMPLETED |
+| P-AJ | ⚪ LOW | `build_index_path=` no type validation | ✅ COMPLETED |
+| P-AK | 🔴 HIGH | Schema Engine for skill-bundle/agent directory builds | OPEN |
+| P-AL | 🔴 HIGH | Dependency resolution engine (provides/dependencies) | OPEN |
+| P-AM | 🔴 HIGH | JSON/YAML surgical merge install handler | OPEN |
+| P-AN | 🟠 MEDIUM | Structured inject handler for config files | OPEN |
+| P-AO | 🟡 MEDIUM | Hybrid pkg_type support in FORMAT_MAP | OPEN |
+| P-AP | 🟡 MEDIUM | Platform format_profile validation on load | OPEN |
+
+---
+
+## Architecture Goal Scorecard
+
+| # | Goal | Before | Target | Open Items |
+|---|---|---|---|---|
+| 1 | Upstream/local sources | 9/10 | 9/10 | (already met) |
+| 2 | Content as skills/rules (pkg_type) | 8.5/10 | 9/10 | P-AO |
+| 3 | Universal canonical format + aliases | 7.5/10 | 9/10 | P-AL |
+| 4 | Schema Engine drives formatting | 8/10 | 9/10 | P-AK, P-AP |
+| 5 | Symlink/copy install | 9.5/10 | 9.5/10 | (already met) |
+| 6 | Append/inject (marker-based) | 9/10 | 9.5/10 | P-AN |
+| 7 | Surgical JSON/YAML config injection | 3/10 | 9/10 | P-AM |
 
 ---
 

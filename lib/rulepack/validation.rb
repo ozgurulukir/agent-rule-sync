@@ -37,6 +37,7 @@ module Rulepack
       validate_pkgname(pkg, errors)
       validate_version_fields(pkg, errors)
       validate_descriptive_fields(pkg, errors)
+      validate_pkg_type_field(pkg, errors)
       validate_source_entries(pkg, errors)
       validate_target_entries(pkg, errors)
       errors.empty? || errors.join('; ')
@@ -62,6 +63,15 @@ module Rulepack
       errors << "Invalid arch: only 'any' supported" unless pkg[:arch] == 'any'
       order_val = pkg[:order] || 0
       errors << 'Invalid order: must be integer >= 0' unless order_val.is_a?(Integer) && order_val >= 0
+    end
+
+    VALID_PKG_TYPES = %w[rule skill skill-bundle agent hybrid].freeze
+
+    def validate_pkg_type_field(pkg, errors)
+      pkg_type = pkg[:pkg_type]
+      if pkg_type.nil? || !pkg_type.is_a?(String) || !VALID_PKG_TYPES.include?(pkg_type)
+        errors << "Invalid or missing pkg_type '#{pkg_type}': must be one of #{VALID_PKG_TYPES.join('/')}"
+      end
     end
 
     def validate_source_entries(pkg, errors)
@@ -110,7 +120,7 @@ module Rulepack
         end
         if t[:install]
           inst = t[:install]
-          if inst[:type] && !%w[symlink copy inject append].include?(inst[:type])
+          if inst[:type] && !%w[symlink copy inject append json_merge yaml_merge].include?(inst[:type])
             errors << "targets[#{i}]: invalid install.type '#{inst[:type]}'"
           end
           validate_target_dir(inst[:target_dir], pkg[:pkgname]) if inst[:target_dir]
