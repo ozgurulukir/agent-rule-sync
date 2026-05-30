@@ -1,0 +1,40 @@
+Anthropics Skills — Third-Party Notice
+=======================================
+
+This package contains skills sourced from the Anthropic Skills repository:
+
+  https://github.com/anthropics/skills
+
+License: Apache License 2.0
+Copyright: Anthropic (https://www.anthropic.com)
+
+The following skills are included from the upstream repository:
+
+  - algorithmic-art
+  - brand-guidelines
+  - canvas-design
+  - claude-api
+  - doc-coauthoring
+  - docx (source-available — see skills/docx/LICENSE.txt)
+  - frontend-design
+  - internal-comms
+  - mcp-builder
+  - pdf (source-available — see skills/pdf/LICENSE.txt)
+  - pptx (source-available — see skills/pptx/LICENSE.txt)
+  - skill-creator
+  - slack-gif-creator
+  - theme-factory
+  - web-artifacts-builder
+  - webapp-testing
+  - xlsx (source-available — see skills/xlsx/LICENSE.txt)
+
+NOTICE: Files in the build/ directory have been processed by the Rulepack
+Schema Engine (frontmatter normalization, heading style conversion, emoji
+policy enforcement) for cross-platform compatibility. Original upstream
+sources are preserved unmodified in the build cache.
+
+The full Apache License 2.0 text is available at:
+  https://www.apache.org/licenses/LICENSE-2.0
+
+Individual LICENSE.txt files for each skill are included in the upstream
+repository and remain in effect for their respective contents.
