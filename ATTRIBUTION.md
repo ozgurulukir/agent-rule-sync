@@ -12,6 +12,7 @@ community projects, or standalone agent definitions.
 
 | Package | Origin | License |
 |---|---|---|
+| [anthropics-skills](https://github.com/anthropics/skills) | anthropics/skills | Apache-2.0 |
 | [antigravity-skills](https://github.com/rmyndharis/antigravity-skills) | rmyndharis/antigravity-skills | MIT |
 | [cc-skills-golang](https://github.com/samber/cc-skills-golang) | samber/cc-skills-golang | MIT |
 | [ruby-agent-skills](https://github.com/DmitryPogrebnoy/ruby-agent-skills) | DmitryPogrebnoy/ruby-agent-skills | MIT |
@@ -54,11 +55,12 @@ Rulepack commit by the repository maintainer (no upstream source declared in the
 
 ## License Summary
 
-All packages in this repository are licensed under the **MIT License** (18/18 packages).
-Individual source files inherit their upstream license. Where an upstream license differs
-from MIT, that license governs the relevant package contents.
+Most packages in this repository are licensed under the **MIT License** (18/19 packages).
+**anthropics-skills** is licensed under **Apache-2.0**; its document skills (docx, pdf, pptx,
+xlsx) are source-available (not open source) per their individual LICENSE.txt files.
+All other packages remain MIT. Individual source files inherit their upstream license.
 
 ---
 
 *Generated automatically from `data/packages/*/PKGBUILD` maintainer and source fields.  
-Last synced from `data/packages/` — 18 packages.*
+Last synced from `data/packages/` — 19 packages.*
