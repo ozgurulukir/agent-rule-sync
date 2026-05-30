@@ -3,7 +3,7 @@ pkgname: general-coding-standards
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: Universal coding standards covering naming, function design, DRY, SOLID, and code organization across all languages
+pkgdesc: Universal coding standards skill — enforces naming conventions, function design, DRY/SOLID principles, and project structure across all languages
 arch: any
 pkg_type: skill
 order: 200

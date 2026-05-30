@@ -3,7 +3,7 @@ pkgname: workstation-rules
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: Combined workstation memory and shell strategy rules (memory + shell + security)
+pkgdesc: Workstation baseline rule bundle — combines memory retention, non-interactive shell, and security constraints into a single deployment unit
 arch: any
 pkg_type: rule
 order: 0

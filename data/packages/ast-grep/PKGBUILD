@@ -3,7 +3,7 @@ pkgname: ast-grep
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: Structural code search rule for OpenCode — prefers ast-grep over text grep
+pkgdesc: Structural code search constraint — mandates ast-grep over text grep for accurate pattern matching and refactoring across all languages
 arch: any
 pkg_type: rule
 order: 10

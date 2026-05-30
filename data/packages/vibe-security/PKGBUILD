@@ -3,7 +3,7 @@ pkgname: vibe-security
 pkgver: 0.1.0
 pkgrel: 1
 epoch: 0
-pkgdesc: Security skill for vibe coding (upstream)
+pkgdesc: Security analysis skill for vibe coding — detects injection, auth flaws, and secrets exposure during rapid prototyping sessions
 arch: any
 pkg_type: skill
 order: 2

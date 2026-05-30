@@ -3,7 +3,7 @@ pkgname: cc-skills-golang
 pkgver: '2026.05'
 pkgrel: 1
 epoch: 0
-pkgdesc: Claude Code skills for production-ready Go development — 40+ skills covering security, performance, testing, concurrency, database, and more
+pkgdesc: Go development skills for production readiness — 40+ skills covering security, performance, testing, concurrency, and database best practices
 arch: any
 pkg_type: skill
 order: 10

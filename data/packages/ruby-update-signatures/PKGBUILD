@@ -3,9 +3,7 @@ pkgname: ruby-update-signatures
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: >
-  Agent that auto-detects Ruby type-signature system (RBS vs Sorbet) and
-  style (inline vs separate) and updates signatures for changed files.
+pkgdesc: Ruby signature update agent — auto-detects type system (RBS vs Sorbet) and style (inline vs separate), then updates signatures for changed files
 arch: any
 pkg_type: agent
 order: 5

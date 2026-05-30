@@ -3,7 +3,7 @@ pkgname: ruby-agent-skills
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: JetBrains/RubyMine team's collection of AI agent skills to generate and maintain RBS and Sorbet type signatures
+pkgdesc: Ruby type signature skills — JetBrains/RubyMine collection for generating and maintaining RBS and Sorbet type signatures
 arch: any
 pkg_type: skill
 order: 10

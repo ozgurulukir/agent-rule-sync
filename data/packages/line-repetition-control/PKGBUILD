@@ -3,7 +3,7 @@ pkgname: line-repetition-control
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: Detects unintentional line/block repetitions produced by AI agents during code generation
+pkgdesc: AI output quality skill — detects and prevents unintentional line and block repetitions generated during code synthesis
 arch: any
 pkg_type: skill
 order: 11

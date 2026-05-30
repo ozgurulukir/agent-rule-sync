@@ -3,7 +3,7 @@ pkgname: code-reviewer
 pkgver: 0.1.0
 pkgrel: 1
 epoch: 0
-pkgdesc: Automated code quality review skill — simplifies, extracts, flags patterns
+pkgdesc: Automated code review skill — simplifies complex logic, extracts pure functions, and flags anti-patterns in multi-language codebases
 arch: any
 pkg_type: skill
 order: 10

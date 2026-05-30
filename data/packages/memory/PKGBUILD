@@ -3,7 +3,7 @@ pkgname: memory
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: Workstation Memory Constraints rule
+pkgdesc: Memory retention and update constraints for coding agents — enforces session-aware context management and knowledge persistence protocol
 arch: any
 pkg_type: rule
 order: 0

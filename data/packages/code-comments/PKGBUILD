@@ -3,7 +3,7 @@ pkgname: code-comments
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: Guidelines for writing meaningful and maintainable code comments, docstrings, and documentation comments across JavaScript, Python, and TypeScript
+pkgdesc: Code documentation skill — enforces meaningful comments, docstrings, and documentation conventions across JavaScript, Python, and TypeScript
 arch: any
 pkg_type: skill
 order: 240

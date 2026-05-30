@@ -3,7 +3,7 @@ pkgname: security-auditor
 pkgver: 0.1.0
 pkgrel: 1
 epoch: 0
-pkgdesc: Security-focused code review skill — secrets, auth, access-control, injection
+pkgdesc: Security audit skill — scans for hardcoded secrets, authentication flaws, access-control gaps, and injection vulnerabilities
 arch: any
 pkg_type: skill
 order: 20

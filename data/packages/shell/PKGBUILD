@@ -3,7 +3,7 @@ pkgname: shell
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: Non-Interactive Shell Strategy rule
+pkgdesc: Non-interactive shell execution strategy for coding agents — mandates safe subprocess invocation without interactive prompts or TTY dependency
 arch: any
 pkg_type: rule
 order: 1

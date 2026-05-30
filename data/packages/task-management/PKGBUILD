@@ -3,7 +3,7 @@ pkgname: task-management
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: "AI-assisted task management workflow: generate PRD specs, derive step-by-step task lists, and track implementation progress with completion protocol"
+pkgdesc: Task management rule — defines PRD spec generation, step-by-step task breakdown, and implementation progress tracking with completion protocol
 arch: any
 pkg_type: rule
 order: 250

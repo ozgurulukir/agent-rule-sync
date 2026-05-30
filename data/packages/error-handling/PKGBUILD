@@ -3,7 +3,7 @@ pkgname: error-handling
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: Guidelines for implementing comprehensive error handling strategies, custom error types, retry logic, circuit-breaker, and graceful degradation
+pkgdesc: Error handling skill — implements custom error types, retry logic, circuit-breakers, and graceful degradation patterns
 arch: any
 pkg_type: skill
 order: 210
