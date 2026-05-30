@@ -393,13 +393,13 @@ end
 
 1. Create `data/transformers/my-transform.rb`
 2. Define `Transform` class with `#transform` method
-3. Reference in PKGBUILD: `transformer: custom:transformers/my-transform.rb`
+3. Add entry to `data/build_schema.yaml` for automatic resolution, or reference in PKGBUILD as advanced override: `transformer: custom:transformers/my-transform.rb`
 
 ### Adding a New Translator
 
 1. Create `data/translators/my-translate.rb`
 2. Define `Translator` class with `.translate` class method
-3. Reference in PKGBUILD: `translate: custom:translators/my-translate.rb`
+3. Add entry to `data/build_schema.yaml` for automatic resolution, or reference in PKGBUILD as advanced override: `translate: custom:translators/my-translate.rb`
 
 ### Adding a New Platform
 

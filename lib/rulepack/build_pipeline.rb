@@ -43,7 +43,7 @@ module Rulepack
     def run(platform_cfg)
       # ─── TRANSLATE STAGE ──────────────────────────────────────────────────
       advance(:translate) do
-        translator_cfg = Rulepack::SchemaEngine.resolve_translator(@explicit_translate, @platform_id, @target_format)
+        translator_cfg = Rulepack::SchemaEngine.resolve_translator(@explicit_translate, @platform_id, @target_format, platform_cfg)
         if translator_cfg
           Rulepack::Common.log "  → Translating for #{@platform_id} (#{translator_cfg})"
           puts "  → Translating for #{@platform_id} (#{translator_cfg})"

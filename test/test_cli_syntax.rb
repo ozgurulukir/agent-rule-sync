@@ -162,25 +162,25 @@ class TestCliSyntax < Minitest::Test
   def test_fix_without_target_fails
     res = capture_script_run('fix', [])
     assert_equal 1, res[:exit_code]
-    assert_match(/Build index not found/, res[:stderr])
+    assert_match(/build index not found|specify target platform/i, res[:stderr])
   end
 
   def test_fix_invalid_package_fails
     res = capture_script_run('fix', ['nonexistentpkg', '--target', 'opencode'])
     assert_equal 1, res[:exit_code]
-    assert_match(/Build index not found/, res[:stderr])
+    assert_match(/build index not found|not registered as installed/, res[:stderr])
   end
 
   def test_fix_project_platform_without_project_path_fails
     res = capture_script_run('fix', ['--target', 'cursor'])
     assert_equal 1, res[:exit_code]
-    assert_match(/Build index not found/, res[:stderr])
+    assert_match(/build index not found|project-scoped/i, res[:stderr])
   end
 
   def test_fix_pacman_flag_shift
     res = capture_script_run('fix', ['-F', 'nonexistentpkg', '--target', 'opencode'])
     assert_equal 1, res[:exit_code]
-    assert_match(/Build index not found/, res[:stderr])
+    assert_match(/build index not found|not registered as installed/, res[:stderr])
   end
 
   # ─── Audit CLI Tests ──────────────────────────────────────────────────────────

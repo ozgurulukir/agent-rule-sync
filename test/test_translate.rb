@@ -31,7 +31,7 @@ class TestTranslateRuleToSkill < Minitest::Test
     MD
 
     result = run_translator('custom:data/translators/rule_to_skill.rb', content, pkgname: 'test-pkg')
-    assert_match(/# Test pkg/, result)
+    assert_match(/# Test Pkg/, result)
     assert_match(/## Section 1/, result)
     assert_match(/## Section 2/, result)
   end

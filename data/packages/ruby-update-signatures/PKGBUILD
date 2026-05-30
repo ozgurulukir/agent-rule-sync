@@ -21,20 +21,15 @@ pkgver_func: "git log -1 --format=%cd --date=short 2>/dev/null | tr -d '-' || da
 
 targets:
   - platform: cursor
-    translate: custom:data/translators/agent_to_cursor.rb
     agent_config:
       model: claude-3.5-sonnet
       temperature: 0.3
       triggers:
         file_patterns: ["*.rb", "*.rbs", "*.rb.sig"]
   - platform: claude-code
-    translate: custom:data/translators/agent_to_claude_code.rb
   - platform: gemini-cli
-    translate: custom:data/translators/agent_to_opencode.rb
   - platform: qwen-code
-    translate: custom:data/translators/agent_to_opencode.rb
   - platform: opencode
-    translate: custom:data/translators/agent_to_opencode.rb
 
 tags:
   - ruby

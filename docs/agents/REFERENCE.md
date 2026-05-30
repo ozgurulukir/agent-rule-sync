@@ -17,7 +17,7 @@ Technical reference for PKGBUILD format, transformer API, index schema, and vali
 | `pkgdesc` | string | yes | Short description |
 | `arch` | string | yes | Architecture (currently only `any` supported) |
 | `pkg_type` | string | yes | Package type: `rule`, `skill`, `agent`, or `hybrid` |
-| `order` | integer | yes | Order in vendor skill aggregation (lower = earlier) |
+| `order` | integer | no | Order in vendor skill aggregation (lower = earlier; default: 0) |
 | `source` | array | yes | Source entries (local, url, or git) |
 | `targets` | array | no | Deployment targets (auto-expanded if omitted; overrides can customize platform-specific format, output, or install.type) |
 | `output` | string | no | Global default output filename (e.g., `"my-rule.md"`). Used for all platforms unless a target override specifies `output`. Codex always uses `"SKILL.md"` (checked first). |
@@ -80,8 +80,8 @@ targets:
   - platform: <platform-id>         # Required: platform key from registry
     format: directory|import|skill|skill-bundle|agent  # Optional: output format (auto-derived if omitted)
     output: <filename|.>            # Optional: output filename (or "." for skill-bundle; auto-derived if omitted)
-    translate: copy|custom:<path>   # Optional: content conversion (runs BEFORE schema engine + transformer)
-    transformer: copy|strip-frontmatter|custom:<path>  # Optional (default: copy)
+    translate: copy|custom:<path>   # Advanced override only (auto-derived if omitted)
+    transformer: copy|custom:<path>  # Advanced override only (default: copy); auto-derived from build_schema
     agent_config:                   # Optional: for format=agent on Cursor (generates agent.json)
       model: <string>
       temperature: <float>
@@ -98,7 +98,7 @@ targets:
 - Auto-expansion derives `format`, `output`, and `install.type` from:
   - `pkg_type` (rule, skill, agent, hybrid)
   - Platform registry entry (type: directory/import/skill)
-  - Source structure (directory vs single file, for skill-bundle detection)
+  - Source structure: if `source.path` ends with `/` (e.g., `skills/`), the build engine detects a directory source and auto-assigns `format: skill-bundle` regardless of `pkg_type`. A single file path (e.g., `src/rule.md`) resolves to the standard `pkg_type` × platform_type format matrix.
 - Override entries can customize specific platforms by including only the target keys that differ from auto-derived values.
 - Top-level `output:` field provides a global default output filename (checked before format-specific conventions; Codex always uses `"SKILL.md"`).
 
@@ -114,6 +114,18 @@ targets:
 - `copy` — copy file
 - `inject` — prepend directive line to config file
 - `append` — append content to file (used for vendor skill aggregation or `--rules-to`)
+
+**Target override example** — only specify keys that differ from auto-derived defaults:
+```yaml
+targets:
+  - platform: cursor
+    output: 00-memory.md          # override output filename only
+  - platform: opencode
+    install:
+      target_dir: my-skill/       # override install subdirectory only
+  - platform: crush
+    translate: custom:data/translators/my_custom.rb  # advanced override only
+```
 
 ### Agent Package Example
 
@@ -134,34 +146,16 @@ source:
     path: plugins/ruby-type-signature-skills/agents
 
 targets:
-  - platform: opencode
-    format: agent
-    output: .
-    translate: custom:data/translators/agent_to_opencode.rb
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
   - platform: cursor
-    format: agent
-    output: .
-    translate: custom:data/translators/agent_to_cursor.rb
     agent_config:
       model: claude-3.5-sonnet
       temperature: 0.3
       triggers:
         file_patterns: ["*.rb", "*.rbs"]
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
   - platform: oh-my-pi
-    format: agent
-    output: .
-    install:
-      type: copy
-      target_dir: ruby-update-signatures/
 ```
 
-Platforms without `agents_dir` in their registry config will skip `format: agent` targets automatically.
+Platforms without `agents_dir` in their registry config will skip `format: agent` targets automatically. Agent translators (`agent_to_opencode`, `agent_to_cursor`, `agent_to_claude_code`) are resolved automatically from `build_schema.yaml` — no `translate:` needed in PKGBUILD.
 
 ---
 

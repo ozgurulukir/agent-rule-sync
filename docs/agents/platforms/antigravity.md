@@ -1,37 +1,22 @@
 # Antigravity
 
 - **Type**: directory
-- **Scope**: project
-- **Base path**: project root (`.`)
-- **Skills directory**: `.agent/skills/`
-- **Rules directory**: none (skills only)
-- **Install method**: copy (skill-bundle)
+- **Scope**: user
+- **Base path**: `~/.gemini/`
+- **Rules file**: `GEMINI.md`
+- **Install method**: append (marker-aware replace)
 - **Provider**: Google
-- **Features**: Project-scoped skills directory, supports skill-bundle packages with sub-skill selection
 
 ## Rulepack Integration
 
 ```bash
-cd /path/to/project
-bin/rulepack install antigravity --project .
-# Copies skill-bundle packages to .agent/skills/<pkgname>/
-```
-
-## Sub-skill Selection
-
-Antigravity primarily receives skills via the `antigravity-skills` package (306 sub-skills). Use `--select` to install specific skills:
-
-```bash
-# Install specific sub-skills
-bin/rulepack install antigravity --project . --select agent-orchestration-improve-agent,workflow-patterns
-
-# Interactive menu (TTY only)
-bin/rulepack install antigravity --project .
+bin/rulepack install antigravity
+# Appends rules to ~/.gemini/GEMINI.md with marker boundaries
 ```
 
 ## Notes
 
-Antigravity is a project-scoped agent that reads skills from `.agent/skills/*/`. It does not have a separate rules directory — all behavior definitions come through skill files. The Rulepack system deploys skill-bundles directly to this directory.
+Antigravity is a user-scoped agent (Google). Rules are appended to the shared `~/.gemini/GEMINI.md` file using marker-aware boundaries, merged with any existing content.
 
 ## See Also
 

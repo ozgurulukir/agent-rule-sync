@@ -83,9 +83,12 @@ module Rulepack
     # Auto-derive translator based on platform configuration and target format
     # Falls back to build_schema.yaml if no explicit translator in PKGBUILD
     def auto_derive_translator(platform_cfg, target_format)
-      # If platform type is skill/skill-bundle and target format is skill, automatically use rule_to_skill
-      if %w[skill skill-bundle].include?(target_format) && platform_cfg[:type].to_s == 'skill'
+      platform_type = platform_cfg[:type].to_s
+
+      if %w[skill skill-bundle].include?(target_format) && platform_type == 'skill'
         'custom:data/translators/rule_to_skill.rb'
+      elsif target_format == 'import' && platform_type == 'import'
+        'custom:data/translators/rule_to_import.rb'
       else
         nil
       end
@@ -120,9 +123,15 @@ module Rulepack
     end
 
     # Resolve effective translator: explicit PKGBUILD value overrides schema default
-    def resolve_translator(explicit_translate, platform_id, target_format)
+    def resolve_translator(explicit_translate, platform_id, target_format, platform_cfg = nil)
       return explicit_translate unless explicit_translate.nil?
-      schema_translator(platform_id, target_format)
+
+      schema_result = schema_translator(platform_id, target_format)
+      return schema_result unless schema_result.nil?
+
+      return nil unless platform_cfg
+
+      auto_derive_translator(platform_cfg, target_format)
     end
 
     # Resolve effective transformer: explicit PKGBUILD value overrides schema default

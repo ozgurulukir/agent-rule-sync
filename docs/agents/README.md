@@ -20,7 +20,7 @@ This is the PKGBUILD-based system for managing AI agent rules, skills, and docum
 | Crush | skill | user | `~/.config/crush/crush.md` | [Crush](platforms/crush.md) |
 | Goose | skill | user | `~/.local/share/goose/goose.md` | [Goose](platforms/goose.md) |
 | Droid | skill | user | `~/.factory/AGENTS.md` | [Droid](platforms/droid.md) |
-| Gemini CLI | import | user | `~/.config/gemini/cli_config.yaml` | [Gemini CLI](platforms/gemini-cli.md) |
+| Gemini CLI | directory | user | `~/.gemini/GEMINI.md` | [Gemini CLI](platforms/gemini-cli.md) |
 | Qwen Code | import | user | `~/.config/qwen/config.yaml` | [Qwen Code](platforms/qwen-code.md) |
 | Cursor | directory | project | `.cursor/rules/` | [Cursor](platforms/cursor.md) |
 | Windsurf | directory | project | `.windsurf/rules/` | [Windsurf](platforms/windsurf.md) |

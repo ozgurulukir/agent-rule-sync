@@ -109,15 +109,17 @@ Complete reference for all supported agent platforms, their configuration locati
 
 ### Gemini CLI
 
-- **Type**: import
+- **Type**: directory
 - **Scope**: user
-- **Base path**: `~/.config/gemini/`
-- **Config file**: `cli_config.yaml`
-- **Install method**: inject `@import` lines
+- **Base path**: `~/.gemini/`
+- **Rules dir**: `rules/`
+- **Skills dir**: `skills/`
+- **Rules file**: `GEMINI.md` (rules can be appended via `--rules-to GEMINI.md`)
+- **Install method**: append for rules, copy for skills
 - **Auth**: OAuth personal
 - **Update**: `gemini extensions update --all` (CLI via npm; extensions separate)
 
-**Rulepack integration**: `bin/rulepack install gemini-cli` → injects `@import` lines into `~/.config/gemini/cli_config.yaml`
+**Rulepack integration**: `bin/rulepack install gemini-cli` → appends rules to `~/.gemini/GEMINI.md` using marker-boundary blocks
 
 ---
 

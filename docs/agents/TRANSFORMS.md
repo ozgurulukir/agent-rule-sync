@@ -1,24 +1,28 @@
 # Transforms — Translate + Schema Engine + Transform System
 
-The content processing pipeline has three sequential steps:
+The content processing pipeline is **fully automatic**. PKGBUILD authors do not need to specify `translate` or `transformer` — the system resolves them based on platform type and target format.
 
 ```
 Source File (src/)
     ↓
-TRANSLATE     — content format conversion (format family change)
+TRANSLATE     — auto-derived from platform type (rule→skill, rule→import, agent→platform)
     ↓
-SCHEMA ENGINE — centralized formatting (frontmatter, emoji, bullets, headings)
+SCHEMA ENGINE — auto-applied from data/platforms/<agent>.yaml (frontmatter, emoji, bullets, headings)
     ↓
-TRANSFORM     — structural/format changes
+TRANSFORM     — auto-derived from data/build_schema.yaml (default: copy)
     ↓
 Built Artifact (build/<platform>/)
 ```
 
-**Translate** converts between format families (e.g., flat rule → skill, agent → platform-specific format).
-**Schema Engine** applies centralized formatting rules from `data/platforms/<agent>.yaml` profiles.
-**Transform** applies structural changes (copy, strip-frontmatter, add-header, etc.).
+**Translate** converts between format families automatically:
+- `skill` platforms (crush, goose, droid, codex) → `rule_to_skill.rb`
+- `import` platforms (qwen-code, github-copilot) → `rule_to_import.rb`
+- `agent` format → platform-specific agent translator
 
-Both translate and transform are specified per-target in the PKGBUILD. Translate runs first, then schema engine, then transform.
+**Schema Engine** applies centralized formatting from platform profiles.
+**Transform** applies structural changes (default: no-op).
+
+`translate:` and `transformer:` in PKGBUILD are **advanced overrides only** — use them for edge cases not covered by auto-derive.
 
 ---
 
@@ -32,18 +36,9 @@ Identity transformation — no changes.
 transformer: copy
 ```
 
-### strip-frontmatter
+### ~~strip-frontmatter~~ (DEPRECATED)
 
-Removes YAML frontmatter block from the beginning of the file.
-
-```yaml
-transformer: strip-frontmatter
-```
-
-**Behavior**:
-- Strips `---\n<yaml>\n---` block if present at file start
-- Preserves all content after frontmatter
-- No-op if no frontmatter found
+> **Deprecated**: YAML frontmatter stripping is now handled automatically by the **Schema Engine** based on each platform's `frontmatter` policy in `data/platforms/<agent>.yaml`. Using `strip-frontmatter` as a transformer will produce a validation error. Remove it from your PKGBUILD targets and rely on the Schema Engine instead.
 
 ---
 
@@ -128,6 +123,22 @@ Available profiles: `opencode`, `crush`, `goose`, `gemini-cli`, `codex`, `cursor
 
 The **translate step** runs before the schema engine and transform steps. It converts content from one format family to another.
 
+### Automatic Translator Resolution
+
+Translators are resolved automatically in this priority order:
+
+1. **PKGBUILD explicit** — if `translate:` is set in a target entry, it always wins
+2. **Build schema** — `data/build_schema.yaml` defines platform × format defaults (e.g., `agent` format on cursor → `agent_to_cursor.rb`)
+3. **Auto-derive** — if neither 1 nor 2 provides a translator, the SchemaEngine derives one based on platform type and target format:
+
+| Platform Type | Target Format | Auto-Derived Translator |
+|---|---|---|
+| `skill` (crush, goose, droid, codex) | `skill` | `rule_to_skill.rb` |
+| `import` (qwen-code, github-copilot) | `import` | `rule_to_import.rb` |
+| `directory` | `directory` | *(none — not needed)* |
+
+This means PKGBUILD authors do **not** need to specify `translate:` for the common case of rules being deployed to skill or import platforms. The system handles it automatically.
+
 ### When to Use `translate`
 
 Use `translate` when the target platform needs a fundamentally different content structure:
@@ -189,26 +200,20 @@ Agent translators convert agent definitions to platform-specific formats. They a
 
 ### Usage in PKGBUILD
 
+**Not needed for normal use** — translators are resolved automatically. Only specify `translate:` for advanced edge cases:
+
 ```yaml
 targets:
   - platform: crush
-    format: skill
-    output: SKILL.md
-    translate: custom:data/translators/rule_to_skill.rb  # runs first
-    transformer: strip-frontmatter                        # runs after schema engine
+    translate: custom:data/translators/my_custom_translator.rb
 ```
 
 ```yaml
 targets:
   - platform: cursor
-    format: agent
-    output: .
-    translate: custom:data/translators/agent_to_cursor.rb
     agent_config:
       model: claude-3.5-sonnet
       temperature: 0.3
-    install:
-      type: copy
 ```
 
 ---

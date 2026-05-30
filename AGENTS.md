@@ -256,19 +256,22 @@ targets:
 > **Step 2 — Read the per-platform schema:**
 > For each target platform, read `data/platforms/<agent>.yaml`. This file defines `frontmatter`, `emoji_policy`, `heading_style`, and `bullet_style` formatting constraints. The build engine applies these automatically through the Schema Engine — **you must NOT duplicate them as manual `transformer` directives** unless the schema does not cover the transformation you need.
 > 
+> **Step 2b — Understand skill-bundle auto-detection:**
+> If `source.path` ends with `/` (e.g., `path: src/` or `path: skills/`), the build engine treats the source as a **directory** and auto-assigns `format: skill-bundle` for all platforms, regardless of `pkg_type`. For single-file sources (e.g., `path: src/rule.md`), format is derived from the `pkg_type` × platform_type matrix. Use this trailing-slash convention when packaging directory-based skill collections (e.g., `antigravity-skills`, `line-repetition-control`).
+> 
 > **Step 3 — Determine target overrides (or skip):**
-> The `targets:` list is **optional**. If omitted, the build engine auto-expands to all 14 platforms using `pkg_type` and platform-specific logic. When present, partial target entries serve as **overrides** to customize `format`, `output`, `install.type`, `translate`, or `agent_config` for specific platforms. Include only the `platform` key and the fields you want to override — **do not duplicate keys inherited from the platform registry** (format, install.type, arch).
+> The `targets:` list is **optional**. If omitted, the build engine auto-expands to all 14 platforms using `pkg_type` and platform-specific logic. When present, partial target entries serve as **overrides** to customize `output`, `install.type`, or `agent_config` for specific platforms. Include only the `platform` key and the fields you want to override — **do not duplicate keys inherited from the platform registry** (format, install.type, arch).
 > 
-> **Step 4 — Match format compatibility:**
-> If you write full targets manually, match the `format:` value to a format supported by the platform's type (e.g. `directory` platforms support `directory/skill/skill-bundle/agent`; `skill` platforms support `skill/skill-bundle`; `import` platforms support `import/skill`). The format → platform compatibility matrix is documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Format Types**.
+> **Step 4 — Don't worry about translate/transform:**
+> The build pipeline automatically resolves translators and transformers based on platform type and target format:
+> - `skill` platforms → `rule_to_skill` translator
+> - `import` platforms → `rule_to_import` translator
+> - `agent` format → platform-specific agent translators (cursor, opencode, claude-code)
+> - Schema Engine → frontmatter, emoji, heading, bullet normalization from `data/platforms/<agent>.yaml`
 > 
-> **Step 5 — Match install type:**
-> Match the `install.type` to the platform's install capabilities documented in [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) under **Install Types** (e.g. `symlink` for directory platforms, `copy` for skill platforms, `inject` for import platforms, `append` for vendor aggregation).
+> You only need `translate:` or `transformer:` in PKGBUILD for **advanced edge cases** not covered by auto-derive.
 > 
-> **Step 6 — Avoid redundant transformers:**
-> If the platform schema already declares a transformer for a concern (e.g. `frontmatter: strip`), **do not add a redundant `translate:` or `transformer:` line**. For format conversions not covered by the SchemaEngine (structural changes, markdown-to-agent-manifest, etc.), write a custom Ruby script under `data/translators/` and map it with `translate: custom:data/translators/your_script.rb` (see `TRANSFORMS.md` for the full API).
-> 
-> **Step 7 — Validate before considering done:**
+> **Step 5 — Validate before considering done:**
 > After writing or editing a PKGBUILD, run `bin/rulepack audit --strict` and fix all reported errors before submitting. For full install dry-run, use `bin/rulepack install <pkg> -t <platform> --dry-run` to preview file and symlink actions without modifying disk.
 
 ```yaml
@@ -447,7 +450,7 @@ All contributions must pass the absolute quality threshold before integration:
   ```bash
   rake test
   ```
-  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (290 runs, 0 failures, 0 errors, 2 skips).
+  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (305 runs, 923 assertions, 0 failures, 0 errors, 2 skips).
 
 ---
 
@@ -525,5 +528,5 @@ Full details with claim-verify-act evidence: [`docs/improvement-plan/OPEN-ITEMS.
 
 Key highlights: `pkgver_func` shell execution fixed (P-J), HTTP redirect handling added (P-K), deprecated `strip-frontmatter` enforced as rejection (P-L), multi-package checksum regex corrected (P-M), symlink extraction skipped for safety (P-N), library functions now `raise ArgumentError` instead of `exit 1` (P-O), dry-run index mutation prevented (P-R), TUI selector has 120s timeout (P-T).
 
-**Test gate**: 290 unit/integration tests — **0 failures, 0 errors** (E2E gated behind `NETWORK_E2E`).
+**Test gate**: 305 unit/integration tests — **0 failures, 0 errors** (E2E gated behind `NETWORK_E2E`).
 

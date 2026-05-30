@@ -1,18 +1,19 @@
 # Gemini CLI
 
-- **Type**: import
+- **Type**: directory
 - **Scope**: user
-- **Base path**: `~/.config/gemini/`
-- **Config file**: `cli_config.yaml`
-- **Rules file**: `~/.config/gemini/cli_config.yaml`
-- **Install method**: inject `@import` lines into `cli_config.yaml`
+- **Base path**: `~/.gemini/`
+- **Rules dir**: `rules/`
+- **Skills dir**: `skills/`
+- **Rules file**: `GEMINI.md`
+- **Install method**: append for rules (marker-boundary blocks), copy for skills
 - **Provider**: Google (Gemini)
 - **Auth**: OAuth personal
 - **MCP**: Configured via `gemini mcp` CLI
-- **Extensions**: Installed via `gemini extensions install` (stored in `~/.gemini/extensions/`); currently installed: brooks-lint
+- **Extensions**: Installed via `gemini extensions install` (stored in `~/.gemini/extensions/`)
 - **Hooks**: `~/.gemini/hooks/` for custom CLI behavior
 - **Skills**: `~/.gemini/skills/`
-- **Rules loading**: `~/.config/gemini/cli_config.yaml` loaded at session start; extensions can contribute additional context via `contextFileName` in `gemini-extension.json`
+- **Rules loading**: `~/.gemini/GEMINI.md` loaded at session start; rules appended via marker-boundary blocks (`<!-- rulepack:<pkg> start -->` / `<!-- rulepack:<pkg> end -->`)
 
 ## Update
 
@@ -24,12 +25,13 @@ gemini extensions update --all  # extensions only; CLI updates via npm
 
 ```bash
 bin/rulepack install gemini-cli
-# Injects @import lines into ~/.config/gemini/cli_config.yaml
+# Appends rules to ~/.gemini/GEMINI.md using marker-boundary blocks
+# Copies skills to ~/.gemini/sills/
 ```
 
 ## Notes
 
-Gemini CLI uses `@import` syntax to include external rule files. The Rulepack system injects import lines pointing to built artifacts in `build/gemini-cli/`. Extension system is powerful; extensions can provide MCP servers, custom commands, hooks, skills, and agents.
+Gemini CLI uses a directory-based rule structure under `~/.gemini/`. Rules are appended to `GEMINI.md` using marker-boundary blocks for idempotent re-installation. Skills are copied to `skills/`. Extension system is powerful; extensions can provide MCP servers, custom commands, hooks, skills, and agents.
 
 ## See Also
 

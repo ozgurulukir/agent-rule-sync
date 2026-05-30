@@ -1,26 +1,24 @@
 # Gemini CLI Platform Format Profile
-# LLM Reference: describes what Gemini CLI expects for imports.
+# LLM Reference: describes what Gemini CLI expects for rules and skills.
 # NOT enforced by build system — informational for translator authoring.
 
 rules:
-  format: import_file
+  format: single_file
   content_type: markdown
-  config_file: "cli_config.yaml"  # or GEMINI.md depending on version
-  injection_method: "@import"
-  frontmatter: strip             # imported files should not have YAML frontmatter
+  file_name: "GEMINI.md"
+  frontmatter: strip
   heading_style: atx
   bullet_style: dash
   no_code_blocks: false
 
 skills:
-  format: import_file            # same as rules for Gemini
+  format: directory
   content_type: markdown
-  injection_method: "@import"
   frontmatter: strip
-
-import_directive: "@import 'relative/path/to/file.md'"
-path_in_config: "imports: []"   # YAML list in cli_config.yaml
+  heading_style: atx
+  bullet_style: dash
 
 notes: |
-  Gemini CLI uses @import directives in cli_config.yaml to pull in rule/skill files.
-  SSoT injects @import lines; Gemini CLI reads the referenced files at runtime.
+  Gemini CLI uses GEMINI.md as a rules file (appended via marker-boundary blocks).
+  Skills are copied to the skills/ directory under ~/.gemini/.
+  Schema Engine automatically strips frontmatter and normalizes formatting.
