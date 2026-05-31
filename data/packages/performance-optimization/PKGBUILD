@@ -3,9 +3,9 @@ pkgname: performance-optimization
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: Performance optimization skill — enforces algorithmic complexity awareness, caching strategies, memory pooling, and async patterns
+pkgdesc: Performance optimization rule — enforces algorithmic complexity awareness, caching strategies, memory pooling, and async patterns
 arch: any
-pkg_type: skill
+pkg_type: rule
 order: 220
 output: performance-optimization.md
 source:

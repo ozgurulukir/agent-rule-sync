@@ -3,9 +3,9 @@ pkgname: readme-standards
 pkgver: '1.0.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: README authoring skill — enforces badge, quick-start, installation, usage, and API reference structure for project documentation
+pkgdesc: README authoring rule — enforces badge, quick-start, installation, usage, and API reference structure for project documentation
 arch: any
-pkg_type: skill
+pkg_type: rule
 order: 230
 output: readme-standards.md
 source:
