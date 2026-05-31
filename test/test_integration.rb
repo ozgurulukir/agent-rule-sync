@@ -303,17 +303,24 @@ class TestTransactionRollbackIntegration < Minitest::Test
       index_path = tmpdir.join('index.yaml')
       index_path.write("test\n")
 
-      backups = 3.times.map { Rulepack::Common.backup_index(index_path) }
-      backups.each { |b| assert b.exist?, 'Backup should exist in tmpdir' }
+      3.times { Rulepack::Common.backup_index(index_path) }
 
-      Rulepack::Common.cleanup_backups
+      backups = Pathname.glob("#{index_path}.bak.*")
+      assert_equal 3, backups.size, 'Should have 3 backups'
 
-      backups.each { |b| refute b.exist?, 'Backup tmpdir should be cleaned up' }
+      Rulepack::Common.cleanup_backups(index_path)
+
+      remaining = Pathname.glob("#{index_path}.bak.*")
+      assert_equal 0, remaining.size, 'All backups should be cleaned up'
     end
   end
 
   def test_cleanup_backups_safe_when_no_backups_exist
-    assert Rulepack::Common.cleanup_backups, 'cleanup should succeed with no backups'
+    with_tmpdir do |tmpdir|
+      index_path = tmpdir.join('index.yaml')
+      index_path.write("test\n")
+      assert Rulepack::Common.cleanup_backups(index_path), 'cleanup should succeed with no backups'
+    end
   end
 
   def test_restore_nonexistent_backup_returns_false
