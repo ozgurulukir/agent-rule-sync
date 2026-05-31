@@ -1,5 +1,7 @@
 # Build artifacts
 build/
+
+# Source cache
 cache/
 ssot/
 
@@ -7,24 +9,19 @@ ssot/
 data/index.yaml
 data/index.json
 
-# Log files
-build/*.log
-build/*.log.*
+# Transaction backups
+data/backups/
 
-# Git sources (cloned during build)
-build/git-sources/
+# Log files
+*.log
 
 # Temporary files
 *.tmp
-*.bak.*
 
 # Ruby
 *.rbc
 *.so
 *.o
-*.a
-*.lib
-*.dylib
 *.bundle
 /.bundle
 /log
@@ -39,11 +36,9 @@ build/git-sources/
 # OS
 .DS_Store
 Thumbs.db
+
+# Personal / machine-specific
 inspiration/
-
-# Backups (now uses tmpdir, kept for safety)
-data/backups/
 scratch/
-
-# Personal / machine-specific workstation rules (not for sharing)
+.rulepack.local.yaml
 data/packages/workstation-rules/src/
