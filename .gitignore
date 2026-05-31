@@ -41,7 +41,7 @@ build/git-sources/
 Thumbs.db
 inspiration/
 
-# Backups and Scratch
+# Backups (now uses tmpdir, kept for safety)
 data/backups/
 scratch/
 
