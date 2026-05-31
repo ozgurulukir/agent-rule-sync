@@ -41,4 +41,6 @@ Thumbs.db
 inspiration/
 scratch/
 .rulepack.local.yaml
+data/packages/*/PKGBUILD.local
+data/packages/*/local/
 data/packages/workstation-rules/src/
