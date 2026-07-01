@@ -43,7 +43,8 @@ Thumbs.db
 # Personal / machine-specific
 inspiration/
 scratch/
+.antigravitycli/
+.ruby-lsp/
 .rulepack.local.yaml
 data/packages/*/PKGBUILD.local
 data/packages/*/local/
-data/packages/workstation-rules/src/
