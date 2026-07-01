@@ -13,7 +13,7 @@ module Rulepack
     module_function
 
     def discover_pkgbuilds
-      Rulepack::Common::RULEPACK_ROOT.join('data', 'packages').glob('*/PKGBUILD')
+      Rulepack::PackageResolver.all_pkgbuilds(namespaces: :all)
     end
 
     def load_and_validate_pkgbuild(pkgbuild_path)

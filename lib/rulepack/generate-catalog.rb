@@ -72,7 +72,7 @@ def format_ver(data)
 end
 
 def read_source_info(name)
-  pkgbuild_path = Rulepack::Common::RULEPACK_ROOT.join('data', 'packages', name.to_s, 'PKGBUILD')
+  pkgbuild_path = Rulepack::PackageResolver.pkgbuild_path(name)
   return { type: 'unknown' } unless pkgbuild_path.exist?
 
   pkg = YAML.safe_load(pkgbuild_path.read, permitted_classes: [Symbol]) || {}

@@ -9,8 +9,19 @@ module Rulepack
   module IO
     module_function
 
+    # Read a text file as UTF-8. Defensive fallback for environments where the
+    # default external encoding has not been set to UTF-8.
+    def read_text(path)
+      Pathname.new(path).read(encoding: Encoding::UTF_8)
+    end
+
+    # Read a binary file without transcoding.
+    def read_binary(path)
+      Pathname.new(path).binread
+    end
+
     def load_yaml(path)
-      content = Pathname.new(path).read
+      content = read_text(path)
       YAML.safe_load(content, permitted_classes: [Symbol, Pathname], symbolize_names: true)
     end
 

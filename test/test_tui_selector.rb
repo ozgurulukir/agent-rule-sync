@@ -38,4 +38,10 @@ class TestTuiSelector < Minitest::Test
     selected = Rulepack::SkillBundle.select_sub_skills(@sub_skills, nil, 'test-pkg')
     assert_equal @sub_skills.size, selected.size
   end
+
+  def test_select_sub_skills_with_empty_array_returns_nil
+    # An empty --select list should be treated as a cancellation
+    selected = Rulepack::SkillBundle.select_sub_skills(@sub_skills, [], 'test-pkg')
+    assert_nil selected
+  end
 end

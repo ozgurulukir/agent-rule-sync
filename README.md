@@ -56,6 +56,10 @@ bin/rulepack verify -Qk memory -t opencode           # Verify single package on 
 bin/rulepack fix --target opencode                  # Repair any modified/missing files
 bin/rulepack fix -F memory -t opencode               # Repair single package
 
+# Check for outdated installs or packages newer than your install
+bin/rulepack outdated -t opencode                   # Compare installed versions to build index
+bin/rulepack outdated -t opencode --format json     # Machine-readable
+
 # Audit package descriptors for integrity & platforms coverage
 bin/rulepack audit                                  # Audit all packages (schema, local sources, platforms)
 bin/rulepack audit --strict                         # Strict audit (requires targets for all 14 platforms)
@@ -69,9 +73,41 @@ bin/rulepack uninstall -R memory -t cursor --project . # Uninstall single packag
 # Query database (query)
 bin/rulepack query show memory                      # Show package details
 bin/rulepack query search security                  # Search packages by tag or term
+bin/rulepack query installed opencode               # Show installed packages (and manual/orphan items)
 
 # Install Git pre-commit hooks
 bin/rulepack init-hooks                             # Audits PKGBUILDs automatically on commit
+```
+
+## Typical Workflow
+
+A normal day with Rulepack looks like this:
+
+```bash
+# 1. Build the current package set
+bin/rulepack build
+
+# 2. Install or refresh rules/skills on your platform(s)
+bin/rulepack install --target opencode
+
+# 3. Check what you have installed
+bin/rulepack query installed opencode
+
+# 4. Detect drift, missing files, or manual changes
+bin/rulepack verify --target opencode
+
+# 5. If anything drifted, repair it
+bin/rulepack fix --target opencode
+
+# 6. Check if newer package versions exist in the build
+bin/rulepack outdated -t opencode
+```
+
+For git-sourced packages, periodically check upstream:
+
+```bash
+bin/rulepack bump              # See what's new
+bin/rulepack bump --apply      # Update PKGBUILD versions and rebuild
 ```
 
 ## Project Structure
@@ -79,7 +115,7 @@ bin/rulepack init-hooks                             # Audits PKGBUILDs automatic
 ```
 rulepack/
 ├── bin/rulepack              # CLI entry point
-├── lib/rulepack/             # Library modules (38 .rb files)
+├── lib/rulepack/             # Library modules (47 .rb files)
 │   ├── common.rb             # Facade — delegates to submodules (70 LOC)
 │   ├── installer.rb          # Installer orchestrator (split via InstallPlan + InstallExecute)
 │   ├── cli_parser.rb         # Unified command-line argument parser
@@ -100,18 +136,18 @@ rulepack/
 │   │   ├── install_handlers.rb # Link/copy/marker append low-level handlers
 │   │   ├── skill_bundle.rb   # Sub-skills selection, caching, and manifest audits
 │   │   └── tui_selector.rb   # Multi-select terminal draws and keyboard prompts
-│   └── ... (logging, backup, version, source,
-│             transform, validation, platform, aggregate,
-│             translate, generate-catalog, install CLI, uninstall CLI)
+│   └── ... (logging, backup, version, source, transform, validation,
+│             platform, aggregate, translate, generate-catalog,
+│             install CLI, uninstall CLI, fix CLI, outdated, reporter)
 ├── data/                     # Single Source of Truth (SSOT)
-│   ├── packages/             # Package definitions (18 packages)
+│   ├── packages/             # Package definitions (19 packages)
 │   ├── registry/platforms.yaml  # 14 platform configurations
 │   ├── platforms/            # Format profiles (informational)
 │   ├── translators/          # Custom translation layers (6 translators)
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database (schema v3.0)
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (305 runs, 923 assertions, 0 failures, 0 errors, 2 skips)
+├── test/                     # Test suite (331 runs, 1017 assertions, 0 failures, 0 errors, 2 skips)
 ├── docs/agents/              # Developer reference (ARCHITECTURE, PLATFORMS, REFERENCE, TRANSFORMS)
 ├── Rakefile
 ├── README.md
@@ -271,7 +307,7 @@ Full details with claim-verify-act evidence: [`docs/improvement-plan/OPEN-ITEMS.
 
 Key fixes: `pkgver_func` shell execution (P-J), HTTP 30x redirect handling (P-K), `strip-frontmatter` enforcement (P-L), multi-package checksum verification (P-M), symlink path traversal prevention (P-N), library `exit 1` → `raise ArgumentError` (P-O), TUI selector timeout (P-T).
 
-**Test gate**: 305 unit/integration tests — **0 failures, 0 errors** (E2E gated behind `NETWORK_E2E`).
+**Test gate**: 331 unit/integration tests — **0 failures, 0 errors** (E2E gated behind `NETWORK_E2E`).
 
 ---
 

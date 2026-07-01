@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative 'encoding_defaults'
 require 'yaml'
 require 'pathname'
 require 'json'
@@ -19,10 +20,6 @@ module Rulepack
       target_filter = opts[:target]
       format = opts.fetch(:format, :text)
 
-      # Locate root and directories
-      root = Rulepack::Common::RULEPACK_ROOT
-      packages_dir = root.join('data', 'packages')
-      
       # Load system platforms
       begin
         platforms_registry = Rulepack::Common.load_platform_registry
@@ -47,28 +44,20 @@ module Rulepack
         packages: []
       }
 
-      package_dirs = packages_dir.children.select(&:directory?).sort
       all_valid = true
 
-      package_dirs.each do |pkg_dir|
+      Rulepack::PackageResolver.each_pkgbuild(namespaces: :all) do |pkgbuild_path, namespace|
+        pkg_dir = pkgbuild_path.dirname
         pkgname = pkg_dir.basename.to_s
-        pkgbuild_path = pkg_dir.join('PKGBUILD')
-        
+
         pkg_result = {
           name: pkgname,
+          namespace: namespace,
           valid: true,
           errors: [],
           warnings: [],
           details: nil
         }
-
-        unless pkgbuild_path.exist?
-          pkg_result[:valid] = false
-          pkg_result[:errors] << "Missing PKGBUILD file at #{pkgbuild_path}"
-          audit_results[:packages] << pkg_result
-          all_valid = false
-          next
-        end
 
         # 1. Parse YAML
         begin
@@ -168,8 +157,9 @@ module Rulepack
       failures = 0
       results[:packages].each do |pkg|
         status_color = pkg[:valid] ? "\e[1;32m✓ VALID\e[0m" : "\e[1;31m❌ INVALID\e[0m"
-        puts "\n\e[1m📦 Package: #{pkg[:name]}\e[0m [#{status_color}]"
-        
+        ns_label = pkg[:namespace] ? " (#{pkg[:namespace]})" : ''
+        puts "\n\e[1m📦 Package: #{pkg[:name]}#{ns_label}\e[0m [#{status_color}]"
+
         if pkg[:details]
           puts "  Version: #{pkg[:details][:version]}"
           puts "  Desc:    #{pkg[:details][:description]}"

@@ -104,10 +104,11 @@ module Rulepack
         url = src_cfg[:url]
         expected = src_cfg[:sha256]
         source_content, source_sha256 = Rulepack::Common.cached_fetch_url(url, expected)
-        # Update PKGBUILD with fetched sha256
-        if src_cfg[:sha256] != source_sha256
-          src_cfg[:sha256] = source_sha256
-          pkg_dir.join('PKGBUILD').write({ **pkg, source: sources }.to_yaml)
+        # NOTE: we intentionally do not rewrite the source PKGBUILD here.
+        # Fetched checksums are stored in build/index.yaml; the PKGBUILD remains
+        # the canonical user-editable descriptor.
+        if expected && expected != source_sha256
+          Rulepack::Common.log_warn "  ⚠ SHA256 mismatch for #{pkgname}: PKGBUILD has #{expected[0..7]}, fetched #{source_sha256[0..7]}. Update the PKGBUILD sha256 field."
         end
       when 'git'
         git_url = src_cfg[:url]
@@ -175,19 +176,6 @@ module Rulepack
       Rulepack::Common.log '    ✓ Built skill-bundle (directory copied)'
       puts '    ✓ Built skill-bundle (directory copied)'
 
-      if manifest_generated
-        FileUtils.cp(manifest_path, build_pkg_dir.join('manifest.json'))
-      else
-        manifest_data = Rulepack::Common.generate_skill_bundle_manifest(
-          build_pkg_dir, pkgname, platform_id
-        )
-        manifest_path = build_pkg_dir.join('manifest.json')
-        manifest_generated = true
-        count = manifest_data[:sub_skills].size
-        Rulepack::Common.log "    ✓ Manifest generated: #{count} sub-skill(s)"
-        puts "    ✓ Manifest generated: #{count} sub-skill(s)"
-      end
-
       # Agent format: translate each .md file if translator specified
       if format == 'agent' && translate
         translator_cfg = translate
@@ -204,6 +192,19 @@ module Rulepack
       end
 
       apply_schema_engine_to_directory(build_pkg_dir, tgt, platforms, format)
+
+      if manifest_generated
+        FileUtils.cp(manifest_path, build_pkg_dir.join('manifest.json'))
+      else
+        manifest_data = Rulepack::Common.generate_skill_bundle_manifest(
+          build_pkg_dir, pkgname, platform_id
+        )
+        manifest_path = build_pkg_dir.join('manifest.json')
+        manifest_generated = true
+        count = manifest_data[:sub_skills].size
+        Rulepack::Common.log "    ✓ Manifest generated: #{count} sub-skill(s)"
+        puts "    ✓ Manifest generated: #{count} sub-skill(s)"
+      end
 
       if format == 'agent' && tgt[:agent_config]
         agent_cfg = tgt[:agent_config]
@@ -304,9 +305,9 @@ module Rulepack
 
       Rulepack::Common.log "  Running pkgver_func: #{pkg[:pkgver_func]}"
       stdout_err, status = Dir.chdir(source_dir) do
-        Open3.capture2e("sh", "-c", pkg[:pkgver_func])
+        Open3.capture2e({ 'LC_ALL' => 'C.UTF-8' }, 'sh', '-c', pkg[:pkgver_func])
       end
-      new_pkgver = stdout_err.strip
+      new_pkgver = stdout_err.force_encoding(Encoding::UTF_8).scrub.strip
       unless status.success?
         Rulepack::Common.log_error "pkgver_func failed for #{pkgname}: #{stdout_err}"
         return false

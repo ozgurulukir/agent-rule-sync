@@ -21,6 +21,10 @@ module Rulepack
   require_relative 'transform'
   require_relative 'backup'
   require_relative 'schema_migration'
+  require_relative 'result'
+  require_relative 'reporter'
+  require_relative 'platform_scanner'
+  require_relative 'package_resolver'
 
   module Common
     RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path

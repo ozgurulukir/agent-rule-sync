@@ -1,0 +1,48 @@
+---
+pkgname: ruby-update-signatures
+pkgver: '1.0.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: Ruby signature update agent — auto-detects type system (RBS vs Sorbet) and style (inline vs separate), then updates signatures for changed files
+arch: any
+pkg_type: agent
+order: 5
+
+source:
+- type: git
+  url: https://github.com/DmitryPogrebnoy/ruby-agent-skills.git
+  ref: main
+  path: plugins/ruby-type-signature-skills/agents/
+  depth: 1
+
+pkgver_func: "git log -1 --format=%cd --date=short 2>/dev/null | tr -d '-' || date +%Y.%m.%d"
+
+targets:
+  - platform: cursor
+    agent_config:
+      model: claude-3.5-sonnet
+      temperature: 0.3
+      triggers:
+        file_patterns: ["*.rb", "*.rbs", "*.rb.sig"]
+  - platform: claude-code
+  - platform: gemini-cli
+  - platform: qwen-code
+  - platform: opencode
+
+tags:
+  - ruby
+  - rbs
+  - sorbet
+  - type-signatures
+  - agent
+  - automation
+  - auto-detect
+
+provides:
+  - ruby-signature-updates
+
+dependencies:
+  - ruby-agent-skills
+
+maintainer: DmitryPogrebnoy
+license: MIT

@@ -22,12 +22,15 @@ module Rulepack
 
       # Check positional count
       if options[:positional]&.size.to_i > 1
-        abort "\u{274c} Error: Too many positional arguments. Usage: rulepack uninstall [package] --target <platform|all>"
+        return Rulepack::Result.new(status: :failure, errors: ["Too many positional arguments. Usage: rulepack uninstall [package] --target <platform|all>"])
       end
 
       # ── Index required ─────────────────────────────────────────────────────────
       unless Rulepack::Common.index_yaml_path.exist?
-        abort "\u{274c} Error: Installed index not found at #{Rulepack::Common.index_yaml_path}. Nothing is installed."
+        return Rulepack::Result.new(
+          status: :failure,
+          errors: ["Installed index not found at #{Rulepack::Common.index_yaml_path}. Nothing is installed."]
+        )
       end
 
       index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
@@ -37,28 +40,36 @@ module Rulepack
       target_package = nil
       if package_arg
         unless index[:packages] && (index[:packages].key?(package_arg) || index[:packages].key?(package_arg.to_sym))
-          abort "\u{274c} Error: Package '#{package_arg}' is not registered as installed in index."
+          return Rulepack::Result.new(status: :failure, errors: ["Package '#{package_arg}' is not registered as installed in index."])
         end
         target_package = index[:packages].keys.find { |k| k.to_s == package_arg }.to_s
       end
 
       # ── Target required ───────────────────────────────────────────────────────
       unless target_arg
-        abort "\u{274c} Error: Please specify target platform(s) with --target <platform> (or --target all)."
+        return Rulepack::Result.new(status: :failure, errors: ["Please specify target platform(s) with --target <platform> (or --target all)."])
       end
 
       # ── Resolve targets ───────────────────────────────────────────────────────
-      targets_to_uninstall = resolve_uninstall_targets(target_arg, target_package, index, registry, project_arg)
+      targets_to_uninstall = begin
+        resolve_uninstall_targets(target_arg, target_package, index, registry, project_arg)
+      rescue StandardError => e
+        return Rulepack::Result.new(status: :failure, errors: [e.message])
+      end
 
       if targets_to_uninstall.empty?
-        puts '  No target platforms to uninstall.'
-        return
+        return Rulepack::Result.new(
+          status: :success,
+          data: { uninstalled: [], targets: [] },
+          messages: ['  No target platforms to uninstall.']
+        )
       end
 
       # ── Execute uninstall ──────────────────────────────────────────────────────
       backup_path = nil
       backup_path = Rulepack::Common.backup_index unless dry_run
 
+      uninstalled_total = []
       begin
         uninstalled_total = execute_uninstall(targets_to_uninstall, index, registry, target_package, project_arg, dry_run)
 
@@ -66,33 +77,36 @@ module Rulepack
         index[:packages].reject! { |_, pkg| (pkg[:installed] || []).empty? }
 
         # Save updated index
-        if dry_run
-          Rulepack::Common.log '[DRY-RUN] Index write skipped'
-          puts "\n[DRY-RUN] Index write skipped"
-        else
+        unless dry_run
           index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
           Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
           Rulepack::Common.log "\u{1f4dd} Index updated: #{Rulepack::Common.index_yaml_path}"
-          puts "\n\u{1f4dd} Index updated: #{Rulepack::Common.index_yaml_path}"
-        end
-
-        if uninstalled_total.empty?
-          puts '  No packages were uninstalled.'
-        else
-          puts "\n\u{2705} Uninstall complete. #{uninstalled_total.uniq.size} package(s):"
-          uninstalled_total.uniq.each { |p| puts "   \u{2022} #{p}" }
         end
       rescue StandardError => e
         if backup_path && Rulepack::Common.restore_index(backup_path)
           Rulepack::Common.log_error "Uninstall failed (#{e.message}). Index restored from backup."
-          abort "\u{274c} Uninstall failed. Index restored from backup: #{backup_path.basename}"
+          return Rulepack::Result.new(
+            status: :failure,
+            errors: ["Uninstall failed. Index restored from backup: #{backup_path.basename}"]
+          )
         else
           Rulepack::Common.log_error "Uninstall failed (#{e.message})."
-          abort "\u{274c} Uninstall failed: #{e.message}"
+          return Rulepack::Result.new(status: :failure, errors: ["Uninstall failed: #{e.message}"])
         end
       ensure
         Rulepack::Common.cleanup_backups rescue nil
       end
+
+      messages = uninstall_messages(uninstalled_total, dry_run)
+      Rulepack::Result.new(
+        status: :success,
+        data: {
+          uninstalled: uninstalled_total.uniq,
+          targets: targets_to_uninstall,
+          dry_run: dry_run
+        },
+        messages: messages
+      )
     end
 
     # ─── Resolve target platforms for uninstall ──────────────────────────────────
@@ -116,10 +130,8 @@ module Rulepack
 
       targets.each do |p|
         cfg = registry[p.to_sym] || registry[p.to_s]
-        abort "\u{274c} Error: Unknown target platform '#{p}'." unless cfg
-        if cfg[:scope] == 'project' && !project_arg
-          abort "\u{274c} Error: Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>."
-        end
+        raise "Unknown target platform '#{p}'." unless cfg
+        raise "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>." if cfg[:scope] == 'project' && !project_arg
       end
       targets
     end
@@ -213,14 +225,14 @@ module Rulepack
 
     def uninstall_single_package(pkgname, index, build_index, platform_id,
                                  platform_cfg, base_path, dry_run, ctx = nil)
-      pkg_index = index[:packages][pkgname]
+      pkg_index = index[:packages][pkgname.to_sym] || index[:packages][pkgname.to_s]
       return nil unless pkg_index
 
       records = pkg_index[:installed] || []
       platform_records = records.select { |r| r[:platform] == platform_id }
       return nil if platform_records.empty?
 
-      pkgdata = build_index[:packages][pkgname]
+      pkgdata = build_index[:packages][pkgname.to_sym] || build_index[:packages][pkgname.to_s]
       unless pkgdata
         Rulepack::Common.log_error "Package not found in build index: #{pkgname}"
         return nil
@@ -229,8 +241,8 @@ module Rulepack
       target_by_output = targets.to_h { |t| [t[:output], t] }
 
       platform_records.each do |rec|
-        uninstall_record(rec, target_by_output, platform_cfg, base_path, pkgname, dry_run, ctx)
-        records.delete(rec) unless dry_run
+        removed = uninstall_record(rec, target_by_output, platform_cfg, base_path, pkgname, dry_run, ctx)
+        records.delete(rec) if removed && !dry_run
       end
       pkgname
     end
@@ -240,7 +252,7 @@ module Rulepack
       target = target_by_output[output]
       unless target
         Rulepack::Common.log_warn "  \u{26a0} No target found for output '#{output}' in #{pkgname}, skipping uninstall"
-        return
+        return false
       end
       if dry_run
         Rulepack::Common.log "    [DRY-RUN] Would remove: #{output}"
@@ -270,9 +282,10 @@ module Rulepack
             Rulepack::Common.log_warn "Could not resolve dry-run diff: #{e.message}"
           end
         end
-        return
+        return true
       end
       remove_target_file(target, platform_cfg, base_path, pkgname, ctx)
+      true
     end
 
     def remove_target_file(target, platform_cfg, base_path, pkgname, ctx = nil)
@@ -339,6 +352,19 @@ module Rulepack
         rec[:pkgrel] ||= 1
         rec[:epoch] ||= 0
       end
+    end
+
+    def uninstall_messages(uninstalled_total, dry_run)
+      msgs = []
+      msgs << "\n[DRY-RUN] Index write skipped" if dry_run
+      msgs << "\n📝 Index updated" unless dry_run
+      if uninstalled_total.empty?
+        msgs << '  No packages were uninstalled.'
+      else
+        msgs << "\n✅ Uninstall complete. #{uninstalled_total.uniq.size} package(s):"
+        uninstalled_total.uniq.each { |p| msgs << "   • #{p}" }
+      end
+      msgs
     end
   end
 end

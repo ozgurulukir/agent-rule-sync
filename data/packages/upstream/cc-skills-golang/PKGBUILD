@@ -1,0 +1,34 @@
+---
+pkgname: cc-skills-golang
+pkgver: '2026.05'
+pkgrel: 1
+epoch: 0
+pkgdesc: Go development skills for production readiness — 40+ skills covering security, performance, testing, concurrency, and database best practices
+arch: any
+pkg_type: skill
+order: 10
+
+source:
+- type: git
+  url: https://github.com/samber/cc-skills-golang.git
+  ref: main
+  path: skills/
+  depth: 1
+
+pkgver_func: "git log -1 --format=%cd --date=short 2>/dev/null | tr -d '-' || date +%Y.%m.%d"
+
+provides:
+  - go-development
+  - go-security
+  - go-performance
+tags:
+  - golang
+  - go
+  - development
+  - security
+  - performance
+  - testing
+  - concurrency
+
+maintainer: samber
+license: MIT

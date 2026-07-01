@@ -26,7 +26,7 @@ module Rulepack
       # collected[platform_id][format] = { translates: Set, transformers: Set }
       collected = Hash.new { |h, k| h[k] = Hash.new { |h2, k2| h2[k2] = { translates: Set.new, transformers: Set.new } } }
 
-      packages_dir.glob('*/PKGBUILD').each do |pkgbuild_path|
+      Rulepack::PackageResolver.all_pkgbuilds(namespaces: :all).each do |pkgbuild_path|
         pkg = begin
                 YAML.safe_load(pkgbuild_path.read, permitted_classes: [Symbol, Pathname], symbolize_names: true)
               rescue StandardError => e

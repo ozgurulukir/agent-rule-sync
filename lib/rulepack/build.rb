@@ -7,6 +7,7 @@
 #   build_per_pkg.rb  — source fetching, per-target pipeline, checksum recording
 #   build_writer.rb   — build index write, catalog generation
 
+require_relative 'encoding_defaults'
 require 'yaml'
 require 'json'
 require 'pathname'
@@ -41,9 +42,6 @@ module Rulepack
       platforms = Rulepack::Common.load_platform_registry
 
       # ─── Auto-generate build schema from PKGBUILD targets ──────────────────────────
-      # SchemaGenerator scans all PKGBUILD files and derives the (platform, format)
-      # → {translate, transformer} defaults for data/build_schema.yaml.  This keeps
-      # the schema in sync with actual PKGBUILD targets on every build.
       begin
         require_relative 'schema_generator'
         Rulepack::SchemaGenerator.generate!
@@ -65,38 +63,43 @@ module Rulepack
 
       # ─── Build each package ─────────────────────────────────────────────────────────
 
+      built = []
+      failed = []
+
       pkgbuilds.each do |pkgbuild_path|
-        # Load and validate
         result = BuildLoader.load_and_validate_pkgbuild(pkgbuild_path)
-        next unless result
+        unless result
+          failed << pkgbuild_path.basename.to_s
+          next
+        end
 
         pkg, pkgname = result
-
         BuildLoader.expand_targets(pkg, platforms)
 
         Rulepack::Common.log "Building: #{pkgname} (#{Rulepack::Common.format_version(pkg[:epoch], pkg[:pkgver],
                                                                                       pkg[:pkgrel])})"
 
+        build_ok = false
         Rulepack::Common.time("build #{pkgname}") do
           puts "Building: #{pkgname} (#{Rulepack::Common.format_version(pkg[:epoch], pkg[:pkgver],
                                                                         pkg[:pkgrel])})"
 
           pkg_dir = pkgbuild_path.dirname
-
-          # Initialize or update package index entry
           pkg_index = index_data[:packages][pkgname] || BuildLoader.init_pkg_index(pkg)
           BuildLoader.update_pkg_index_from_pkg(pkg_index, pkg)
 
-          # ─── Fetch source ────────────────────────────────────────────────────────────
           source_content = BuildPerPkg.fetch_source(pkg, pkgname, pkg_index, pkg_dir)
-          next unless source_content
+          unless source_content
+            failed << pkgname.to_s
+            next
+          end
 
-          # ─── Process each target ──────────────────────────────────────────────────────
           BuildPerPkg.process_targets(pkg, pkgname, pkg_index, platforms, source_content)
-
-          # Update index
           index_data[:packages][pkgname] = pkg_index
+          build_ok = true
         end
+
+        built << pkgname.to_s if build_ok
       end
 
       # ─── Write build index + catalog ───────────────────────────────────────────────
@@ -104,8 +107,21 @@ module Rulepack
       BuildWriter.write_build_index(index_data)
       BuildWriter.generate_catalog
 
-      puts '✅ Build complete. Run `ruby lib/rulepack/install.rb <platform>` to install packages.'
-      true
+      status = failed.empty? ? :success : :partial
+      messages = ['✅ Build complete. Run `ruby lib/rulepack/install.rb <platform>` to install packages.']
+      messages << "⚠ #{failed.size} package(s) failed: #{failed.join(', ')}" if failed.any?
+
+      Rulepack::Result.new(
+        status: status,
+        data: {
+          packages_built: built,
+          packages_failed: failed,
+          packages_skipped: pkgbuilds.map { |p| BuildLoader.load_and_validate_pkgbuild(p)&.last.to_s }.compact - built - failed,
+          build_dir: Rulepack::Common.build_dir,
+          index_path: Rulepack::Common.build_index_path
+        },
+        messages: messages
+      )
     end
   end
 end
@@ -114,7 +130,9 @@ end
 if __FILE__ == $PROGRAM_NAME || caller.any? { |c| c.include?('capture_script_run') || c.include?('invoke') }
   begin
     opts = Rulepack::CliParser.parse(ARGV)
-    Rulepack::Build.run(opts)
+    result = Rulepack::Build.run(opts)
+    Rulepack::Reporter.print(result, format: opts[:format] || :text)
+    exit(result.failure? ? 1 : 0)
   rescue StandardError => e
     $stderr.puts "❌ Error: #{e.message}"
     exit 1

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative 'encoding_defaults'
 require 'pathname'
 require 'yaml'
 require 'open3'
@@ -52,10 +53,9 @@ module Rulepack
     end
 
     def discover_git_packages
-      packages_dir = Rulepack::Common::RULEPACK_ROOT.join('data', 'packages')
       result = {}
 
-      packages_dir.glob('*/PKGBUILD').each do |pkgbuild_path|
+      Rulepack::PackageResolver.all_pkgbuilds(namespaces: :tracked).each do |pkgbuild_path|
         raw = pkgbuild_path.read
         pkg = YAML.safe_load(raw, permitted_classes: [Symbol, Pathname], symbolize_names: true) || {}
         pkgname = pkg[:pkgname]

@@ -4,6 +4,7 @@
 # Reads built skill fragments from Rulepack::Common::BUILD_DIR and combines them with common/agent-specific skills
 # Output: Rulepack::Common::BUILD_DIR/<agent>/skills/vendor/<agent>.md
 
+require_relative 'encoding_defaults'
 require 'yaml'
 require 'pathname'
 require 'fileutils'

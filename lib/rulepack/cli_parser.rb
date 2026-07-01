@@ -83,8 +83,8 @@ module Rulepack
         when '--format'
           raise 'Missing value for --format' if i + 1 >= args.length
           fmt_val = args[i + 1].downcase
-          unless %w[text json].include?(fmt_val)
-            raise "Invalid --format value: #{fmt_val}. Valid: text, json"
+          unless %w[text json yaml].include?(fmt_val)
+            raise "Invalid --format value: #{fmt_val}. Valid: text, json, yaml"
           end
           options[:format] = fmt_val.to_sym
           i += 2

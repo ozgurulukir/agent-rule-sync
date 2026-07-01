@@ -171,8 +171,8 @@ module Rulepack
     def do_json_merge(built_path, install_path, pkgname, ctx)
       new_data = begin
         JSON.parse(built_path.read)
-      rescue StandardError
-        {}
+      rescue StandardError => e
+        raise "Failed to parse built JSON for #{pkgname}: #{e.message}"
       end
 
       existing = if install_path.exist?
@@ -180,8 +180,8 @@ module Rulepack
                    Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
                    begin
                      JSON.parse(install_path.read)
-                   rescue StandardError
-                     {}
+                   rescue StandardError => e
+                     raise "Failed to parse existing JSON at #{install_path}: #{e.message}"
                    end
                  else
                    Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
@@ -199,8 +199,8 @@ module Rulepack
     def do_yaml_merge(built_path, install_path, pkgname, ctx)
       new_data = begin
         YAML.safe_load(built_path.read, permitted_classes: [Symbol], symbolize_names: true) || {}
-      rescue StandardError
-        {}
+      rescue StandardError => e
+        raise "Failed to parse built YAML for #{pkgname}: #{e.message}"
       end
 
       existing = if install_path.exist?
@@ -208,8 +208,8 @@ module Rulepack
                    Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
                    begin
                      YAML.safe_load(install_path.read, permitted_classes: [Symbol], symbolize_names: true) || {}
-                   rescue StandardError
-                     {}
+                   rescue StandardError => e
+                     raise "Failed to parse existing YAML at #{install_path}: #{e.message}"
                    end
                  else
                    Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })

@@ -5,6 +5,8 @@
 $LOAD_PATH.unshift File.join(File.expand_path('..', __dir__), 'lib')
 $LOAD_PATH.unshift File.join(File.expand_path('..', __dir__), 'lib', 'rulepack')
 
+require 'rulepack/encoding_defaults'
+
 require 'minitest/autorun'
 require 'pathname'
 require 'tmpdir'
@@ -110,6 +112,17 @@ module TestHelpers
           vibe_dir.mkpath
           vibe_dir.join('SKILL.md').write("# Vibe Security Skill\n")
         }
+      },
+      'anthropics-skills' => {
+        url: 'https://github.com/anthropics/skills.git',
+        setup_files: lambda { |dir|
+          skills_dir = dir.join('skills')
+          skills_dir.mkpath
+          skills_dir.join('SKILL.md').write("# Anthropic Skills\n")
+          mcp_dir = skills_dir.join('mcp-builder')
+          mcp_dir.mkpath
+          mcp_dir.join('SKILL.md').write("# MCP Builder Skill\n")
+        }
       }
     }
 
@@ -129,8 +142,11 @@ module TestHelpers
         system('git', 'commit', '-m', 'initial commit', '--quiet')
       end
 
-      # Rewrite PKGBUILD URL using safe string replacement
-      pkgbuild_path = packages_dir.join(pkgname, 'PKGBUILD')
+      # Rewrite PKGBUILD URL using safe string replacement.
+      # Git packages may live in the upstream namespace or the flat layout.
+      pkgbuild_path = packages_dir.join('upstream', pkgname, 'PKGBUILD')
+      pkgbuild_path = packages_dir.join(pkgname, 'PKGBUILD') unless pkgbuild_path.exist?
+
       if pkgbuild_path.exist?
         content = pkgbuild_path.read
         content.gsub!(cfg[:url], "file://#{pkg_repo.expand_path}")

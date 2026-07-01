@@ -1,0 +1,26 @@
+---
+pkgname: antigravity-skills
+pkgver: '2026.05'
+pkgrel: 1
+epoch: 0
+pkgdesc: Skills vault with 300+ ported skills — directory-based collection from Claude Code Agents, installable across all coding agent platforms
+arch: any
+pkg_type: skill
+order: 10
+
+source:
+- type: git
+  url: https://github.com/rmyndharis/antigravity-skills.git
+  ref: main
+  path: skills/
+  depth: 1
+
+pkgver_func: "git log -1 --format=%cd --date=short 2>/dev/null | tr -d '-' || date +%Y.%m.%d"
+
+tags:
+  - antigravity
+  - skills
+  - vault
+  - coding-agents
+maintainer: null
+license: MIT

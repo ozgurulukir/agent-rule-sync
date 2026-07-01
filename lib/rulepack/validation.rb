@@ -149,7 +149,8 @@ module Rulepack
       pkgbuild_path = Pathname.new(pkgdir).join('PKGBUILD')
       unless pkgbuild_path.exist?
         raise "PKGBUILD not found in #{pkgdir}. " \
-              'Create data/packages/<name>/PKGBUILD or run `rulepack build` from repo root.'
+              'Create data/packages/<name>/PKGBUILD, data/packages/local/<name>/PKGBUILD, ' \
+              'or data/packages/upstream/<name>/PKGBUILD.'
       end
 
       raw = pkgbuild_path.read

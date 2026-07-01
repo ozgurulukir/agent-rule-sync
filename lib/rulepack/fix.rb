@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative 'encoding_defaults'
 require 'pathname'
 require 'fileutils'
 require 'set'
@@ -19,54 +20,81 @@ module Rulepack
       project_arg = options[:project_path]
       dry_run = options.fetch(:dry_run, false)
       auto_mode = options.fetch(:auto, false)
-      exit_on_failure = options.fetch(:exit_on_failure, false)
 
       unless Rulepack::Common.build_index_path.exist?
         msg = 'Build index not found. Run build first.'
-        exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
+        return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
       unless Rulepack::Common.index_yaml_path.exist?
         msg = "Installed index not found at #{Rulepack::Common.index_yaml_path}. Nothing is installed."
-        exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
+        return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
       index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
       packages = index[:packages] || {}
       registry = Rulepack::Common.load_platform_registry
 
-      targets_to_fix, target_package = Rulepack::Common.validate_targets_and_packages(
-        target_arg, package_arg, packages, registry,
-        exit_on_failure: exit_on_failure,
-        project_arg: project_arg,
-        enforce_project_scope: true
-      )
-      return false if targets_to_fix.empty?
+      targets_to_fix, target_package = begin
+        Rulepack::Common.validate_targets_and_packages(
+          target_arg, package_arg, packages, registry,
+          exit_on_failure: false,
+          project_arg: project_arg,
+          enforce_project_scope: true
+        )
+      rescue StandardError => e
+        return Rulepack::Result.new(status: :failure, errors: [e.message])
+      end
 
-      fixed_anything = false
+      if targets_to_fix.empty?
+        return Rulepack::Result.new(
+          status: :success,
+          data: { platforms: [], fixed: [], orphans_removed: [] },
+          messages: ['ℹ No fixes needed.']
+        )
+      end
+
+      fixed = []
+      failed = []
+      orphans_removed = []
+
       targets_to_fix.each do |platform_id|
-        fixed_anything |= fix_platform(platform_id, target_package, project_arg, dry_run, auto_mode, index)
+        pf = fix_platform(platform_id, target_package, project_arg, dry_run, auto_mode, index)
+        fixed.concat(pf[:fixed] || [])
+        failed.concat(pf[:failed] || [])
+        orphans_removed.concat(pf[:orphans_removed] || [])
       end
 
-      if fixed_anything
-        puts "\n✅ Fix applied. Run verify to confirm."
+      status = failed.empty? ? (fixed.empty? && orphans_removed.empty? ? :success : :success) : :partial
+      status = :success if fixed.empty? && orphans_removed.empty? && failed.empty?
+
+      messages = []
+      if fixed.any? || orphans_removed.any?
+        messages << "\n✅ Fix applied. Run verify to confirm."
       else
-        puts "\nℹ No fixes needed."
+        messages << "\nℹ No fixes needed."
       end
 
-      exit 0 if exit_on_failure
-
-      fixed_anything
+      Rulepack::Result.new(
+        status: status,
+        data: {
+          platforms: targets_to_fix,
+          fixed: fixed,
+          failed: failed,
+          orphans_removed: orphans_removed,
+          dry_run: dry_run
+        },
+        messages: messages
+      )
     end
 
     # Execution Helpers
 
     def run_verify(platform_id, package_arg, project_arg)
-      Rulepack::Verify.run(
+      Rulepack::Verify.check(
         target: platform_id,
         package_name: package_arg,
-        project_path: project_arg,
-        exit_on_failure: false
+        project_path: project_arg
       )
     end
 
@@ -74,83 +102,104 @@ module Rulepack
       puts "\n── #{platform_id} ──"
 
       result = run_verify(platform_id, package_arg, project_arg)
-      has_drift = result[:drift].to_i > 0
-      orphans = result[:orphans] || []
+      data = result.data || {}
+      has_drift = data[:drift].to_i > 0
+      orphans = data[:orphans] || []
 
       unless has_drift || orphans.any?
         puts '  ✓ No drift detected.'
-        return false
+        return { fixed: [], failed: [], orphans_removed: [] }
       end
 
-      fixed_drift = false
+      fixed = []
+      failed = []
+      orphans_removed = []
+
       if has_drift
-        fixed_drift = fix_drift(platform_id, package_arg, project_arg, dry_run, index)
+        fd = fix_drift(platform_id, package_arg, project_arg, dry_run, index)
+        fixed.concat(fd[:fixed] || [])
+        failed.concat(fd[:failed] || [])
       end
 
-      fixed_orphans = false
       if orphans.any? && package_arg.nil?
-        fixed_orphans = fix_orphans(orphans, dry_run, auto_mode)
+        fo = fix_orphans(orphans, dry_run, auto_mode)
+        orphans_removed.concat(fo[:orphans_removed] || [])
       end
 
-      fixed_drift || fixed_orphans
+      { fixed: fixed, failed: failed, orphans_removed: orphans_removed }
     end
+
     def fix_drift(platform_id, package_arg, project_arg, dry_run, index)
       if dry_run
         puts "  [DRY-RUN] Would reinstall packages on #{platform_id}"
-        return false
+        return { fixed: [], failed: [] }
       end
 
       broken = find_broken_packages(platform_id, package_arg, project_arg, index)
 
       if broken.empty?
         puts '  ✓ No broken packages matched.'
-        return false
+        return { fixed: [], failed: [] }
       end
+
+      # Keep a copy of the original index so we can roll back if reinstall fails.
+      original_index = Marshal.load(Marshal.dump(index))
+      backup_path = Rulepack::Common.backup_index
 
       broken.each do |pkgname|
         clear_installed_record(index, pkgname, platform_id)
         puts "  Cleared index record for #{pkgname}"
       end
 
-      index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-      Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
-
       puts "  Reinstalling #{broken.size} package(s) on #{platform_id}..."
 
+      fixed = []
+      failed = []
       broken.each do |pkgname|
-        begin
-          Rulepack::Install.run(
-            platform_id,
-            specific_package: pkgname,
-            project_arg: project_arg,
-            collision_strategy: 'overwrite',
-            dry_run: false
-          )
-        rescue StandardError => e
-          puts "  ⚠ Reinstall failed for #{pkgname}: #{e.message}"
+        install_result = Rulepack::Install.run(
+          platform_id,
+          specific_package: pkgname,
+          project_arg: project_arg,
+          collision_strategy: 'overwrite',
+          dry_run: false
+        )
+        if install_result.success?
+          fixed << pkgname
+        else
+          failed << pkgname
+          puts "  ⚠ Reinstall failed for #{pkgname}: #{install_result.errors.join(', ')}"
+          break
         end
       end
 
-      puts '  ✓ Reinstall complete'
-      true
+      if failed.empty?
+        index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+        Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
+        puts '  ✓ Reinstall complete'
+      else
+        Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, original_index)
+        puts "  ⚠ Reinstall failed; restored original index from backup."
+      end
+
+      { fixed: fixed, failed: failed }
     end
 
     def fix_orphans(orphans, dry_run, auto_mode)
-      return false unless orphans.any?
+      return { orphans_removed: [] } unless orphans.any?
 
       puts "\n  #{orphans.size} orphan(s) found:"
       orphans.each { |f| puts "    #{f}" }
       if dry_run
         puts '  [DRY-RUN] Would not remove orphans'
-        false
+        { orphans_removed: [] }
       elsif auto_mode
         puts "  Removing #{orphans.size} orphan(s)..."
         orphans.each { |f| FileUtils.rm_rf(f) }
         puts '  ✓ Orphans removed'
-        true
+        { orphans_removed: orphans }
       else
         puts '  Skipping orphan removal (use --auto to remove)'
-        false
+        { orphans_removed: [] }
       end
     end
 
@@ -222,7 +271,20 @@ end
 if __FILE__ == $PROGRAM_NAME || caller.any? { |c| c.include?('capture_script_run') || c.include?('invoke') }
   begin
     opts = Rulepack::CliParser.parse(ARGV)
-    Rulepack::Fix.run(opts.merge(exit_on_failure: true))
+    result = Rulepack::Fix.run(opts)
+
+    if result.failure?
+      if (opts[:format] || :text).to_sym == :text
+        result.messages.each { |m| warn m }
+        result.errors.each { |e| warn "Error: #{e}" }
+      else
+        Rulepack::Reporter.print(result, format: opts[:format])
+      end
+      exit 1
+    end
+
+    Rulepack::Reporter.print(result, format: opts[:format] || :text)
+    exit 0
   rescue StandardError => e
     $stderr.puts "❌ Error: #{e.message}"
     exit 1

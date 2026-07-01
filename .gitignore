@@ -48,3 +48,6 @@ scratch/
 .rulepack.local.yaml
 data/packages/*/PKGBUILD.local
 data/packages/*/local/
+
+# Local-only package namespace (personal/local-source packages)
+data/packages/local/

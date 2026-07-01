@@ -50,11 +50,9 @@ module Rulepack
       return check_platform(platform_id, project_arg: project_arg) if check_mode
 
       unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-        Rulepack::Common.log_error(
-          "Build index not found at #{Rulepack::Common::BUILD_INDEX_PATH}. " \
-          'Run `ruby lib/rulepack/build.rb` first.'
-        )
-        exit 1
+        msg = "Build index not found at #{Rulepack::Common::BUILD_INDEX_PATH}. Run `ruby lib/rulepack/build.rb` first."
+        Rulepack::Common.log_error(msg)
+        return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
       build_index = Rulepack::Common.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
@@ -72,6 +70,7 @@ module Rulepack
         Rulepack::Common.log "  🗂 Index backed up to #{backup_path.basename}" if backup_path
       end
 
+      installed = []
       ctx = nil
       begin
         ctx = InstallContext.new(
@@ -82,21 +81,22 @@ module Rulepack
           installed_this_run: [],
           journal: []
         )
-        InstallExecute.install_platform(ctx, specific_package: specific_package)
+        installed = InstallExecute.install_platform(ctx, specific_package: specific_package).to_a
 
-        # Write index after successful install
         if dry_run
           Rulepack::Common.log '[DRY-RUN] Index write skipped'
-          puts "\n[DRY-RUN] Index write skipped"
         else
           index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
           Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
           Rulepack::Common.log "📝 Index written: #{Rulepack::Common.index_yaml_path}"
-          puts "\n📝 Index written: #{Rulepack::Common.index_yaml_path}"
         end
       rescue StandardError => e
         Rulepack::Transaction.transaction_rollback(e, backup_path, ctx&.journal)
-        exit 1
+        return Rulepack::Result.new(
+          status: :failure,
+          errors: ["Install failed for #{platform_id}: #{e.message}"],
+          data: { platform_id: platform_id, installed: installed }
+        )
       ensure
         begin
           Rulepack::Common.cleanup_backups
@@ -104,6 +104,17 @@ module Rulepack
           nil
         end
       end
+
+      status = installed.empty? && specific_package ? :success : (installed.empty? ? :success : :success)
+      Rulepack::Result.new(
+        status: status,
+        data: {
+          platform_id: platform_id,
+          installed: installed,
+          dry_run: dry_run
+        },
+        messages: install_messages(platform_id, installed, dry_run)
+      )
     end
 
     # ─── Install all platforms ───────────────────────────────────────────────────
@@ -125,15 +136,10 @@ module Rulepack
         end
       end
 
-      Rulepack::Common.log "🚀 Installing ALL platforms (#{platforms.size} platforms)#{' (dry-run)' if dry_run}"
-      puts "🚀 Installing ALL platforms (#{platforms.size} platforms)#{' (dry-run)' if dry_run}"
-
       unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-        Rulepack::Common.log_error(
-          "Build index not found at #{Rulepack::Common::BUILD_INDEX_PATH}. " \
-          'Run `ruby lib/rulepack/build.rb` first.'
-        )
-        exit 1
+        msg = "Build index not found at #{Rulepack::Common::BUILD_INDEX_PATH}. Run `ruby lib/rulepack/build.rb` first."
+        Rulepack::Common.log_error(msg)
+        return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
       index = load_master_index
@@ -146,15 +152,25 @@ module Rulepack
       end
 
       all_installed = Set.new
+      failed_platforms = []
       journal = []
       begin
         platforms.each do |platform_id|
           opts = options.merge(journal: journal)
-          all_installed.merge(install_single_platform(platform_id, index, build_index, opts))
+          begin
+            all_installed.merge(install_single_platform(platform_id, index, build_index, opts))
+          rescue StandardError => e
+            failed_platforms << { platform: platform_id, error: e.message }
+            Rulepack::Common.log_warn "Failed to install platform #{platform_id}: #{e.message}"
+          end
         end
       rescue StandardError => e
         Rulepack::Transaction.transaction_rollback(e, backup_path, journal)
-        exit 1
+        return Rulepack::Result.new(
+          status: :failure,
+          errors: ["Install all failed: #{e.message}"],
+          data: { installed: all_installed.to_a, failed: failed_platforms }
+        )
       ensure
         begin
           Rulepack::Common.cleanup_backups
@@ -165,17 +181,23 @@ module Rulepack
 
       if dry_run
         Rulepack::Common.log "\n[DRY-RUN] Index write skipped"
-        puts "\n[DRY-RUN] Index write skipped"
       else
         index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
         Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
         Rulepack::Common.log "\n📝 Index written: #{Rulepack::Common.index_yaml_path}"
-        puts "\n📝 Index written: #{Rulepack::Common.index_yaml_path}"
       end
 
-      puts "\n✅ Install #{dry_run ? 'preview' : 'complete'}. #{all_installed.size} package(s) affected:"
-      all_installed.each { |p| puts "   • #{p}" }
-      puts ''
+      status = failed_platforms.empty? ? :success : :partial
+      Rulepack::Result.new(
+        status: status,
+        data: {
+          installed: all_installed.to_a,
+          failed: failed_platforms,
+          platforms: platforms,
+          dry_run: dry_run
+        },
+        messages: install_all_messages(all_installed, failed_platforms, dry_run)
+      )
     end
 
     # ─── Install helpers ─────────────────────────────────────────────────────────
@@ -207,7 +229,6 @@ module Rulepack
       InstallExecute.install_platform(ctx)
     rescue StandardError => e
       Rulepack::Common.log_warn "Failed to install platform #{platform_id}: #{e.message}"
-      puts "  ⚠️  #{platform_id}: #{e.message}"
       raise e
     end
 
@@ -242,28 +263,29 @@ module Rulepack
       if package_arg
         build_idx = ensure_build_index
         unless build_idx && build_idx[:packages] && (build_idx[:packages].key?(package_arg) || build_idx[:packages].key?(package_arg.to_sym))
-          abort "\u{274c} Error: Package '#{package_arg}' not found in build index."
+          return Rulepack::Result.new(status: :failure, errors: ["Package '#{package_arg}' not found in build index."])
         end
         target_package = build_idx[:packages].keys.find { |k| k.to_s == package_arg }.to_s
       end
 
       # ── Targets mode ──────────────────────────────────────────────────────────
       if targets_mode
-        abort '\u{274c} Error: --targets requires a package name.' unless target_package
+        unless target_package
+          return Rulepack::Result.new(status: :failure, errors: ["--targets requires a package name."])
+        end
         build_idx ||= ensure_build_index
         show_package_targets(build_idx, target_package)
-        return
+        return Rulepack::Result.new(status: :success, data: { package: target_package })
       end
 
       # ── Target required ────────────────────────────────────────────────────────
       unless target_arg
-        abort '\u{274c} Error: Please specify target platform(s) with --target <platform> (or --target all).'
+        return Rulepack::Result.new(status: :failure, errors: ["Please specify target platform(s) with --target <platform> (or --target all)."])
       end
 
       # ── Check mode ─────────────────────────────────────────────────────────────
       if check_mode
-        check_platform(target_arg, project_arg: project_arg)
-        return
+        return check_platform(target_arg, project_arg: project_arg)
       end
 
       # ── Resolve target list ────────────────────────────────────────────────────
@@ -271,31 +293,52 @@ module Rulepack
       registry = Rulepack::Common.load_platform_registry
       targets_to_install = resolve_targets(target_arg, target_package, build_idx, registry, project_arg)
 
-      abort '\u{274c} Error: No target platforms matched.' if targets_to_install.empty?
+      if targets_to_install.empty?
+        return Rulepack::Result.new(status: :failure, errors: ["No target platforms matched."])
+      end
 
       # ── Dispatch ───────────────────────────────────────────────────────────────
       if target_arg.downcase == 'all' && !target_package
-        install_all(
+        return install_all(
           dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
           verbose_mode: verbose_mode, select_list: select_list,
           project_arg: project_arg, collision_strategy: collision_strategy, rules_to: rules_to
         )
-      else
-        targets_to_install.each do |pkg_platform|
-          if target_package
-            Rulepack::Common.log "\u{1f4e6} Installing #{target_package} \u{2192} #{pkg_platform}"
-            puts "\u{1f4e6} Installing #{target_package} \u{2192} #{pkg_platform}"
-          else
-            Rulepack::Common.log "\u{1f4e6} Installing all packages \u{2192} #{pkg_platform}"
-            puts "\u{1f4e6} Installing all packages \u{2192} #{pkg_platform}"
-          end
-          run(pkg_platform,
-              dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
-              verbose_mode: verbose_mode, select_list: select_list,
-              project_arg: project_arg, specific_package: target_package,
-              rules_to: rules_to, collision_strategy: collision_strategy)
+      end
+
+      all_installed = []
+      failed = []
+      targets_to_install.each do |pkg_platform|
+        if target_package
+          Rulepack::Common.log "\u{1f4e6} Installing #{target_package} \u{2192} #{pkg_platform}"
+          puts "\u{1f4e6} Installing #{target_package} \u{2192} #{pkg_platform}"
+        else
+          Rulepack::Common.log "\u{1f4e6} Installing all packages \u{2192} #{pkg_platform}"
+          puts "\u{1f4e6} Installing all packages \u{2192} #{pkg_platform}"
+        end
+        result = run(pkg_platform,
+                     dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
+                     verbose_mode: verbose_mode, select_list: select_list,
+                     project_arg: project_arg, specific_package: target_package,
+                     rules_to: rules_to, collision_strategy: collision_strategy)
+        if result.success?
+          all_installed.concat(result.data[:installed] || [])
+        else
+          failed.concat(result.errors)
         end
       end
+
+      status = failed.empty? ? :success : :failure
+      Rulepack::Result.new(
+        status: status,
+        data: {
+          installed: all_installed.uniq,
+          failed: failed,
+          targets: targets_to_install,
+          dry_run: dry_run
+        },
+        messages: install_messages(targets_to_install.join(','), all_installed.uniq, dry_run) + failed.map { |e| "Error: #{e}" }
+      )
     end
 
     def ensure_build_index
@@ -318,10 +361,8 @@ module Rulepack
 
       targets.each do |p|
         cfg = registry[p.to_sym] || registry[p.to_s]
-        abort "\u{274c} Error: Unknown target platform '#{p}'." unless cfg
-        if cfg[:scope] == 'project' && !project_arg
-          abort "\u{274c} Error: Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>."
-        end
+        raise "Unknown target platform '#{p}'." unless cfg
+        raise "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>." if cfg[:scope] == 'project' && !project_arg
       end
       targets
     end
@@ -354,6 +395,27 @@ module Rulepack
           puts "  \u{2022} #{rec[:platform]} (#{Rulepack::Common.format_version(rec[:epoch] || 0, rec[:version], rec[:pkgrel] || 1)}) \u{2014} #{rec[:output]}"
         end
       end
+    end
+
+    # ─── Message helpers ─────────────────────────────────────────────────────────
+
+    def install_messages(platform_id, installed, dry_run)
+      msgs = []
+      msgs << "\n📝 Index written" unless dry_run
+      msgs << "\n✅ Install #{dry_run ? 'preview' : 'complete'} for #{platform_id}. #{installed.size} package(s) affected:"
+      installed.each { |p| msgs << "   • #{p}" }
+      msgs << ''
+      msgs
+    end
+
+    def install_all_messages(installed, failed, dry_run)
+      msgs = []
+      msgs << "\n[DRY-RUN] Index write skipped" if dry_run
+      msgs << "\n✅ Install #{dry_run ? 'preview' : 'complete'}. #{installed.size} package(s) affected:"
+      installed.each { |p| msgs << "   • #{p}" }
+      failed.each { |f| msgs << "   ⚠ #{f[:platform]}: #{f[:error]}" }
+      msgs << ''
+      msgs
     end
   end
 end

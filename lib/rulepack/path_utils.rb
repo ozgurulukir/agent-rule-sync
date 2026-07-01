@@ -11,8 +11,11 @@ module Rulepack
       path.start_with?('~') ? File.expand_path(path) : path
     end
 
-    # Remove YAML frontmatter (--- ... ---) from content
+    # Remove YAML frontmatter (--- ... ---) from content.
+    # Forces UTF-8 encoding defensively in case the caller has not set the
+    # default external encoding.
     def strip_frontmatter(content)
+      content = content.to_s.dup.force_encoding(Encoding::UTF_8).scrub
       content.sub(/\A---\s*\n.*?\n---\s*\n/m, '')
     end
   end

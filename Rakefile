@@ -99,7 +99,7 @@ end
 
 desc 'Print test summary'
 task :summary do
-  puts "\n📊 Test Suite — 305 tests, 1040 assertions"
+  puts "\n📊 Test Suite — 331 tests, 1017 assertions"
   puts "  test_common.rb               — 48 unit tests"
   puts "  test_integration.rb          — 29 integration tests"
   puts "  test_cache.rb                — 24 unit tests"
@@ -110,6 +110,12 @@ task :summary do
   puts "  test_translate.rb            —  4 unit tests"
   puts "  test_aggregate.rb            —  4 unit tests"
   puts "  test_end_to_end.rb           — 14 end-to-end tests"
+  puts "  test_result.rb               —  5 unit tests"
+  puts "  test_reporter.rb             —  4 unit tests"
+  puts "  test_query_installed.rb      —  3 unit tests"
+  puts "  test_verify_check.rb         —  2 unit tests"
+  puts "  test_fix.rb                  — 16 unit tests"
+  puts "  test_outdated.rb             —  7 unit tests"
   puts ""
   puts "Run: rake test"
 end

@@ -3,6 +3,7 @@
 require_relative 'helper'
 require 'stringio'
 require 'json'
+require 'fileutils'
 
 class TestCliSyntax < Minitest::Test
    def setup
@@ -168,7 +169,7 @@ class TestCliSyntax < Minitest::Test
   def test_fix_invalid_package_fails
     res = capture_script_run('fix', ['nonexistentpkg', '--target', 'opencode'])
     assert_equal 1, res[:exit_code]
-    assert_match(/build index not found|not registered as installed/, res[:stderr])
+    assert_match(/build index not found|not registered as installed/i, res[:stderr])
   end
 
   def test_fix_project_platform_without_project_path_fails
@@ -180,7 +181,7 @@ class TestCliSyntax < Minitest::Test
   def test_fix_pacman_flag_shift
     res = capture_script_run('fix', ['-F', 'nonexistentpkg', '--target', 'opencode'])
     assert_equal 1, res[:exit_code]
-    assert_match(/build index not found|not registered as installed/, res[:stderr])
+    assert_match(/build index not found|not registered as installed/i, res[:stderr])
   end
 
   # ─── Audit CLI Tests ──────────────────────────────────────────────────────────
@@ -224,9 +225,45 @@ class TestCliSyntax < Minitest::Test
     assert_equal 0, res[:exit_code], "Expected exit 0 but got: #{res[:stderr]}"
     data = JSON.parse(res[:stdout])
     assert_kind_of Hash, data
-    expected_count = Dir.glob(File.join(__dir__, '..', 'data', 'packages', '*', 'PKGBUILD')).size
+    expected_count = Dir.glob([
+      File.join(__dir__, '..', 'data', 'packages', '*', 'PKGBUILD'),
+      File.join(__dir__, '..', 'data', 'packages', '*', '*', 'PKGBUILD')
+    ]).size
     assert_equal expected_count, data['packages'].size,
-      "Expected #{expected_count} packages (matching data/packages/*/PKGBUILD) but got #{data['packages'].size}"
+      "Expected #{expected_count} packages but got #{data['packages'].size}"
+  end
+
+  def test_audit_discovers_local_namespace_packages
+    local_pkg_dir = Rulepack::Common::RULEPACK_ROOT.join('data', 'packages', 'local', 'test-local-audit-pkg')
+    pkgbuild_path = local_pkg_dir.join('PKGBUILD')
+
+    local_pkg_dir.mkpath
+    pkgbuild_path.write(<<~YAML)
+      ---
+      pkgname: test-local-audit-pkg
+      pkgver: '0.0.1'
+      pkgrel: 1
+      epoch: 0
+      pkgdesc: Test local namespace package
+      arch: any
+      pkg_type: rule
+      source:
+      - type: local
+        path: test-local-audit-pkg.md
+    YAML
+    local_pkg_dir.join('test-local-audit-pkg.md').write("# test\n")
+
+    res = capture_audit_run(['--format', 'json'])
+    FileUtils.rm_rf(local_pkg_dir)
+
+    assert_equal 0, res[:exit_code], "Expected exit 0 but got: #{res[:stderr]}"
+    data = JSON.parse(res[:stdout])
+    names = data['packages'].map { |p| p['name'] }
+    assert_includes names, 'test-local-audit-pkg'
+    local_pkg = data['packages'].find { |p| p['name'] == 'test-local-audit-pkg' }
+    assert_equal 'local', local_pkg['namespace']
+  ensure
+    FileUtils.rm_rf(local_pkg_dir) if local_pkg_dir
   end
 
   def test_audit_unknown_target_exits

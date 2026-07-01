@@ -1,0 +1,49 @@
+---
+pkgname: vibe-security
+pkgver: '0.1.0'
+pkgrel: 1
+epoch: 0
+pkgdesc: Security analysis skill for vibe coding — detects injection, auth flaws, and secrets exposure during rapid prototyping sessions
+arch: any
+pkg_type: skill
+order: 2
+source:
+- type: git
+  url: https://github.com/raroque/vibe-security-skill.git
+  ref: main
+  path: vibe-security/SKILL.md
+  depth: 1
+pkgver_func: "git log -1 --format=%cd --date=short 2>/dev/null | tr -d '-' || date +%Y.%m.%d"
+
+targets:
+- platform: opencode
+  install:
+    target_dir: vibe-security/
+- platform: cursor
+  install:
+    target_dir: vibe-security/
+- platform: windsurf
+  install:
+    target_dir: vibe-security/
+- platform: claude-code
+  install:
+    target_dir: vibe-security/
+- platform: oh-my-pi
+  install:
+    target_dir: vibe-security/
+- platform: agents
+  install:
+    target_dir: vibe-security/
+- platform: antigravity
+  install:
+    target_dir: vibe-security/
+
+provides:
+- security
+- vibe-security
+tags:
+- security
+- vibe
+- must-have
+maintainer:
+license: MIT

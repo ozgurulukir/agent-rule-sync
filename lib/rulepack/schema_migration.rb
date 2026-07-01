@@ -52,13 +52,17 @@ module Rulepack
     def derive_pkg_type(pkg_idx)
       targets = pkg_idx[:targets] || []
       formats = targets.map { |t| t[:format] }.compact.uniq
-      if formats.empty?
-        'rule'
-      elsif formats.include?('skill-bundle') || formats.include?('agent')
-        formats.size > 1 ? 'hybrid' : 'skill'
-      else
-        'rule'
+      return 'rule' if formats.empty?
+
+      # A skill-bundle-only package is classified as 'skill'; an agent-only
+      # package is classified as 'agent'. Any mix of formats is 'hybrid'.
+      if formats.include?('skill-bundle') || formats.include?('agent')
+        return 'hybrid' if formats.size > 1
+        return 'agent' if formats.include?('agent')
+        return 'skill'
       end
+
+      'rule'
     end
   end
 end

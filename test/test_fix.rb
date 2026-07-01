@@ -70,40 +70,32 @@ class TestFix < Minitest::Test
 
   # ─── Error Handling ──────────────────────────────────────────────────────────
 
-  def test_run_raises_error_when_build_index_missing
+  def test_run_returns_failure_when_build_index_missing
     (@build_dir / 'index.yaml').delete
 
-    error = assert_raises(StandardError) do
-      Rulepack::Fix.run(target: 'opencode', exit_on_failure: false)
-    end
-
-    assert_match(/Build index not found/i, error.message)
+    result = Rulepack::Fix.run(target: 'opencode')
+    assert result.failure?
+    assert_match(/Build index not found/i, result.errors.first)
   end
 
-  def test_run_raises_error_when_installed_index_missing
+  def test_run_returns_failure_when_installed_index_missing
     (@install_dir / 'index.yaml').delete
 
-    error = assert_raises(StandardError) do
-      Rulepack::Fix.run(target: 'opencode', exit_on_failure: false)
-    end
-
-    assert_match(/Installed index not found/i, error.message)
+    result = Rulepack::Fix.run(target: 'opencode')
+    assert result.failure?
+    assert_match(/Installed index not found/i, result.errors.first)
   end
 
-  def test_run_raises_error_for_unknown_package
-    error = assert_raises(StandardError) do
-      Rulepack::Fix.run(package_name: 'nonexistent', target: 'opencode', exit_on_failure: false)
-    end
-
-    assert_match(/not registered as installed/i, error.message)
+  def test_run_returns_failure_for_unknown_package
+    result = Rulepack::Fix.run(package_name: 'nonexistent', target: 'opencode')
+    assert result.failure?
+    assert_match(/not registered as installed/i, result.errors.first)
   end
 
-  def test_run_raises_error_when_target_not_specified
-    error = assert_raises(StandardError) do
-      Rulepack::Fix.run(exit_on_failure: false)
-    end
-
-    assert_match(/Please specify target platform/i, error.message)
+  def test_run_returns_failure_when_target_not_specified
+    result = Rulepack::Fix.run
+    assert result.failure?
+    assert_match(/Please specify target platform/i, result.errors.first)
   end
 
   # ─── Orphan Detection and Removal ────────────────────────────────────────────
@@ -114,15 +106,15 @@ class TestFix < Minitest::Test
     orphan_file.write('# Orphan content')
 
     # Mock verify to report orphan
-    verify_result = { drift: 0, orphans: [orphan_file.to_s], ok: 0 }
+    verify_result = Rulepack::Result.new(status: :partial, data: { drift: 0, orphans: [orphan_file.to_s], ok: 0 })
     Rulepack::Fix.stub(:run_verify, verify_result) do
       result = Rulepack::Fix.run(
         target: 'opencode',
-        dry_run: true,
-        exit_on_failure: false
+        dry_run: true
       )
-      
-      refute result, 'dry-run should not apply fixes'
+
+      assert result.success?
+      assert_empty result.data[:orphans_removed], 'dry-run should not apply fixes'
     end
   end
 
@@ -131,16 +123,16 @@ class TestFix < Minitest::Test
     orphan_file.write('# Orphan content')
     assert orphan_file.exist?, 'orphan file should exist before fix'
 
-    verify_result = { drift: 0, orphans: [orphan_file.to_s], ok: 0 }
+    verify_result = Rulepack::Result.new(status: :partial, data: { drift: 0, orphans: [orphan_file.to_s], ok: 0 })
     Rulepack::Fix.stub(:run_verify, verify_result) do
-      Rulepack::Fix.stub(:fix_drift, false) do
+      Rulepack::Fix.stub(:fix_drift, { fixed: [], failed: [] }) do
         result = Rulepack::Fix.run(
           target: 'opencode',
-          auto: true,
-          exit_on_failure: false
+          auto: true
         )
-        
-        assert result, 'auto mode should apply fixes'
+
+        assert result.success?
+        assert_includes result.data[:orphans_removed], orphan_file.to_s
         refute orphan_file.exist?, 'orphan file should be removed'
       end
     end
@@ -151,16 +143,16 @@ class TestFix < Minitest::Test
     orphan_file.write('# Orphan content')
     assert orphan_file.exist?, 'orphan file should exist'
 
-    verify_result = { drift: 0, orphans: [orphan_file.to_s], ok: 0 }
+    verify_result = Rulepack::Result.new(status: :partial, data: { drift: 0, orphans: [orphan_file.to_s], ok: 0 })
     Rulepack::Fix.stub(:run_verify, verify_result) do
-      Rulepack::Fix.stub(:fix_drift, false) do
+      Rulepack::Fix.stub(:fix_drift, { fixed: [], failed: [] }) do
         result = Rulepack::Fix.run(
           target: 'opencode',
-          auto: false,
-          exit_on_failure: false
+          auto: false
         )
-        
-        refute result, 'non-auto mode should skip orphan removal'
+
+        assert result.success?
+        assert_empty result.data[:orphans_removed]
         assert orphan_file.exist?, 'orphan file should not be removed without --auto'
       end
     end
@@ -174,16 +166,16 @@ class TestFix < Minitest::Test
     index[:packages][:'test-pkg'][:installed][0][:checksum] = 'wrongchecksum'
     (@install_dir / 'index.yaml').write(index.to_yaml)
 
-    verify_result = { drift: 1, orphans: [], ok: 0 }
+    verify_result = Rulepack::Result.new(status: :partial, data: { drift: 1, orphans: [], ok: 0 })
     Rulepack::Fix.stub(:run_verify, verify_result) do
       result = Rulepack::Fix.run(
         target: 'opencode',
-        dry_run: true,
-        exit_on_failure: false
+        dry_run: true
       )
-      
-      refute result, 'dry-run should not apply fixes'
-      
+
+      assert result.success?
+      assert_empty result.data[:fixed], 'dry-run should not apply fixes'
+
       # Index should remain unchanged
       index_after = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
       assert_equal 'wrongchecksum', index_after[:packages][:'test-pkg'][:installed][0][:checksum]
@@ -194,9 +186,9 @@ class TestFix < Minitest::Test
     # Remove the installed file to simulate breakage
     # (In real scenario, file would be in ~/.config/opencode/rules/test-rule.md)
     # We'll mock this by modifying the index to reference a non-existent path
-    
+
     index = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
-    
+
     # Stub resolve_install_path to return non-existent path
     broken_path = Pathname.new('/nonexistent/test-rule.md')
     Rulepack::Fix.stub(:resolve_install_path, broken_path) do
@@ -206,7 +198,7 @@ class TestFix < Minitest::Test
         nil,
         index
       )
-      
+
       assert_equal ['test-pkg'], broken, 'should detect missing file as broken'
     end
   end
@@ -217,7 +209,7 @@ class TestFix < Minitest::Test
     (@install_dir / 'index.yaml').write(index.to_yaml)
 
     broken = Rulepack::Fix.find_broken_packages('opencode', nil, nil, index)
-    
+
     assert_empty broken, 'should return empty when no installed records'
   end
 
@@ -246,33 +238,33 @@ class TestFix < Minitest::Test
 
     # Both should be detected as broken (good-pkg has valid checksum but file doesn't exist, bad-pkg has wrong checksum)
     broken = Rulepack::Fix.find_broken_packages('opencode', nil, nil, index)
-    
+
     # At least bad-pkg should be detected as broken (file doesn't exist or checksum mismatch)
     assert_includes broken, 'bad-pkg', 'should detect broken package'
   end
 
-  # ─── Clear Installed Record ───────────────────────────────────────────────────
+  # ─── Clear Installed Record ─────────────────────────────────────────────────
 
   def test_clear_installed_record_removes_platform_entry
     index = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
     assert index[:packages][:'test-pkg'][:installed].length == 1, 'should have one installed record'
-    
+
     Rulepack::Fix.clear_installed_record(index, 'test-pkg', 'opencode')
-    
+
     assert_empty index[:packages][:'test-pkg'][:installed], 'should clear installed records for platform'
   end
 
   def test_clear_installed_record_handles_missing_package
     index = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
-    
+
     # Should not raise error
     Rulepack::Fix.clear_installed_record(index, 'nonexistent', 'opencode')
-    
+
     # Original package should remain unchanged
     assert index[:packages][:'test-pkg'][:installed].length == 1
   end
 
-  # ─── Platform with No Installed Packages ──────────────────────────────────────
+  # ─── Platform with No Installed Packages ─────────────────────────────────────
 
   def test_fix_platform_with_no_installed_packages
     index = {
@@ -281,27 +273,24 @@ class TestFix < Minitest::Test
     }
     (@install_dir / 'index.yaml').write(index.to_yaml)
 
-    verify_result = { drift: 0, orphans: [], ok: 0 }
+    verify_result = Rulepack::Result.new(status: :success, data: { drift: 0, orphans: [], ok: 0 })
     Rulepack::Fix.stub(:run_verify, verify_result) do
-      result = Rulepack::Fix.run(
-        target: 'opencode',
-        exit_on_failure: false
-      )
-      
-      refute result, 'should return false when nothing to fix'
+      result = Rulepack::Fix.run(target: 'opencode')
+
+      assert result.success?
+      assert_empty result.data[:fixed]
+      assert_empty result.data[:orphans_removed]
     end
   end
 
   # ─── Build Artifacts Missing ─────────────────────────────────────────────────
 
-  def test_fix_skips_when_build_artifacts_missing
+  def test_fix_returns_failure_when_build_artifacts_missing
     # Delete build index
     (@build_dir / 'index.yaml').delete
 
-    error = assert_raises(StandardError) do
-      Rulepack::Fix.run(target: 'opencode', exit_on_failure: false)
-    end
-
-    assert_match(/Build index not found/i, error.message)
+    result = Rulepack::Fix.run(target: 'opencode')
+    assert result.failure?
+    assert_match(/Build index not found/i, result.errors.first)
   end
 end

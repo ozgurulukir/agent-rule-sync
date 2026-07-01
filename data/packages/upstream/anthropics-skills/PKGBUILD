@@ -1,0 +1,36 @@
+---
+pkgname: anthropics-skills
+pkgver: '2026.05'
+pkgrel: 1
+epoch: 0
+pkgdesc: Official Anthropic skills collection — 17 skills including MCP builder, webapp testing, document creation, and Claude API integration
+arch: any
+pkg_type: skill
+order: 20
+
+source:
+- type: git
+  url: https://github.com/anthropics/skills.git
+  ref: main
+  path: skills/
+  depth: 1
+
+pkgver_func: "git log -1 --format=%cd --date=short 2>/dev/null | tr -d '-' || date +%Y.%m.%d"
+
+provides:
+  - mcp-builder
+  - webapp-testing
+  - claude-api
+  - document-processing
+  - frontend-design
+
+tags:
+  - anthropic
+  - claude
+  - mcp
+  - webapp-testing
+  - documents
+  - skills
+
+maintainer: Anthropic
+license: Apache-2.0

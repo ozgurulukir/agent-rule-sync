@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'set'
+require 'timeout'
 
 module Rulepack
   module TuiSelector
@@ -29,21 +30,22 @@ module Rulepack
     end
 
     # Interactive sub-skill selection menu (pacman-style premium TUI)
-    # Returns array of selected sub-skills, or nil to skip
+    # Returns array of selected sub-skills, or nil when the user cancels.
     def prompt_sub_skill_selection(sub_skills, pkgname)
       return sub_skills unless $stdin.isatty && !ENV['RULEPACK_TEST']
- 
+
       # Selected indices (0-indexed). Default: all selected.
       selected_indices = Set.new((0...sub_skills.size).to_a)
       cursor_index = 0
       start_index = 0
       page_size = 10
- 
+      confirmed = false
+
       # ANSI escape sequences
       cls_line = "\e[K"
       cursor_hide = "\e[?25l"
       cursor_show = "\e[?25h"
- 
+
       puts "\n"
       puts "\e[38;5;99m┌──────────────────────────────────────────────────────────┐\e[0m"
       puts "\e[38;5;99m│\e[0m  \e[1mRulepack Interactive Selector:\e[0m \e[36m#{pkgname.to_s.ljust(25)}\e[0m \e[38;5;99m│\e[0m"
@@ -51,12 +53,12 @@ module Rulepack
       puts "  \e[90mUse \e[37m[↑/↓] (or j/k)\e[90m to Navigate, \e[37m[Space]\e[90m to Toggle, \e[37m[Enter]\e[90m to Confirm\e[0m"
       puts "  \e[90mPress \e[37m[a]\e[90m for All, \e[37m[n]\e[90m for None, \e[37m[i]\e[90m to Invert, \e[37m[q]\e[90m to Quit\e[0m"
       puts ""
- 
+
       $stdout.write(cursor_hide)
 
       begin
         timeout_duration = 120
-        Timeout.timeout(timeout_duration, TimeoutError, "TUI selection timed out after #{timeout_duration}s") do
+        Timeout.timeout(timeout_duration, Timeout::Error, "TUI selection timed out after #{timeout_duration}s") do
           loop do
             total = sub_skills.size
             effective_page_size = [page_size, total].min
@@ -120,10 +122,10 @@ module Rulepack
               all_indices = Set.new((0...sub_skills.size).to_a)
               selected_indices = all_indices - selected_indices
             when "\r", "\n" # Enter
+              confirmed = true
               break
             when "q", "\e", "\u0003" # Quit/ESC/Ctrl-C
-              # Default to all if cancelled
-              selected_indices = Set.new((0...sub_skills.size).to_a)
+              confirmed = false
               break
             end
 
@@ -134,8 +136,18 @@ module Rulepack
       ensure
         $stdout.write(cursor_show)
       end
- 
+
+      unless confirmed
+        puts "\n  \e[33m⚠ Sub-skill selection cancelled; nothing will be installed.\e[0m\n\n"
+        return nil
+      end
+
       selected = selected_indices.map { |i| sub_skills[i] }
+      if selected.empty?
+        puts "\n  \e[33m⚠ No sub-skills selected; nothing will be installed.\e[0m\n\n"
+        return nil
+      end
+
       puts "\n  \e[32m✓ Selected #{selected.size} sub-skill(s) to install.\e[0m\n\n"
       selected
     end

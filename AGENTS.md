@@ -4,28 +4,31 @@
 
 ---
 
-## 📖 Project Overview
+## Project Overview
 
-This repository implements a **Single Source of Truth (SSOT)** management system for agent rules, skills, and documentation using a **declarative, package-based architecture** inspired by Arch Linux's `pacman` and `makepkg` package ecosystem.
+Rulepack is a declarative package manager for agent rules, skills, and agent definitions. It is inspired by Arch Linux's `pacman`/`makepkg` workflow:
 
-Each rule or skill exists as a package with a declarative descriptor (`PKGBUILD`). The system downloads, validates, translates, transforms, and installs files into target agent platforms using a robust transaction, drift-verification, and repair pipeline.
+- Packages are declared as YAML `PKGBUILD` descriptors under `data/packages/`.
+- `bin/rulepack build` fetches sources, validates SHA256 checksums, runs a 4-stage pipeline, and writes target artifacts under `build/`.
+- `bin/rulepack install` deploys to agent platform directories and records state in `data/index.yaml`.
+- `bin/rulepack verify` / `fix` detect and repair drift.
 
-**Core Purpose**: Maintain a single, canonical repository of agent instructions. Automatically propagate updates, convert formats on the fly, protect files against collision, and continuously reconcile the installed state on all local coding agents.
-
----
-
-## 🗺️ Quick Links — Developer Docs
-
-- **[Architecture](docs/agents/ARCHITECTURE.md)** — Core design patterns, pipeline flow, and data storage.
-- **[Platforms](docs/agents/PLATFORMS.md)** — Registry of all 14 supported coding agents and platform constraints.
-- **[Reference](docs/agents/REFERENCE.md)** — YAML PKGBUILD grammar, custom transformer API, and index schemas.
-- **[Transforms](docs/agents/TRANSFORMS.md)** — Mechanics of built-in translation layers and custom translators.
-- **[Upstream](docs/agents/UPSTREAM.md)** — Management of third-party git/url dependencies and version bumps.
-- **[Usage](docs/agents/USAGE.md)** — Command-line interface references, arguments, and return codes.
+Core purpose: maintain one canonical source of agent instructions and propagate updates safely across local coding agents.
 
 ---
 
-## 📐 Architecture & Pipeline Flow
+## Developer Docs
+
+- **[Architecture](docs/agents/ARCHITECTURE.md)** — pipeline flow, transaction safety, data stores.
+- **[Platforms](docs/agents/PLATFORMS.md)** — supported agents, scopes, install paths.
+- **[Reference](docs/agents/REFERENCE.md)** — full PKGBUILD grammar and validation rules.
+- **[Transforms](docs/agents/TRANSFORMS.md)** — translators, Schema Engine, custom transformers.
+- **[Upstream](docs/agents/UPSTREAM.md)** — git/url dependencies and version bumps.
+- **[Usage](docs/agents/USAGE.md)** — CLI arguments, return codes, environment variables.
+
+---
+
+## Architecture & Pipeline Flow
 
 ```mermaid
 graph TD
@@ -37,242 +40,192 @@ graph TD
 
     subgraph BLD [Build Pipeline: BuildPipeline.run]
         F[Fetch Sources & Verify SHA256] --> C[Build Cache]
-        C --> SE[Centralized Dynamic Schema Engine: SchemaEngine.apply]
+        C --> SE[SchemaEngine.apply]
         SE --> W[Write Target-Specific Artifacts]
     end
 
     subgraph AGG [Skill Aggregator: Aggregate.run]
-        SA[Collect rules & skills] --> CA[Concatenate into single skill file per platform using build/index.yaml]
+        SA[Collect rules & skills] --> CA[Concatenate per platform using build/index.yaml]
     end
 
-    subgraph INST [Package Manager: Install/Installer]
-        CMS[Collision Management System CMS] --> INS[Install: symlink, copy, inject, append]
-        INS --> IDX[Update Master Installed Index: data/index.yaml]
+    subgraph INST [Installer]
+        CMS[Collision Management] --> INS[Symlink / Copy / Inject / Append]
+        INS --> IDX[Update data/index.yaml]
     end
 
     PKG --> BLD
-    BLD -->|Intermediate Build Artifacts| AGG
-    AGG -->|Combined Agent Skills| INST
+    BLD -->|Intermediate Artifacts| AGG
+    AGG -->|Combined Skills| INST
 ```
 
-### Key Lifecycle Phases (Fully Modularized)
+### Lifecycle Phases
 
-1. **Build (`Rulepack::Build` & `Rulepack::BuildPipeline`)**: Loads YAML descriptors from `data/packages/`. Downloads and caches remote assets (URL/git) inside a content-addressed directory, verifying integrity via SHA256. Executes a 4-stage sequential build pipeline (Fetch → Auto-derive Translator → Dynamic Schema Engine → Transformer), writing target-specific outputs under `build/`, and saving target metadata to the build index (`build/index.yaml`). Formatting concerns are centrally derived and executed by the Dynamic Schema Engine.
-2. **Aggregate (`Rulepack::Aggregate`)**: Merges multiple rule fragments and common skills into single-file "skills" for platforms like Crush, Goose, Codex, and Droid, reading platform-specific target configurations from `build/index.yaml` and storing results under `build/<agent>/skills/vendor/`.
-3. **Install (`Rulepack::Installer`)**: Installs rules to active platform directories using symlinks, direct copies, config injections, or marker-based boundaries. Supports transaction safety via automatic backup generation and strict collision strategies. Updates the local installed database (`data/index.yaml`).
-4. **Uninstall (`Rulepack::Uninstaller`)**: Performs surgical, marker-aware uninstallation to restore files to their pre-installation state, gracefully removing lines or files and updating the database state.
-5. **Verify & Fix (`Rulepack::Verify` & `Rulepack::Fix`)**: Runs live reconciliation of the filesystem against the master database, flagging modified, deleted, or missing package assets, and providing automatic drift repair.
-
----
-
-## 🧱 Modular Architecture & Code Quality
-
-To maintain optimal code health and prevent god-object clutter, the installer and E2E scripts are partitioned into highly specialized modules under [lib/rulepack/](lib/rulepack/) (38 .rb files across main and lib subdirectories):
-
-### Facade Pattern — `common.rb` → Submodule Delegation
-
-`common.rb` is a thin facade (70 LOC). It exposes no business logic of its own — instead it uses `Module#methods(false)` to enumerate each submodule's public API and re-exports it via `define_singleton_method` loops:
-
-```ruby
-Logging.methods(false).each { |m| define_singleton_method(m, &Logging.method(m)) }
-IO.methods(false).each { |m| define_singleton_method(m, &IO.method(m)) }
-# ... Validation, Path, InstallHelpers
-```
-
-This guarantees **100% backward compatibility**: all `Rulepack::Common.xxx` call sites continue to work transparently, while the real implementation lives in the submodule. The submodules were extracted incrementally in 7 phases (Phases 1–7), each verified by the full test suite.
-
-### God Object Decomposition
-*   **[transaction.rb](lib/rulepack/lib/transaction.rb)**: Manages atomic transaction logs, backups, and safe directory rollbacks.
-*   **[install_handlers.rb](lib/rulepack/lib/install_handlers.rb)**: Coordinates low-level copy, symlink, and injection/append routines (marker-aware splicing).
-*   **[skill_bundle.rb](lib/rulepack/lib/skill_bundle.rb)**: Resolves complex directory skill-bundles, selectively caching sub-skills and parsing manifests.
-*   **[tui_selector.rb](lib/rulepack/lib/tui_selector.rb)**: Handles terminal keyboard inputs, formatted menu draws, and multi-selection prompts.
-*   **[build_loader.rb](lib/rulepack/build_loader.rb)**: Discovers, loads, and validates all PKGBUILD descriptors; initialises pkg_index.
-*   **[build_per_pkg.rb](lib/rulepack/build_per_pkg.rb)**: Per-package transformation loop (source fetch → per-target pipeline → checksum recording).
-*   **[build_writer.rb](lib/rulepack/build_writer.rb)**: Writes `build/index.yaml` (build index) and `build/catalog.json`.
-*   **[schema_migration.rb](lib/rulepack/schema_migration.rb)**: `data/index.yaml` version-migration framework. Migrates legacy index schemas to `CURRENT_VERSION = 3.0` using an idempotent while-loop with named migrator methods (`migrate_1_to_2!`, `migrate_2_to_3!`). Called automatically from `Installer.load_master_index`.
-*   **[build_pipeline.rb](lib/rulepack/build_pipeline.rb)**: Orchestrates sequential build stage progression (:fetch → :translate → :schema_engine → :transform) and stage-transition validations.
-*   **[schema_engine.rb](lib/rulepack/schema_engine.rb)**: Centralized Dynamic Schema Engine that normalizes document structure (YAML frontmatter, emoji policies, ATX heading style, dash bullets) using platform mappings.
-*   **[cache.rb](lib/rulepack/cache.rb)**: Build cache helper — reads `Rulepack::Config.cache_max_size_mb` (default `0` = disabled). When a positive limit is set, `enforce_cache_limit!` evicts least-recently-used entries (oldest directory mtime) after every `cache_source` write, keeping total cache under the configured MB threshold.
-
-### Programmatic Modules (Call-Aware)
-All procedural pipeline components (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`) are wrapped inside namespaces (e.g. `Rulepack::Build`). `build.rb` itself is a slim orchestrator (~100 LOC) that delegates to three extracted modules: `BuildLoader` (PKGBUILD discovery and validation), `BuildPerPkg` (per-package transformation loop), and `BuildWriter` (build index + catalog generation). They use caller-aware runner hooks at their bottom margins, allowing them to run programmatically when required, or as standalone executables from the CLI without side effects.
-
-### Command Line Parsing Unification
-*   **[cli_parser.rb](lib/rulepack/cli_parser.rb)**: Implements `Rulepack::CliParser`, unifying `ARGV` parsing, pacman flag conversions (`-S`, `-R`, `-Qk`, `-F`), selective configurations, and project scopes under a single robust interface.
-*   **[query.rb](lib/rulepack/query.rb)**: Refactored to use a frozen `COMMANDS` dispatch table (command string → `:cmd_method` symbol) of 10 commands + 10 aliases. `run` delegates via `send()`. Shared helpers renamed with `_impl` suffix to prevent dispatch collision; 10 backward-compat aliases (`list_packages`, `list_platforms`, `installed`, `show`, `search`, `check`, `orphans`, `depends`, `provides`, `show_provides`) preserved for tests and external callers.
+1. **Build** — `Rulepack::Build` loads descriptors, fetches sources, runs the pipeline (`:fetch` → `:translate` → `:schema_engine` → `:transform`), and writes `build/index.yaml`.
+2. **Aggregate** — `Rulepack::Aggregate` merges fragments into single skill files for platforms that need them (Crush, Goose, Codex, Droid, etc.).
+3. **Install** — `Rulepack::Installer` deploys artifacts via symlink, copy, inject, or append, updating the master index.
+4. **Uninstall** — `Rulepack::Uninstaller` removes packages with marker-aware splicing for injected content.
+5. **Verify & Fix** — `Rulepack::Verify` checks disk state against the index; `Rulepack::Fix` restores drifted or missing files.
 
 ---
 
-## 🛠️ Pacman & makepkg Mimicry: Assessment of Success
+## Modular Architecture
 
-Our core architectural blueprint is to **mimic the declarative simplicity and extreme robustness of Arch Linux's packaging ecosystem (`pacman` and `makepkg`)**.
+The implementation is split across ~40 Ruby files under `lib/rulepack/`. Key modules:
 
-Below is an objective assessment of our mimicry model, highlighting exact parallels, successes, and future opportunities:
+- `common.rb` — thin facade that re-exports submodule APIs for backward compatibility.
+- `encoding_defaults.rb` — sets `Encoding.default_external = UTF-8` early for all entry points and tests.
+- `build_loader.rb`, `build_per_pkg.rb`, `build_writer.rb`, `build_pipeline.rb` — build orchestration.
+- `schema_engine.rb` — normalizes frontmatter, emoji, headings, and bullets per platform schema.
+- `schema_migration.rb` — migrates legacy `data/index.yaml` schemas to the current version.
+- `install_handlers.rb`, `install_execute.rb`, `transaction.rb` — install logic, marker splicing, backups.
+- `skill_bundle.rb` — resolves directory-based skill bundles.
+- `cache.rb` — content-addressed source cache with optional size limit.
+- `cli_parser.rb`, `query.rb` — unified command-line parsing and query dispatch.
+- `io.rb` — shared file utilities including `read_text` / `read_binary` helpers.
+- `result.rb` — structured `Rulepack::Result` object returned by backend operations.
+- `reporter.rb` — renders results as text, JSON, or YAML.
+- `platform_scanner.rb` — discovers rulepack-managed and manually installed items on disk.
 
-| Arch Linux Model | Rulepack Parallel | Assessment & Success Rate | Mechanics |
-| :--- | :--- | :--- | :--- |
-| **PKGBUILD (Bash Script)** | **`PKGBUILD` (YAML Descriptor)** | **9/10 (High)** | Arch uses shell scripts, which are flexible but insecure. We successfully adapted this into a safe, parser-friendly YAML schema while retaining exact metadata conventions (`pkgname`, `pkgver`, `pkgrel`, `epoch`, `order`, `arch`). |
-| **`makepkg` (Build Tool)** | **`Rulepack::Build` (Build Engine)** | **9.5/10 (Extremely High)** | It fetches source archives (type `git`, `url`, `local`), validates SHA256 check-sums, uses a local content-addressed source cache, compiles files into target formats via the 4-stage build pipeline, and records an intermediate compilation manifest (`build/index.yaml`). |
-| **`pacman -S` (Install)** | **`Rulepack::Installer` (Package Manager)** | **10/10 (Perfect)** | Injects rule files to paths, creates symlinks, and maintains an atomic master database (`data/index.yaml`). Enforces zero-assumptions target resolution, exact package matching, and supports pacman `-S` flag. |
-| **`pacman -R` (Uninstall)** | **`Rulepack::Uninstaller` (Surgical Removal)** | **10/10 (Perfect)** | Recursively uninstalls platform rules, handles dependencies (virtual `provides`), performs marker-aware clean file-splicing, enforces Tam Eşleşme (Exact Match), and supports pacman `-R` flag. |
-| **`pacman -Qk` (Verify)** | **`Rulepack::Verify` (Drift CMS)** | **10/10 (Perfect)** | Performs full SHA256 integrity audits on installed rule/skill files. Enforces strict parameters, exact package names, and supports pacman `-Qk` flag. |
-| **`pacman -F` (Fix)** | **`Rulepack::Fix` (Self-Healing)** | **10/10 (Perfect)** | Automatically identifies deleted, altered, or corrupted assets on disk, offering a self-healing `fix` command to repair the installation using exact targets and pacman `-F` flag. |
-| **`libalpm` Versioning** | **`vercmp` algorithm (Ruby)** | **10/10 (Perfect)** | Fully implements Arch Linux's strict `epoch:pkgver-pkgrel` vercmp specifications, handling alphanumeric release suffixes, decimal segment comparisons, and epoch priority overrides. |
-
-### Major Strengths of Our Mimicry
-* **No External Dependencies**: Built strictly using Ruby's core standard library. Run it on any environment without gem bloat.
-* **Surgical State Integrity**: Traditional package managers replace whole files. We adapted the concept to handle *live text files*, meaning we can surgically install rules into a shared `cli_config.yaml` or `.bashrc` using marker comments (`<!-- rulepack:<pkgname> start -->`, `<!-- rulepack:<pkgname> end -->`) and roll them back flawlessly.
-* **Self-Healing Architecture**: We don't just hope the packages remain in place. Running `bin/rulepack verify --target <platform>` detects if the user accidentally edited or deleted a symlinked/copied rule, and `bin/rulepack fix --target <platform>` automatically restores it from compilation cache.
+Procedural entry points (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`) are namespaced and include caller-aware runner hooks so they can be used programmatically or as CLI scripts without side effects.
 
 ---
 
-## 🛠️ CLI Command Reference
-
-Rulepack commands are wrapped inside `bin/rulepack` for convenience. Under the hood, they map to highly optimized Ruby libraries. Enforces **Zero Assumptions**—all platforms and required configurations must be explicitly defined, with no magic guessing.
+## CLI Command Reference
 
 ```bash
-# Compilation & Packaging
-bin/rulepack build                                  # Compiles all packages to build/
-bin/rulepack build --timing                         # Compiles with execution step timing
+# Build
+bin/rulepack build
+bin/rulepack build --timing
 
-# Upstream Version Tracking (makepkg-style)
-bin/rulepack bump [pkg]                             # Check upstream for new versions
-bin/rulepack bump --apply [pkg]                     # Auto-update pkgver + rebuild
+# Upstream version tracking
+bin/rulepack bump [pkg]
+bin/rulepack bump --apply [pkg]
 
-# Platform Deployment (Install / pacman -S option)
-bin/rulepack install [pkg] --target <plat|all>     # Installs package(s) to target platform(s)
-bin/rulepack install [pkg] -t <plat|all> --select <names> # Non-interactive: install specific sub-skills
-bin/rulepack install [pkg] -t <plat|all> --dry-run  # Previews file and symlink actions
-bin/rulepack install [pkg] -t <plat|all> --force    # Overrides collision and install checks
-bin/rulepack install -S [pkg] -t <plat|all>         # pacman -S flag option equivalent
+# Install / uninstall
+bin/rulepack install [pkg] -t <plat|all>
+bin/rulepack install [pkg] -t <plat|all> --dry-run --force --select <names>
+bin/rulepack install -S [pkg] -t <plat|all>          # pacman-style alias
 
-# Collision Management (Install option)
-bin/rulepack install -t <plat> --on-collision stop       # (Default) Halts and reports collision
-bin/rulepack install -t <plat> --on-collision ignore     # Skips conflicting files and continues
-bin/rulepack install -t <plat> --on-collision overwrite  # Replaces files, generating a surgical backup
-bin/rulepack install -t <plat> --on-collision append     # Appends rules using marker boundary blocks
+bin/rulepack uninstall [pkg] -t <plat|all>
+bin/rulepack uninstall [pkg] -t <plat|all> --dry-run
+bin/rulepack uninstall -R [pkg] -t <plat|all>        # pacman-style alias
 
-# Rules Installation Mode (Install option)
-bin/rulepack install -t opencode --rules-to rules_dir    # (Default) Symlinks/copies rules to rules/ directory
-bin/rulepack install -t opencode --rules-to rules_file   # Appends rules into platform's rules_file (e.g. AGENTS.md)
+# Collision strategies
+bin/rulepack install -t <plat> --on-collision stop|ignore|overwrite|append
 
-# Maintenance & Reconciliation (verify / pacman -Qk & fix / pacman -F)
-bin/rulepack verify [pkg] --target <plat|all>       # Performs live disk integrity and drift audit
-bin/rulepack verify -Qk [pkg] -t <plat|all>        # pacman -Qk flag option equivalent
+# Rules installation mode
+bin/rulepack install -t opencode --rules-to rules_dir   # default
+bin/rulepack install -t opencode --rules-to rules_file  # append to platform rules file
 
-bin/rulepack fix [pkg] --target <plat|all> [--auto] # Automatically repairs and reinstalls drifted files
-bin/rulepack fix -F [pkg] -t <plat|all> [--auto]    # pacman -F flag option equivalent
+# Drift detection and repair
+bin/rulepack verify [pkg] -t <plat|all>
+bin/rulepack verify -Qk [pkg] -t <plat|all>          # pacman-style alias
+bin/rulepack fix [pkg] -t <plat|all> [--auto]
+bin/rulepack fix -F [pkg] -t <plat|all> [--auto]     # pacman-style alias
+bin/rulepack outdated -t <plat|all> [--format json|yaml]
 
-bin/rulepack audit [--strict] [--target PLAT]       # Audits declarative package descriptors & validation schemas
-bin/rulepack audit --format json                    # Machine-readable JSON output
+# Audit / query
+bin/rulepack audit [--strict] [--target PLAT] [--format json]
+bin/rulepack query show <pkgname>
+bin/rulepack query search <term>
+bin/rulepack search <tag>
 
-# De-registration (Uninstall / pacman -R)
-bin/rulepack uninstall [pkg] --target <plat|all>    # Surgically removes rule fragments and restores state
-bin/rulepack uninstall [pkg] -t <plat|all> --dry-run # Preview exact line-diff before removal (marker-aware)
-bin/rulepack uninstall -R [pkg] -t <plat|all>       # pacman -R flag option equivalent
-
-# Git Hook Integration
-bin/rulepack init-hooks                             # Installs pre-commit hook: enforces `bin/rulepack audit --strict`
-
-# Metadata Querying (query)
-bin/rulepack query show <pkgname>                   # Show package details
-bin/rulepack query search <search_term>             # Search package descriptors and variables
-bin/rulepack search <tag>                           # Quick search by tag or term
+# Git hook
+bin/rulepack init-hooks                              # installs pre-commit audit hook
 ```
 
 ---
 
-## 📁 Package Scope & Path Resolution Rules
+## Backend API
 
-Installation paths resolve dynamically based on **Scope** (defined in `data/registry/platforms.yaml`):
+Backend modules now return `Rulepack::Result` objects instead of printing directly. The CLI renders results via `Rulepack::Reporter`.
 
-### 1. User-Scoped Platforms (Global)
-* **Scope**: `user`
-* **Behavior**: Installed globally in the user's home folder.
-* **Resolution**: Uses the home folder base path (e.g. `~/.config/gemini/`).
-* **Defaults**: Running `bin/rulepack install --target all` (or `-S -t all`) will **automatically detect and install to all supported, globally installed user-scoped platforms** on the current system, giving you an instantaneous, zero-configuration sync.
+```ruby
+# Query installed packages and manual/orphan items for a platform
+result = Rulepack::Query.installed('opencode')
+result.data[:items]
+# => [{ name: 'memory', source: :rulepack, status: :ok, type: :rule, path: ... },
+#     { name: 'my-skill', source: :manual, status: :orphan, type: :skill, path: ... }]
 
-### 2. Project-Scoped Platforms (Local)
-* **Scope**: `project`
-* **Behavior**: Installed inside the active project directory.
-* **Resolution**: Enforces `--project <path>` (or `-p <path>`) parameter explicitly. No default guess work.
-* **Fallback**: If a project-scoped platform is run without `--project`, Rulepack immediately raises a StandardError and aborts execution, completely preventing home folder leakage or repository pollution.
+# Structured verify data
+result = Rulepack::Verify.check(target: 'opencode')
+result.data[:ok]      # number of packages OK
+result.data[:drift]   # number of drifted packages
+result.data[:orphans] # number of manual/orphan items
+result.data[:platforms].first[:items] # per-package/per-item details
+
+# Render in JSON or YAML
+Rulepack::Reporter.print(result, format: :json)
+```
+
+CLI commands that support `--format json` / `--format yaml`:
+
+- `bin/rulepack query ... --format json`
+- `bin/rulepack verify ... --format json`
+- `bin/rulepack build ... --format json`
+- `bin/rulepack install ... --format json`
+- `bin/rulepack fix ... --format json`
+- `bin/rulepack uninstall ... --format json`
+
+All backend modules return `Rulepack::Result`:
+
+| Module | Data shape |
+|---|---|
+| `Rulepack::Query.installed` | `{ platform_id, base_path, items: [...] }` |
+| `Rulepack::Verify.check` | `{ ok, drift, orphans, platforms: [...] }` |
+| `Rulepack::Build.run` | `{ packages_built, packages_failed, build_dir, index_path }` |
+| `Rulepack::Install.dispatch` | `{ installed, failed, targets, dry_run }` |
+| `Rulepack::Fix.run` | `{ platforms, fixed, failed, orphans_removed, dry_run }` |
+| `Rulepack::Uninstaller.dispatch` | `{ uninstalled, targets, dry_run }` |
 
 ---
 
-## 📦 Writing a PKGBUILD Descriptor
+## Package Scope & Path Resolution
 
-Create `data/packages/<pkgname>/PKGBUILD` (YAML). Below is the complete, canonical schema.
+Scope is defined in `data/registry/platforms.yaml` and can be overridden via `.rulepack.local.yaml` or `~/.config/rulepack/config.yaml`.
 
-### Package Type (`pkg_type`)
+| Scope | Behavior | Required flag |
+|---|---|---|
+| `user` | Installs under the user's home directory (e.g. `~/.config/gemini/`). | None; `--target all` auto-detects installed user-scoped platforms. |
+| `project` | Installs inside a project directory (e.g. `.cursor/`). | `--project <path>` (or `-p`). Running without it raises an error. |
 
-Every package must declare its type:
+> **Note:** `-p` is reserved for `--project`. Use `--dry-run` for install/uninstall previews.
+
+---
+
+## Writing a PKGBUILD Descriptor
+
+Create `data/packages/<pkgname>/PKGBUILD` (YAML).
+
+Packages can also be organized into namespaces:
+
+- `data/packages/<pkgname>/PKGBUILD` — tracked, shared packages (legacy/flat layout).
+- `data/packages/upstream/<pkgname>/PKGBUILD` — tracked, online-sourced packages (git/url).
+- `data/packages/local/<pkgname>/PKGBUILD` — ignored, personal/local-only packages.
+
+The runtime database (`data/index.yaml`) remains flat; `pkgname` is still the global key. Search precedence is `local` → `upstream` → flat, so a local package overrides a tracked package with the same name. `bin/rulepack audit` discovers all namespaces; `bin/rulepack bump` ignores `local/`.
+
+### Package Types
 
 | `pkg_type` | Description | Examples |
 |---|---|---|
-| `rule` | Pure rule file(s) — agent instructions, constraints, conventions | memory, shell, ast-grep |
-| `skill` | Pure skill file(s) — tool-like capabilities with SKILL.md manifest | vibe-security, antigravity-skills |
-| `hybrid` | Contains both rule and skill content — use multiple targets per platform | (future use) |
-| `agent` | Custom agent definition — installed to platform's agents_dir | ruby-update-signatures |
+| `rule` | Agent instructions / constraints. | memory, shell |
+| `skill` | Tool-like capability with a `SKILL.md` manifest. | vibe-security |
+| `hybrid` | Both rule and skill content; use multiple targets per platform. | — |
+| `agent` | Custom agent definition installed to the platform's `agents_dir`. | ruby-update-signatures |
 
-For **hybrid** packages, declare two targets for the same platform with different `format` values. The build pipeline already supports multiple targets per platform:
+### Important Rules
 
-```yaml
-pkg_type: hybrid
+- `PKGBUILD` must live in the package root, not nested.
+- `source.path` is relative to the package root.
+- If `source.path` ends with `/`, the source is treated as a directory and `format: skill-bundle` is auto-assigned.
+- The `targets:` list is optional. If omitted, the build engine auto-expands to all platforms based on `pkg_type`. Partial entries override only the fields you specify.
+- Do not duplicate platform formatting concerns as manual `transformer` directives. The Schema Engine applies `frontmatter`, `emoji_policy`, `heading_style`, and `bullet_style` from `data/platforms/<agent>.yaml` automatically.
+- Custom `translate:` or `transformer:` directives are only needed for edge cases not covered by auto-derivation.
+- The build engine never rewrites the source `PKGBUILD`. Fetched URL checksums are stored in `build/index.yaml` and mismatches are reported as warnings; update the PKGBUILD `sha256` field manually.
+- Always run `bin/rulepack audit --strict` after editing a PKGBUILD. Use `bin/rulepack install <pkg> -t <plat> --dry-run` to preview deployment.
 
-targets:
-  - platform: opencode
-    format: skill           # → skills/my-skill/SKILL.md (copy)
-    output: SKILL.md
-    install:
-      type: copy
-      target_dir: my-skill/
-  - platform: opencode
-    format: directory       # → rules/my-rule.md (symlink)
-    output: my-skill-rule.md
-    install:
-      type: symlink
-  - platform: cursor
-    format: directory       # → .cursor/rules/my-skill-rule.md (inject)
-    output: my-skill-rule.md
-    install:
-      type: inject
-  - platform: codex
-    format: skill           # → skills/vendor/my-skill/SKILL.md (copy, then aggregate)
-    output: SKILL.md
-    install:
-      type: copy
-      target_dir: skills/vendor/my-skill/
-```
-
-> [!IMPORTANT]
-> **🤖 LLM / AI AGENT INSTRUCTION**: When creating or reviewing a PKGBUILD:
-> 
-> **Step 1 — Read the reference docs first:**
-> - [`docs/agents/REFERENCE.md`](docs/agents/REFERENCE.md) — complete PKGBUILD YAML grammar, all field definitions, validation rules, and the `pkg_type` / `format` / `install.type` taxonomy
-> - [`docs/agents/PLATFORMS.md`](docs/agents/PLATFORMS.md) — canonical list of all 14 platforms, their scope (`user`/`project`), expected formats, and install paths
-> - [`docs/agents/TRANSFORMS.md`](docs/agents/TRANSFORMS.md) — when a custom translator is needed vs. what the SchemaEngine handles automatically
-> 
-> **Step 2 — Read the per-platform schema:**
-> For each target platform, read `data/platforms/<agent>.yaml`. This file defines `frontmatter`, `emoji_policy`, `heading_style`, and `bullet_style` formatting constraints. The build engine applies these automatically through the Schema Engine — **you must NOT duplicate them as manual `transformer` directives** unless the schema does not cover the transformation you need.
-> 
-> **Step 2b — Understand skill-bundle auto-detection:**
-> If `source.path` ends with `/` (e.g., `path: src/` or `path: skills/`), the build engine treats the source as a **directory** and auto-assigns `format: skill-bundle` for all platforms, regardless of `pkg_type`. For single-file sources (e.g., `path: src/rule.md`), format is derived from the `pkg_type` × platform_type matrix. Use this trailing-slash convention when packaging directory-based skill collections (e.g., `antigravity-skills`, `line-repetition-control`).
-> 
-> **Step 3 — Determine target overrides (or skip):**
-> The `targets:` list is **optional**. If omitted, the build engine auto-expands to all 14 platforms using `pkg_type` and platform-specific logic. When present, partial target entries serve as **overrides** to customize `output`, `install.type`, or `agent_config` for specific platforms. Include only the `platform` key and the fields you want to override — **do not duplicate keys inherited from the platform registry** (format, install.type, arch).
-> 
-> **Step 4 — Don't worry about translate/transform:**
-> The build pipeline automatically resolves translators and transformers based on platform type and target format:
-> - `skill` platforms → `rule_to_skill` translator
-> - `import` platforms → `rule_to_import` translator
-> - `agent` format → platform-specific agent translators (cursor, opencode, claude-code)
-> - Schema Engine → frontmatter, emoji, heading, bullet normalization from `data/platforms/<agent>.yaml`
-> 
-> You only need `translate:` or `transformer:` in PKGBUILD for **advanced edge cases** not covered by auto-derive.
-> 
-> **Step 5 — Validate before considering done:**
-> After writing or editing a PKGBUILD, run `bin/rulepack audit --strict` and fix all reported errors before submitting. For full install dry-run, use `bin/rulepack install <pkg> -t <platform> --dry-run` to preview file and symlink actions without modifying disk.
+### Example: Rule Package
 
 ```yaml
 ---
@@ -280,7 +233,7 @@ pkgname: memory-management
 pkgver: '1.2.0'
 pkgrel: 1
 epoch: 0
-pkgdesc: Authoritative system rule governing coding agent memory retention and updates
+pkgdesc: Authoritative system rule for memory retention and updates
 arch: any
 pkg_type: rule
 order: 10
@@ -289,18 +242,10 @@ source:
   - type: local
     path: src/memory.md
 
-# Optional: target overrides for specific platforms
-# If omitted, build auto-expands to all 14 platforms using pkg_type logic
 targets:
   - platform: cursor
     output: 00-memory.md
-  - platform: windsurf
-    output: 00-memory.md
-  - platform: claude-code
-    output: 00-memory.md
   - platform: codex
-    output: memory.md
-  - platform: antigravity
     output: memory.md
 
 tags:
@@ -310,96 +255,19 @@ maintainer: Antigravity AI
 license: MIT
 ```
 
-### Agent Format
+### Example: Agent Package
 
-Agent packages use `format: agent` to install custom agent definitions to the platform's `agents_dir`. Files are copied (not symlinked) because platforms read agent files directly.
+Agent packages use `format: agent` and install to the platform's `agents_dir`. Files are copied, not symlinked.
 
-| Platform | Scope | Install Path | Format Notes |
+| Platform | Scope | Translator | Notes |
 |---|---|---|---|
-| OpenCode | user | `~/.config/opencode/agents/<pkgname>/` | Requires YAML frontmatter (use translator) |
-| Oh My Pi | user | `~/.omp/agents/<pkgname>/` | Plain markdown — auto-discovered |
-| Cursor | project | `.cursor/agents/<pkgname>/` | Requires `agent.json` manifest (use translator + `agent_config`) |
-| Windsurf | project | `.windsurf/agents/<pkgname>/` | Plain markdown — auto-discovered |
-| Claude Code | project | `.claude/agents/<pkgname>/` | Requires section schema (use translator) |
+| `opencode` | user | `agent_to_opencode.rb` | Wraps markdown in YAML frontmatter. |
+| `oh-my-pi` | user | none | Plain markdown, auto-discovered. |
+| `cursor` | project | `agent_to_cursor.rb` | Generates `agent.json` from `agent_config`. |
+| `windsurf` | project | none | Plain markdown, auto-discovered. |
+| `claude-code` | project | `agent_to_claude_code.rb` | Adds Metadata / System Prompt sections. |
 
-Platforms without `agents_dir` in their registry config will skip `format: agent` targets automatically.
-
-```yaml
-pkg_type: agent
-
-targets:
-  - platform: opencode
-    format: agent
-    output: .
-    translate: custom:data/translators/agent_to_opencode.rb
-    install:
-      type: copy
-      target_dir: my-agent/
-  - platform: cursor
-    format: agent
-    output: .
-    translate: custom:data/translators/agent_to_cursor.rb
-    agent_config:
-      model: claude-3.5-sonnet
-      temperature: 0.3
-      triggers:
-        file_patterns: ["*.rb", "*.rbs"]
-    install:
-      type: copy
-      target_dir: my-agent/
-  - platform: crush
-    format: skill-bundle  # fallback: install as skill on non-agent platforms
-```
-
-### Package Directory Structure
-
-A package lives under `data/packages/<pkgname>/` and must contain at minimum:
-
-```
-data/packages/<pkgname>/
-├── PKGBUILD          # Required: YAML descriptor (see schema above)
-├── src/              # Optional: source markdown files
-│   ├── main.md
-│   └── extra.md
-├── data/             # Optional: package-specific fixtures or metadata
-└── translators/      # Optional: custom translator scripts (rare)
-```
-
-**Rules:**
-- `PKGBUILD` must be in the package root — not nested.
-- `source.path` entries are relative to the package root (e.g. `src/main.md`).
-- Multiple source files are merged in declared order.
-- Do **not** place build outputs (`build/`) inside a package directory.
-
----
-
-#### Agent Translators
-
-The build pipeline applies platform-specific translators to agent markdown files during the build stage:
-
-| Translator | Platform | Transformation |
-|---|---|---|
-| `agent_to_opencode.rb` | OpenCode | Wraps prompt in YAML frontmatter (name, description, tags) |
-| `agent_to_cursor.rb` | Cursor | Passes markdown through; `agent.json` manifest generated from `agent_config` |
-| `agent_to_claude_code.rb` | Claude Code | Adds `## Metadata` and `## System Prompt` sections |
-
-Oh My Pi and Windsurf need no translator — plain markdown is auto-discovered by these platforms.
-
-The `agent_config` field in PKGBUILD targets generates the `agent.json` manifest for Cursor. Supported keys: `model`, `temperature`, `triggers` (with `file_patterns`).
-
-#### Sealed Agent Package Starter
-
-Use the matrix below to select the correct `translate` and `agent_config` combination for your target platform. No trial and error — pick the row that matches your platform and copy the target block into your PKGBUILD:
-
-| Platform | Scope | `translate:` | `agent_config:` | `install.target_dir:` |
-|---|---|---|---|---|
-| `opencode` | user | `custom:data/translators/agent_to_opencode.rb` | *(none)* | `my-agent/` |
-| `oh-my-pi` | user | *(none — plain markdown)* | *(none)* | `my-agent/` |
-| `cursor` | project | `custom:data/translators/agent_to_cursor.rb` | `model`, `temperature`, `triggers.file_patterns` | `my-agent/` |
-| `windsurf` | project | *(none — plain markdown)* | *(none)* | `my-agent/` |
-| `claude-code` | project | `custom:data/translators/agent_to_claude_code.rb` | *(none)* | `my-agent/` |
-
-**Copy-paste starter template:**
+Platforms without `agents_dir` skip `format: agent` targets automatically.
 
 ```yaml
 pkg_type: agent
@@ -435,98 +303,46 @@ targets:
       target_dir: my-agent/
 ```
 
-Platforms without `agents_dir` in their registry config will skip `format: agent` targets automatically — no additional guard needed.
+### Package Directory Structure
 
----
-
-## 🧪 Testing & Code Conventions
-
-All contributions must pass the absolute quality threshold before integration:
-
-* **Strict Subprocess Elimination**: We do not spawn subshells. All internal scripts are executed using direct, memory-isolated Ruby `load()` processes, maintaining environment integrity.
-* **Immutable Strings**: Every file must declare `# frozen_string_literal: true` at the top.
-* **Pathname API**: Use the object-oriented `Pathname` class for all file operations—avoid flat string concatenation for directories.
-* **Run Tests**:
-  ```bash
-  rake test
-  ```
-  Ensure all unit, integration, cache, installation, and end-to-end (E2E) verification assertions pass cleanly (305 runs, 923 assertions, 0 failures, 0 errors, 2 skips).
-
----
-
-## ⚙️ New Capabilities & Developer Notes
-
-### Git HTTP Fallback (`lib/rulepack/source.rb`)
-
-When `git` binary is not present on the host or a clone fails, the build engine transparently falls back to GitHub/GitLab tarball URLs:
-
-1. `git_available?` detects the binary at runtime.
-2. `translate_git_to_tarball` rewrites the git URL to the platform's `/archive/refs/heads/<branch>.tar.gz` endpoint.
-3. `extract_tar_gz` unpacks the archive using Ruby's built-in `Zlib` and `Gem::Package::TarReader`—**no shell subprocesses, no external dependencies**.
-
-> [!NOTE]
-> Supports both `github.com` and `gitlab.com` repository URLs. Arbitrary git hosts must use `type: url` with a direct archive link.
-
-### Local Registry Overrides (`lib/rulepack/platform.rb`)
-
-`load_platform_registry` performs a **deep merge** of up to two local override files before validating platform configs:
-
-| Priority | File | Scope |
-|---|---|---|
-| 1 (highest) | `.rulepack.local.yaml` | Per-repository (gitignored) |
-| 2 | `~/.config/rulepack/config.yaml` | User-global |
-| 3 (base) | `data/registry/platforms.yaml` | Canonical SSOT |
-
-Use this to pin custom install paths, override platform scopes, or add local-only platforms without touching the canonical registry.
-
-```yaml
-# .rulepack.local.yaml
-platforms:
-  opencode:
-    base_path: /custom/path/opencode
-```
-
-### Git Hook Integration (`bin/rulepack init-hooks`)
-
-Running `bin/rulepack init-hooks` installs a `.git/hooks/pre-commit` script that automatically runs `bin/rulepack audit --strict` before every commit. This prevents malformed PKGBUILD descriptors from entering the repository.
-
-* **Non-destructive**: Does not overwrite an existing hook—appends to it instead.
-* **Exit-code aware**: The hook exits non-zero on audit failure, blocking the commit.
-
-### Uninstall Dry-Run Diff Preview (`lib/rulepack/uninstaller.rb`)
-
-`bin/rulepack uninstall <pkg> -t <plat> --dry-run` now produces a colored line-level diff for **marker-injected** targets (e.g. `inject`, `append` formats), showing exactly which lines would be removed:
+Shared/tracked packages can live in either the flat layout or the `upstream/` namespace. Personal packages go under `local/` (which is ignored by Git).
 
 ```
-[DRY-RUN] Would remove from /path/to/file:
-  - <!-- rulepack:memory start -->
-  - ## Memory Management\n...
-  - <!-- rulepack:memory end -->
+data/packages/
+├── <pkgname>/                    # Tracked shared package (legacy/flat)
+│   ├── PKGBUILD                  # Required
+│   ├── src/                      # Optional source markdown
+│   ├── data/                     # Optional fixtures / metadata
+│   └── translators/              # Optional custom translators
+├── upstream/<pkgname>/           # Tracked online-sourced package
+│   └── PKGBUILD
+└── local/<pkgname>/              # Personal/local-only package (ignored)
+    └── PKGBUILD
 ```
 
-For symlink and copy targets, the preview reports the file path that would be deleted.
+---
+
+## Testing & Code Conventions
+
+- **Ruby version**: see `.ruby-version`. Use `bundle install` to install the test toolchain (`minitest`, `rake`).
+- **Subprocess elimination**: avoid spawning shells where possible; a small number of legacy subprocess calls (`git`, `tar`, `pkgver_func`) remain and are being phased out.
+- **Immutable strings**: every file must declare `# frozen_string_literal: true`.
+- **Pathname API**: use `Pathname` instead of string concatenation for paths.
+- **Tests**: run `bundle exec rake test`. The suite has 305 tests and ~930 assertions; network-dependent E2E tests are gated behind `NETWORK_E2E`.
 
 ---
 
-### Fix: Agent Drift False-Positive Elimination (`lib/rulepack/fix.rb`)
+## Notable Features
 
-`find_broken_packages` now has an explicit `elsif format_type == 'agent'` branch. Agent records are broken **only** if the `agents_dir` value is defined in the platform registry **and** the target path is missing from disk. Platforms that expose no `agents_dir` (e.g. Crush as a skill-only platform) silently report `false` — not broken — without `next`-ing out of the outer `each` loop. This prevents the upstream `each.with_index` enumerator from silently stopping short of processing all packages.
+- **UTF-8 by default**: `lib/rulepack/encoding_defaults.rb` forces UTF-8 as the default external encoding, preventing "invalid byte sequence in US-ASCII" errors when processing markdown with non-ASCII characters.
+- **Git HTTP fallback**: if `git` is unavailable or a clone fails, the build engine falls back to GitHub/GitLab tarball URLs using Ruby's built-in `Zlib` and `Gem::Package::TarReader` — no shell subprocesses.
+- **Local registry overrides**: `.rulepack.local.yaml` (per-repo) and `~/.config/rulepack/config.yaml` (user-global) are deep-merged on top of `data/registry/platforms.yaml`.
+- **Git hook integration**: `bin/rulepack init-hooks` installs a pre-commit hook that runs `bin/rulepack audit --strict`.
+- **Sub-skill selector**: `bin/rulepack install <skill-bundle> -t <plat> --select` opens an interactive multi-select menu. Press `q` / `Esc` / `Ctrl-C` to cancel without installing; `Enter` confirms the current selection.
+- **Uninstall dry-run diff**: `bin/rulepack uninstall <pkg> -t <plat> --dry-run` shows the exact marker-bounded lines that would be removed from injected targets.
+- **Outdated check**: `bin/rulepack outdated -t <plat>` compares installed package versions with `build/index.yaml` and lists both outdated installs and packages available but not installed.
+- **Agent drift handling**: agent packages are verified by directory existence, not checksums, avoiding false positives on platforms that have no `agents_dir`.
+- **Skill-bundle manifest checksums**: `manifest.json` is generated after the Schema Engine runs so that stored checksums match the installed files and `verify` stays accurate.
+- **Transactional fix**: `bin/rulepack fix` backs up the original index and only commits the cleared state after all reinstalls succeed; on failure it rolls back.
 
-This resolves two interacting bugs:
-1. Pre-fix, the raw `else` branch (same path as rules and skills) called `verify_checksum(installed_path, inst[:checksum])`. For agent records, `inst[:checksum]` held a sha256 of the build path string (set in `install_execute.rb`), while `installed_path` was an agent directory — checksum verification always failed, reporting every agent install as "broken" on every `fix --target` invocation.
-2. The original guard `next unless agents_dir` broke the outer `each.with_index` enumerator, silently skipping all remaining packages after the first agent-format record on an `agents_dir`-less platform.
-
-### Fix: Directory Build Checksum Removed (`lib/rulepack/install_execute.rb`)
-
-When `built_path` is a directory (agent and skill-bundle builds), `content_sha256` is now always set to `nil` instead of `Digest::SHA256.hexdigest(built_path.to_s)`. The prior code hashed the build path string (e.g. `/abs/build/opencode/.`) rather than any file content, producing a deterministic but meaningless value that polluted the install index and fed into the drift false-positive described above. Checksums are only meaningful for single-file artifacts; directory packages are verified by existence in `fix.rb` and `verify.rb`.
-
----
-
-## Code Quality & Security Improvements (2026-05-29)
-
-Full details with claim-verify-act evidence: [`docs/improvement-plan/OPEN-ITEMS.md`](docs/improvement-plan/OPEN-ITEMS.md) — 29 items completed in a single session using Claim-Verify-Act methodology.
-
-Key highlights: `pkgver_func` shell execution fixed (P-J), HTTP redirect handling added (P-K), deprecated `strip-frontmatter` enforced as rejection (P-L), multi-package checksum regex corrected (P-M), symlink extraction skipped for safety (P-N), library functions now `raise ArgumentError` instead of `exit 1` (P-O), dry-run index mutation prevented (P-R), TUI selector has 120s timeout (P-T).
-
-**Test gate**: 305 unit/integration tests — **0 failures, 0 errors** (E2E gated behind `NETWORK_E2E`).
-
+For detailed improvement notes, see [`docs/improvement-plan/OPEN-ITEMS.md`](docs/improvement-plan/OPEN-ITEMS.md).

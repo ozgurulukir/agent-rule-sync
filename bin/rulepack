@@ -9,6 +9,7 @@ require "yaml"
 ROOT = Pathname.new(__dir__).parent.expand_path
 $LOAD_PATH.unshift(ROOT.to_s)
 
+require "lib/rulepack/encoding_defaults"
 require "lib/rulepack/common"
 require "lib/rulepack/query"
 require "lib/rulepack/audit"
@@ -50,6 +51,8 @@ module Rulepack
       end
 
       full_argv = argv
+      options = Rulepack::CliParser.parse(full_argv)
+      format = options[:format] || :text
 
       case command
       when "build"
@@ -63,22 +66,24 @@ module Rulepack
       when "audit"
         Rulepack::Audit.run(argv)
       when "query"
-        Rulepack::Query.run(argv)
+        Rulepack::Query.run(options[:positional] || argv, format: format)
       when "list"
-        Rulepack::Query.run(["list-packages"] + argv)
+        Rulepack::Query.run(["list-packages"] + (options[:positional] || argv), format: format)
       when "show"
-        Rulepack::Query.run(["show"] + argv)
+        Rulepack::Query.run(["show"] + (options[:positional] || argv), format: format)
       when "search"
-        Rulepack::Query.run(["search"] + argv)
+        Rulepack::Query.run(["search"] + (options[:positional] || argv), format: format)
       when "status"
         print_status
         0
       when "check"
-        invoke("lib/rulepack/install.rb", ["--check"] + full_argv)
+        invoke("lib/rulepack/install.rb", ["--check", "--target", options[:target].to_s].compact + (options[:positional] || []))
       when "verify"
         invoke("lib/rulepack/verify.rb", full_argv)
       when "fix"
         invoke("lib/rulepack/fix.rb", full_argv)
+      when "outdated"
+        invoke("lib/rulepack/outdated.rb", full_argv)
       when "catalog"
         catalog_path = ROOT.join("build", "catalog.json")
         unless catalog_path.exist?
@@ -88,7 +93,7 @@ module Rulepack
         puts catalog_path.read
         0
       when "platforms"
-        Rulepack::Query.run(["list-platforms"])
+        Rulepack::Query.run(["list-platforms"], format: format)
       when "bump"
         invoke("lib/rulepack/bump.rb", full_argv)
       when "init-hooks"
@@ -141,6 +146,7 @@ module Rulepack
           audit [options]              Audit all PKGBUILD descriptors for schema compliance
           check <platform>             Verify installed state matches index
           verify [platform]            Comprehensive index vs disk reconciliation
+          outdated [platform]          Show installed packages older than the build
           catalog                      Show package catalog (JSON)
           platforms                    List all platforms
           init-hooks                   Install git pre-commit hook
@@ -152,19 +158,20 @@ module Rulepack
         Install Flags (pacman-style):
           --target PLATFORM            Install single package to specific platform
           --needed                     Skip already-installed packages
-          --dry-run, -p                Preview without changes (pacman -p/--print)
+          --dry-run                    Preview without changes
           --force, -f                  Allow downgrades (pacman -f/--force)
 
         Examples:
           rulepack build && rulepack install opencode
           rulepack install rulepkg --target opencode --needed
-          rulepack install opencode -p              # dry-run preview
+          rulepack install opencode --dry-run       # dry-run preview
           rulepack install --all --needed
           rulepack uninstall opencode
           rulepack status
           rulepack search security
           rulepack verify opencode
           rulepack fix opencode
+          rulepack outdated --target opencode
           rulepack audit --strict
       HELP
     end

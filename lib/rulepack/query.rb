@@ -6,10 +6,12 @@
 # Can be used as script: ruby lib/rulepack/query.rb <command>
 # Or as module: require "lib/rulepack/query"; Rulepack::Query.run(["list-packages"])
 
+require_relative 'encoding_defaults'
 require 'yaml'
 require 'json'
 require 'pathname'
 require_relative 'common'
+require_relative 'install_plan'
 
 module Rulepack
   module Query
@@ -17,90 +19,269 @@ module Rulepack
 
     # ─── Entry point ───────────────────────────────────────────────────────────────
 
-    def run(argv = ARGV)
+    def run(argv = ARGV, format: :text)
       argv = argv.dup
       argv.shift if argv.first == '-Q'
       command = argv.shift || 'help'
 
+      result = dispatch(command, argv)
+      Rulepack::Reporter.print(result, format: format)
+      result.failure? ? 1 : 0
+    rescue StandardError => e
+      warn "Error: #{e.message}"
+      1
+    end
+
+    def dispatch(command, argv)
       meth = COMMANDS[command]
       if meth
         send(meth, argv)
       else
-        warn "Unknown command: #{command}"
-        print_help
-        exit 1
+        Rulepack::Result.new(
+          status: :failure,
+          errors: ["Unknown command: #{command}"],
+          messages: [print_help_text]
+        )
       end
-      0
-    rescue StandardError => e
-      warn "Error: #{e.message}"
-      exit 1
     end
 
-    # ─── Per-command methods ──────────────────────────────────────────────────────
+    # ─── Data-returning public API ────────────────────────────────────────────────
 
-    def cmd_list_packages(_argv)
+    def packages
+      index = load_index
+      pkgs = (index[:packages] || {}).transform_values do |pkg|
+        installed = Array(pkg[:installed]).map { |r| r[:platform] }.uniq
+        pkg.merge(installed_platforms: installed)
+      end
+
+      Rulepack::Result.new(
+        status: :success,
+        data: { packages: pkgs },
+        messages: ["📦 Packages (#{pkgs.size}):"]
+      )
+    end
+
+    def platforms
+      registry = Rulepack::Common.load_platform_registry
+      Rulepack::Result.new(
+        status: :success,
+        data: { platforms: registry },
+        messages: ["🎯 Platforms (#{registry.size}):"]
+      )
+    end
+
+    def installed(platform_id = 'opencode', project_root: nil)
+      platform_id = platform_id.to_s
+      registry = Rulepack::Common.load_platform_registry
+      platform_cfg = registry[platform_id.to_sym] || registry[platform_id]
+      unless platform_cfg
+        return Rulepack::Result.new(
+          status: :failure,
+          errors: ["Unknown platform: #{platform_id}"]
+        )
+      end
+
+      platform_cfg = platform_cfg.merge(id: platform_id)
+      base_path = Rulepack::InstallPlan.resolve_install_base_path(platform_cfg, project_root)
+      index = load_index
+
+      Rulepack::PlatformScanner.scan_platform(
+        platform_id: platform_id,
+        platform_cfg: platform_cfg,
+        base_path: base_path,
+        packages: index[:packages] || {},
+        verify: false
+      )
+    end
+
+    def show(pkgname)
+      raise ArgumentError, 'Missing package name' unless pkgname
+
+      index = load_index
+      pkg = index[:packages][pkgname.to_sym] || index[:packages][pkgname]
+      unless pkg
+        return Rulepack::Result.new(
+          status: :failure,
+          errors: ["Package not found: #{pkgname}"]
+        )
+      end
+
+      installed = Array(pkg[:installed]).map { |r| r[:platform] }.uniq
+      data = pkg.merge(installed_platforms: installed)
+
+      Rulepack::Result.new(
+        status: :success,
+        data: { package: data },
+        messages: ["📦 #{pkgname}"]
+      )
+    end
+
+    def search(keyword)
+      raise ArgumentError, 'Missing search keyword' unless keyword
+
       index = load_index
       pkgs = index[:packages] || {}
-      puts "📦 Packages (#{pkgs.size}):"
-      pkgs.each do |name, pkg|
-        installed = Array(pkg[:installed]).map { |r| r[:platform] }.uniq
-        puts "  #{name} (#{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver],
-                                                           pkg[:pkgrel] || 1)}) [#{pkg[:status] || 'stable'}]"
-        puts "    Targets: #{Array(pkg[:available_targets]).join(', ')}"
-        puts "    Installed: #{installed.empty? ? 'none' : installed.join(', ')}"
-        puts "    Tags: #{Array(pkg[:tags]).join(', ')}"
-        puts
+      results = pkgs.select do |name, pkg|
+        name.to_s.include?(keyword) ||
+          pkg[:pkgdesc].to_s.include?(keyword) ||
+          Array(pkg[:tags]).any? { |t| t.include?(keyword) }
       end
+
+      Rulepack::Result.new(
+        status: results.empty? ? :success : :success,
+        data: { keyword: keyword, results: results },
+        messages: results.empty? ? ["No packages found matching: #{keyword}"] : ["🔍 Search results for '#{keyword}':"]
+      )
+    end
+
+    def orphans
+      index = load_index
+      pkgs = index[:packages] || {}
+      orphan_records = []
+
+      pkgs.each do |name, pkg|
+        Array(pkg[:installed]).each do |rec|
+          platform = rec[:platform]
+          unless Array(pkg[:available_targets]).include?(platform)
+            orphan_records << { name: name, platform: platform, output: rec[:output] }
+          end
+        end
+      end
+
+      status = orphan_records.empty? ? :success : :partial
+      Rulepack::Result.new(
+        status: status,
+        data: { orphans: orphan_records },
+        messages: orphan_records.empty? ? ['✅ No orphaned packages.'] : ["⚠️  Orphaned packages (#{orphan_records.size}):"]
+      )
+    end
+
+    def depends(pkgname)
+      raise ArgumentError, 'Missing package name' unless pkgname
+
+      index = load_index
+      pkg = index[:packages][pkgname.to_sym] || index[:packages][pkgname]
+      unless pkg
+        return Rulepack::Result.new(
+          status: :failure,
+          errors: ["Package not found: #{pkgname}"]
+        )
+      end
+
+      deps = Array(pkg[:dependencies])
+      Rulepack::Result.new(
+        status: :success,
+        data: { pkgname: pkgname, dependencies: deps },
+        messages: deps.empty? ? ["#{pkgname} has no dependencies."] : ["#{pkgname} depends on:"]
+      )
+    end
+
+    def provides(capability)
+      index = load_index
+      pkgs = index[:packages] || {}
+      providers = pkgs.filter_map do |name, pkg|
+        [name, pkg] if Array(pkg[:provides]).include?(capability)
+      end.to_h
+
+      Rulepack::Result.new(
+        status: :success,
+        data: { capability: capability, providers: providers },
+        messages: providers.empty? ? ["No packages provide: #{capability}"] : ["Packages providing '#{capability}':"]
+      )
+    end
+
+    def check
+      index = load_index
+      pkgs = index[:packages] || {}
+      build_root = Rulepack::Common.build_dir
+      build_index = begin
+        Rulepack::Common.load_yaml(build_root.join('index.yaml'))
+      rescue StandardError
+        nil
+      end
+
+      issues = []
+      pkgs.each do |name, pkg|
+        Array(pkg[:installed]).each do |rec|
+          platform = rec[:platform]
+
+          unless Array(pkg[:available_targets]).include?(platform)
+            issues << "#{name} installed on #{platform} but no target defined"
+          end
+
+          next unless build_index
+
+          built = build_index[:packages]&.[](name.to_sym)
+          built_checksums = built&.dig(:checksums, :built)
+          checksum = built_checksums&.[](platform.to_s)
+          issues << "#{name} checksum mismatch on #{platform}" if checksum && rec[:checksum] != checksum
+        end
+      end
+
+      status = issues.empty? ? :success : :failure
+      Rulepack::Result.new(
+        status: status,
+        data: { issues: issues },
+        messages: issues.empty? ? ['✅ Database consistency check passed.'] : ['❌ Consistency issues found:']
+      )
+    end
+
+    # ─── Per-command wrappers (used by CLI dispatch) ─────────────────────────────
+
+    def cmd_list_packages(_argv)
+      result = packages
+      result
     end
 
     def cmd_list_platforms(_argv)
-      registry = Rulepack::Common.load_platform_registry
-      puts "🎯 Platforms (#{registry.size}):"
-      registry.each do |id, cfg|
-        puts "  #{id} (#{cfg[:display_name] || id})"
-        puts "    Type: #{cfg[:type]} | Scope: #{cfg[:scope] || 'user'}"
-        puts "    Base: #{cfg[:base_path]}"
-        puts
-      end
+      platforms
     end
 
     def cmd_installed(argv)
-      platform = argv.shift || 'opencode'  # default: opencode (user's home platform)
-      list_installed_impl(platform)
+      platform = argv.shift || 'opencode'
+      installed(platform)
     end
 
     def cmd_show(argv)
       pkgname = argv.shift
-      show_package_impl(pkgname)
+      show(pkgname)
     end
 
     def cmd_search(argv)
       keyword = argv.shift
-      search_impl(keyword)
+      search(keyword)
     end
 
     def cmd_check(_argv)
-      check_consistency_impl
+      check
     end
 
     def cmd_orphans(_argv)
-      list_orphans_impl
+      orphans
     end
 
     def cmd_depends(argv)
       pkgname = argv.shift
-      show_depends_impl(pkgname)
+      depends(pkgname)
     end
 
     def cmd_provides(argv)
       capability = argv.shift
-      show_provides_impl(capability)
+      provides(capability)
+    end
+
+    def cmd_help(_argv)
+      Rulepack::Result.new(
+        status: :success,
+        data: {},
+        messages: [print_help_text]
+      )
     end
 
     # ─── Help ─────────────────────────────────────────────────────────────────────
 
-    def print_help(_argv = [])
-      puts <<~HELP
+    def print_help_text
+      <<~HELP
         Rulepack Database Query Tool
 
         Usage: ruby lib/rulepack/query.rb <command> [options]
@@ -126,6 +307,11 @@ module Rulepack
       HELP
     end
 
+    # Backward-compatible alias used by tests and external callers.
+    def print_help
+      puts print_help_text
+    end
+
     # ─── Shared helpers ──────────────────────────────────────────────────────────
 
     def load_index
@@ -133,7 +319,6 @@ module Rulepack
       yaml_path = root.join('data', 'index.yaml')
       build_path = root.join('build', 'index.yaml')
 
-      # Load installed records from data/index.yaml (written by install)
       installed = if yaml_path.exist?
                     data = Rulepack::Common.load_yaml(yaml_path)
                     data[:packages] || {}
@@ -141,14 +326,12 @@ module Rulepack
                     {}
                   end
 
-      # Load package metadata from build/index.yaml (written by build)
       build = if build_path.exist?
                 Rulepack::Common.load_yaml(build_path)
               else
                 {}
               end
 
-      # Merge: build metadata + installed records
       build[:packages] ||= {}
       build[:packages].each_key do |name|
         if installed[name]
@@ -158,7 +341,6 @@ module Rulepack
         build[:packages][name][:installed] ||= []
       end
 
-      # Add installed-only packages (e.g. from restored backups)
       installed.each do |name, pkg|
         next if build[:packages][name]
 
@@ -168,169 +350,7 @@ module Rulepack
       build
     end
 
-    def list_installed_impl(platform)
-      index = load_index
-      pkgs = index[:packages] || {}
-      installed = pkgs.filter_map do |name, pkg|
-        rec = Array(pkg[:installed]).find { |r| r[:platform] == platform }
-        [name, rec] if rec
-      end
-
-      if installed.empty?
-        puts "📥 No packages installed on #{platform}."
-      else
-        puts "📥 Installed packages on #{platform}:"
-        installed.each do |name, rec|
-          puts "  ✓ #{name} (#{Rulepack::Common.format_version(rec[:epoch] || 0, rec[:version],
-                                                               rec[:pkgrel] || 1)})"
-          puts "    Output: #{rec[:output]}"
-          puts "    Checksum: #{rec[:checksum]&.slice(0, 16)}..."
-          puts "    Installed: #{rec[:installed_at]}"
-        end
-        puts "  Total: #{installed.size} package(s)"
-      end
-    end
-
-    def show_package_impl(pkgname)
-      index = load_index
-      pkg = index[:packages][pkgname.to_sym] || index[:packages][pkgname]
-      unless pkg
-        warn "Package not found: #{pkgname}"
-        exit 1
-      end
-      puts "📦 #{pkgname}"
-      puts "  Version: #{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver],
-                                                         pkg[:pkgrel] || 1)}"
-      puts "  Description: #{pkg[:pkgdesc]}"
-      puts "  Status: #{pkg[:status] || 'stable'}"
-      puts "  Targets: #{Array(pkg[:available_targets]).join(', ')}"
-      installed = Array(pkg[:installed]).map { |r| r[:platform] }.uniq
-      puts "  Installed: #{installed.empty? ? 'none' : installed.join(', ')}"
-      puts "  Tags: #{Array(pkg[:tags]).join(', ')}"
-      puts "  Dependencies: #{Array(pkg[:dependencies]).join(', ') || 'none'}"
-      puts "  Conflicts: #{Array(pkg[:conflicts]).join(', ') || 'none'}"
-      puts "  Provides: #{Array(pkg[:provides]).join(', ') || 'none'}"
-    end
-
-    def search_impl(keyword)
-      index = load_index
-      pkgs = index[:packages] || {}
-      results = pkgs.select do |name, pkg|
-        name.to_s.include?(keyword) ||
-          pkg[:pkgdesc].to_s.include?(keyword) ||
-          Array(pkg[:tags]).any? { |t| t.include?(keyword) }
-      end
-      if results.empty?
-        puts "No packages found matching: #{keyword}"
-      else
-        puts "🔍 Search results for '#{keyword}':"
-        results.each do |name, pkg|
-          puts "  #{name} (#{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver],
-                                                             pkg[:pkgrel] || 1)}): #{pkg[:pkgdesc]}"
-        end
-      end
-    end
-
-    def list_orphans_impl
-      index = load_index
-      pkgs = index[:packages] || {}
-      orphans = []
-
-      pkgs.each do |name, pkg|
-        Array(pkg[:installed]).each do |rec|
-          platform = rec[:platform]
-          unless Array(pkg[:available_targets]).include?(platform)
-            orphans << { name: name, platform: platform, output: rec[:output] }
-          end
-        end
-      end
-
-      if orphans.empty?
-        puts '✅ No orphaned packages.'
-      else
-        puts "⚠️  Orphaned packages (#{orphans.size}):"
-        orphans.each do |o|
-          puts "  • #{o[:name]} on #{o[:platform]} (output: #{o[:output]})"
-        end
-      end
-    end
-
-    def show_depends_impl(pkgname)
-      index = load_index
-      pkg = index[:packages][pkgname.to_sym] || index[:packages][pkgname]
-      unless pkg
-        warn "Package not found: #{pkgname}"
-        exit 1
-      end
-
-      deps = Array(pkg[:dependencies])
-      if deps.empty?
-        puts "#{pkgname} has no dependencies."
-      else
-        puts "#{pkgname} depends on:"
-        deps.each { |d| puts "  • #{d}" }
-      end
-    end
-
-    def show_provides_impl(capability)
-      index = load_index
-      pkgs = index[:packages] || {}
-      providers = pkgs.filter_map do |name, pkg|
-        [name, pkg] if Array(pkg[:provides]).include?(capability)
-      end
-
-      if providers.empty?
-        puts "No packages provide: #{capability}"
-      else
-        puts "Packages providing '#{capability}':"
-        providers.each do |name, pkg|
-          puts "  • #{name} (#{Rulepack::Common.format_version(pkg[:epoch] || 0, pkg[:pkgver],
-                                                               pkg[:pkgrel] || 1)})"
-        end
-      end
-    end
-
-    def check_consistency_impl
-      index = load_index
-      pkgs = index[:packages] || {}
-      build_root = Pathname.new(__dir__).parent.parent.expand_path.join('build')
-      build_index = begin
-        Rulepack::Common.load_yaml(build_root.join('index.yaml'))
-      rescue StandardError
-        nil
-      end
-
-      issues = []
-      pkgs.each do |name, pkg|
-        Array(pkg[:installed]).each do |rec|
-          platform = rec[:platform]
-          _output = rec[:output]
-
-          # Check if package has target for this platform
-          unless Array(pkg[:available_targets]).include?(platform)
-            issues << "#{name} installed on #{platform} but no target defined"
-          end
-
-          # Check if build artifact exists
-          next unless build_index
-
-          built = build_index[:packages]&.[](name.to_sym)
-          built_checksums = built&.dig(:checksums, :built)
-          checksum = built_checksums&.[](platform.to_s)
-          issues << "#{name} checksum mismatch on #{platform}" if checksum && rec[:checksum] != checksum
-        end
-      end
-
-      if issues.empty?
-        puts '✅ Database consistency check passed.'
-      else
-        puts '❌ Consistency issues found:'
-        issues.each { |i| puts "  - #{i}" }
-        exit 1
-      end
-    end
-
-    # ─── Dispatch table (defined after all cmd_* methods) ─────────────────────────
+    # ─── Dispatch table ───────────────────────────────────────────────────────────
 
     COMMANDS = {
       'list-packages'  => :cmd_list_packages,
@@ -351,58 +371,42 @@ module Rulepack
       'd'              => :cmd_depends,
       'provides'       => :cmd_provides,
       'p'              => :cmd_provides,
-      'help'           => :print_help,
-      'h'              => :print_help,
+      'help'           => :cmd_help,
+      'h'              => :cmd_help,
     }.freeze
 
-    # ─── Backward-compatible public aliases ────────────────────────────────────────
+    # ─── Backward-compatible public aliases ───────────────────────────────────────
     # Tests and external callers may still use the original method names directly.
-    # Each alias delegates to its cmd_* counterpart.
-
-    module_function
 
     def list_packages(*args)
       raise ArgumentError, "list_packages takes no arguments (got #{args.size})" unless args.empty?
-      cmd_list_packages([])
+
+      packages
     end
 
     def list_platforms(*args)
       raise ArgumentError, "list_platforms takes no arguments (got #{args.size})" unless args.empty?
-      cmd_list_platforms([])
+
+      platforms
     end
 
-    def installed(platform = 'opencode')
-      list_installed_impl(platform)
-    end
+    # show, search, depends, provides aliases already return Result via public methods above.
+    # Keep the legacy `check` and `orphans` aliases for external callers.
 
-    def show(pkgname)
-      show_package_impl(pkgname)
-    end
-
-    def search(*args)
-      cmd_search(args)
-    end
-
-    def check(*args)
+    def check_consistency(*args)
       raise ArgumentError, "check takes no arguments (got #{args.size})" unless args.empty?
-      cmd_check([])
+
+      check
     end
 
-    def orphans(*args)
+    def list_orphans(*args)
       raise ArgumentError, "orphans takes no arguments (got #{args.size})" unless args.empty?
-      cmd_orphans([])
-    end
 
-    def depends(pkgname)
-      show_depends_impl(pkgname)
-    end
-
-    def provides(capability)
-      show_provides_impl(capability)
+      orphans
     end
 
     def show_provides(capability)
-      show_provides_impl(capability)
+      provides(capability)
     end
   end
 end

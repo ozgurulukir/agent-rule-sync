@@ -55,8 +55,10 @@ module Rulepack
           end
         end
       else
-        return false unless copy_sub_skills(build_src_dir, dest_dir, selected, pkgname,
-                                           ctx, quiet: quiet)
+        copy_result = copy_sub_skills(build_src_dir, dest_dir, selected, pkgname,
+                                      ctx, quiet: quiet)
+        return false unless copy_result
+        return true if copy_result == :ignored
 
         write_selected_manifest(dest_dir, manifest, pkgname, platform_id, selected)
       end
@@ -91,7 +93,9 @@ module Rulepack
     def select_sub_skills(sub_skills, select_list, pkgname)
       if select_list == :interactive
         Rulepack::TuiSelector.prompt_sub_skill_selection(sub_skills, pkgname)
-      elsif select_list && !select_list.empty? && select_list.is_a?(Array)
+      elsif select_list && select_list.is_a?(Array)
+        return nil if select_list.empty?
+
         selected = sub_skills.select { |ss| select_list.include?(ss['name']) }
         if selected.empty?
           selected_s = select_list.join(',')
@@ -117,7 +121,7 @@ module Rulepack
           Rulepack::Common.log "    ✓ Replaced existing directory: #{dest_dir} (with backup)" unless quiet
         when 'ignore'
           Rulepack::Common.log "    ⚠ Collision: #{dest_dir} exists, skipping" unless quiet
-          return true
+          return :ignored
         else # stop
           Rulepack::Common.log_error "Collision detected: #{dest_dir} exists. Use --on-collision to proceed."
           raise "Collision at #{dest_dir}"
@@ -129,13 +133,14 @@ module Rulepack
 
       selected.each do |ss|
         if ss['path'] == '.'
-          ss['files'].each_key do |rel_path|
+          files = ss['files'] || {}
+          files.each_key do |rel_path|
             src_file = build_src_dir.join(rel_path)
             dst_file = dest_dir.join(rel_path)
             FileUtils.mkpath(dst_file.parent)
             FileUtils.cp(src_file, dst_file)
           end
-          Rulepack::Common.log "    ✓ Copied sub-skill: . (#{ss['files'].size} file(s))" unless quiet
+          Rulepack::Common.log "    ✓ Copied sub-skill: . (#{files.size} file(s))" unless quiet
         else
           src_sub = build_src_dir.join(ss['path'])
           dst_sub = dest_dir.join(ss['path'])
@@ -143,7 +148,7 @@ module Rulepack
           Rulepack::Common.log "    ✓ Copied sub-skill: #{ss['path']}" unless quiet
         end
       end
-      true
+      :copied
     rescue StandardError => e
       Rulepack::Common.log_error "Failed to install skill-bundle: #{e.message}"
       false
