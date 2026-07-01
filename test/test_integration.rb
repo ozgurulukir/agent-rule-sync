@@ -37,8 +37,8 @@ class TestBuildIntegration < Minitest::Test
 
     index = Rulepack::Common.load_yaml(index_path)
     assert index[:packages], 'Index should have packages key'
-    assert index[:packages].key?(:memory), 'Index should include memory package'
-    assert index[:packages].key?(:shell), 'Index should include shell package'
+    assert index[:packages].key?(:'vibe-security'), 'Index should include vibe-security package'
+    assert index[:packages].key?(:'anthropics-skills'), 'Index should include anthropics-skills package'
 
     # Verify each package entry has required fields
     index[:packages].each do |pkgname, pkg_data|

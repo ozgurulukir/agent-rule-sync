@@ -201,7 +201,7 @@ Packages can also be organized into namespaces:
 
 - `data/packages/<pkgname>/PKGBUILD` — tracked, shared packages (legacy/flat layout).
 - `data/packages/upstream/<pkgname>/PKGBUILD` — tracked, online-sourced packages (git/url).
-- `data/packages/local/<pkgname>/PKGBUILD` — ignored, personal/local-only packages.
+- `data/packages/local/<pkgname>/PKGBUILD` — ignored, personal/local-only packages. **Not included in the repository; each user creates and maintains their own packages here.**
 
 The runtime database (`data/index.yaml`) remains flat; `pkgname` is still the global key. Search precedence is `local` → `upstream` → flat, so a local package overrides a tracked package with the same name. `bin/rulepack audit` discovers all namespaces; `bin/rulepack bump` ignores `local/`.
 
@@ -305,7 +305,7 @@ targets:
 
 ### Package Directory Structure
 
-Shared/tracked packages can live in either the flat layout or the `upstream/` namespace. Personal packages go under `local/` (which is ignored by Git).
+Shared/tracked packages can live in either the flat layout or the `upstream/` namespace. Personal packages go under `local/` (which is ignored by Git). A fresh clone ships with an empty `local/` directory; each user populates it with their own private packages.
 
 ```
 data/packages/
@@ -316,7 +316,7 @@ data/packages/
 │   └── translators/              # Optional custom translators
 ├── upstream/<pkgname>/           # Tracked online-sourced package
 │   └── PKGBUILD
-└── local/<pkgname>/              # Personal/local-only package (ignored)
+└── local/<pkgname>/              # Personal/local-only package (ignored, user-created)
     └── PKGBUILD
 ```
 
