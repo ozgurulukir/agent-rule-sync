@@ -5,7 +5,7 @@
 # Extracts title from YAML frontmatter or first H1 heading.
 
 module RulepackTransformer
-  class Impl
+  module AddHeader
     def self.transform(content, _pkgname:)
       clean = content.strip
 

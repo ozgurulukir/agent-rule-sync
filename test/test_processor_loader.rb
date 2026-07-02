@@ -12,7 +12,7 @@ class TestProcessorLoader < Minitest::Test
   end
 
   def test_load_transformer_returns_namespaced_module
-    processor = Rulepack::ProcessorLoader.load_transformer('custom:data/translators/add_frontmatter.rb')
+    processor = Rulepack::ProcessorLoader.load_transformer('custom:data/transformers/add_frontmatter.rb')
     assert_equal RulepackTransformer::AddFrontmatter, processor
     assert_respond_to processor, :transform
   end

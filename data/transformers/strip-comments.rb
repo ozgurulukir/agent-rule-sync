@@ -5,7 +5,7 @@
 # Usage: transformer: custom:transformers/strip-comments.rb
 
 module RulepackTransformer
-  class Impl
+  module StripComments
     def self.transform(content, _pkgname:)
       # Remove HTML comments (<!-- ... -->)
       result = content.gsub(/<!--.*?-->/m, '')

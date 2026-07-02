@@ -15,7 +15,7 @@ module Rulepack
   # under `RulepackTranslator` (translators) or `RulepackTransformer` (transformers):
   #
   #   data/translators/rule_to_skill.rb  ->  RulepackTranslator::RuleToSkill
-  #   data/translators/add_frontmatter.rb -> RulepackTransformer::AddFrontmatter
+  #   data/transformers/add_frontmatter.rb -> RulepackTransformer::AddFrontmatter
   #
   # For backward compatibility the loader also accepts the legacy names
   # `RulepackTranslator::Impl`, `Translator`, `RulepackTransformer::Impl`, and `Transform`.

@@ -5,7 +5,7 @@
 # Usage: transformer: custom:transformers/format-code.rb
 
 module RulepackTransformer
-  class Impl
+  module FormatCode
     LANGUAGE_KEYWORDS = {
       'ruby'       => %w[def class module require puts gets end do yield binding],
       'python'     => %w[def class import from print return elif lambda yield self],
