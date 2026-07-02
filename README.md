@@ -83,34 +83,81 @@ bin/rulepack init-hooks                             # Audits PKGBUILDs automatic
 
 ## Typical Workflow
 
-A normal day with Rulepack looks like this:
+### First-time setup
+
+```bash
+git clone https://github.com/ozgurulukir/agent-rule-sync.git
+cd agent-rule-sync
+bundle install
+bin/rulepack build
+```
+
+### Daily user-level workflow
 
 ```bash
 # 1. Build the current package set
 bin/rulepack build
 
-# 2. Install or refresh rules/skills on your platform(s)
+# 2. Preview what would be installed
+bin/rulepack install --target opencode --dry-run
+
+# 3. Install or refresh rules/skills on your platform(s)
 bin/rulepack install --target opencode
 
-# 3. Check what you have installed
+# 4. Check what you have installed
 bin/rulepack query installed opencode
 
-# 4. Detect drift, missing files, or manual changes
+# 5. Detect drift, missing files, or manual changes
 bin/rulepack verify --target opencode
 
-# 5. If anything drifted, repair it
+# 6. If anything drifted, repair it
 bin/rulepack fix --target opencode
 
-# 6. Check if newer package versions exist in the build
+# 7. Check if newer package versions exist in the build
 bin/rulepack outdated -t opencode
 ```
 
-For git-sourced packages, periodically check upstream:
+### Project-level workflow
+
+```bash
+# Install rules/skills into the current project (e.g. Cursor, Windsurf, Claude Code)
+bin/rulepack install --target cursor --project .
+bin/rulepack verify --target cursor --project .
+bin/rulepack fix --target cursor --project .
+```
+
+### Git-sourced packages
+
+For packages that fetch from upstream git repos, periodically check for updates:
 
 ```bash
 bin/rulepack bump              # See what's new
 bin/rulepack bump --apply      # Update PKGBUILD versions and rebuild
 ```
+
+### Validation
+
+```bash
+# Audit all PKGBUILD descriptors before committing
+bin/rulepack audit --strict
+
+# Install the pre-commit hook so this runs automatically
+bin/rulepack init-hooks
+```
+
+### Uninstall
+
+```bash
+# Remove everything Rulepack installed from a platform
+bin/rulepack uninstall --target opencode
+
+# Remove a single package
+bin/rulepack uninstall memory --target opencode
+```
+
+### Personal/local-only packages
+
+Create your own private packages under `data/packages/local/`. This directory is ignored by Git, so your personal rules/skills stay on your machine and are never pushed to the shared repository.
 
 ## Project Structure
 
