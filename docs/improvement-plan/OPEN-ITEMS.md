@@ -127,7 +127,7 @@ Called from `installer.rb:load_master_index` before any index consumer reads it.
 
 ---
 
-### 🟡 P-F — Fix `SchemaGenerator` YAML Parsing (`lib/rulepack/schema_generator.rb`)
+### 🟡 P-F — Fix `SchemaGenerator` YAML Parsing (`lib/rulepack/schema_generator.rb`) — SUPERSEDED
 
 **Priority**: MEDIUM
 **Risk**: LOW
@@ -168,9 +168,11 @@ packages_dir.glob('*/PKGBUILD').each do |pkgbuild_path|
 
 **Files changed**: `lib/rulepack/schema_generator.rb`.
 
+> **SUPERSEDED (2026-07-02)**: `SchemaGenerator` and `data/build_schema.yaml` were removed entirely. Translator/transformer defaults now live in `data/registry/platforms.yaml` and are resolved by `SchemaEngine` at build time.
+
 ---
 
-### 🟡 P-G — Wire SchemaGenerator into Build Pipeline (Pre-Build Auto-Generation)
+### 🟡 P-G — Wire SchemaGenerator into Build Pipeline (Pre-Build Auto-Generation) — SUPERSEDED
 
 **Priority**: MEDIUM
 **Risk**: LOW
@@ -198,6 +200,8 @@ end
 **Files changed**: `lib/rulepack/build.rb`, `lib/rulepack/schema_generator.rb`, `data/build_schema.yaml` (auto-generated).
 
 **Test gate**: `rake test_e2e` — 15 runs, 207 assertions, 0 failures, 0 errors, 1 skip. ✅
+
+> **SUPERSEDED (2026-07-02)**: The pre-build auto-generation step was removed. Defaults are now sourced directly from the platform registry; `data/build_schema.yaml` no longer exists.
 
 ---
 
@@ -535,9 +539,9 @@ Rulepack::Common.log_warn "strip-frontmatter transformer is deprecated..."
 ```
 ✅ VERIFIED — accepted with warning, not rejected.
 
-**Act**: Remove `strip-frontmatter` from `TRANSFORMER_CHOICES` in `validation.rb`. Update `transform.rb:apply_transformer` to raise `ArgumentError` if called with `strip-frontmatter` (defense in depth). Update `schema_generator.rb` to never emit `strip-frontmatter` in `data/build_schema.yaml`.
+**Act**: Remove `strip-frontmatter` from `TRANSFORMER_CHOICES` in `validation.rb`. Update `transform.rb:apply_transformer` to raise `ArgumentError` if called with `strip-frontmatter` (defense in depth).
 
-**Files to modify**: `lib/rulepack/validation.rb`, `lib/rulepack/transform.rb`, `lib/rulepack/schema_generator.rb`
+**Files to modify**: `lib/rulepack/validation.rb`, `lib/rulepack/transform.rb`
 **Test gate**: `rake test` — existing tests for frontmatter stripping must still pass.
 
 ---
@@ -996,7 +1000,7 @@ registry = deep_merge(registry, load_yaml(per_repo_path)) if per_repo_path.exist
 
 ---
 
-### 🟢 P-AB — Fix `data/build_schema.yaml` Duplicate Header Comments (L1)
+### 🟢 P-AB — Fix `data/build_schema.yaml` Duplicate Header Comments (L1) — SUPERSEDED
 
 **Priority**: LOW
 **Risk**: NONE
@@ -1031,6 +1035,8 @@ end
 
 **Files to modify**: `lib/rulepack/schema_generator.rb`
 **Test gate**: `rake test` — schema generator tests pass; verify `data/build_schema.yaml` has exactly 1 header copy after rebuild.
+
+> **SUPERSEDED (2026-07-02)**: `data/build_schema.yaml` and `SchemaGenerator` were removed; this duplicate-preamble issue can no longer occur.
 
 ---
 
@@ -1095,7 +1101,7 @@ args.shift if %w[-S -R -Qk -F -Q].include?(args.first)
 
 ---
 
-### ⚪ P-AE — Fix `build_schema.yaml` Accumulating Duplicate Preamble (L1 duplicate)
+### ⚪ P-AE — Fix `build_schema.yaml` Accumulating Duplicate Preamble (L1 duplicate) — SUPERSEDED
 
 **Priority**: LOW
 **Risk**: NONE
@@ -1115,6 +1121,8 @@ args.shift if %w[-S -R -Qk -F -Q].include?(args.first)
 
 **Files to modify**: `lib/rulepack/schema_generator.rb`
 **Test gate**: Same as P-AB.
+
+> **SUPERSEDED (2026-07-02)**: `data/build_schema.yaml` and `SchemaGenerator` were removed.
 
 ---
 
@@ -1287,10 +1295,10 @@ end
 | P-Y | 🟡 MEDIUM | `query installed` undocumented opencode default | OPEN |
 | P-Z | 🟡 MEDIUM | `Rakefile` stale test counts | OPEN |
 | P-AA | 🟡 MEDIUM | `.rulepack.local.yaml` priority broken (elsif) | OPEN |
-| P-AB | 🟢 LOW | `build_schema.yaml` duplicate header comments | OPEN |
+| P-AB | 🟢 LOW | `build_schema.yaml` duplicate header comments | SUPERSEDED |
 | P-AC | 🟢 LOW | `audit.rb` custom ARGV parser (inconsistent) | OPEN |
 | P-AD | 🟢 LOW | Double pacman flag shift (`install.rb` + `cli_parser.rb`) | OPEN |
-| P-AE | ⚪ LOW | Duplicate preamble (same root cause as P-AB) | OPEN |
+| P-AE | ⚪ LOW | Duplicate preamble (same root cause as P-AB) | SUPERSEDED |
 | P-AF | ⚪ LOW | `common.rb` facade captures methods at load time | OPEN |
 | P-AG | ⚪ LOW | `query.rb` aliases silently ignore args | OPEN |
 | P-AH | ⚪ LOW | `resolve_directory_path` missing type guard | OPEN |
@@ -1638,10 +1646,10 @@ end
 | P-Y | 🟡 MEDIUM | `query installed` undocumented opencode default | ✅ COMPLETED |
 | P-Z | 🟡 MEDIUM | `Rakefile` stale test counts | ✅ COMPLETED |
 | P-AA | 🟡 MEDIUM | `.rulepack.local.yaml` priority broken (elsif) | ✅ COMPLETED |
-| P-AB | 🟢 LOW | `build_schema.yaml` duplicate header comments | ✅ COMPLETED |
+| P-AB | 🟢 LOW | `build_schema.yaml` duplicate header comments | SUPERSEDED |
 | P-AC | 🟢 LOW | `audit.rb` custom ARGV parser (inconsistent) | ✅ COMPLETED |
 | P-AD | 🟢 LOW | Double pacman flag shift (`install.rb` + `cli_parser.rb`) | ✅ COMPLETED |
-| P-AE | ⚪ LOW | Duplicate preamble (same root cause as P-AB) | ✅ COMPLETED |
+| P-AE | ⚪ LOW | Duplicate preamble (same root cause as P-AB) | SUPERSEDED |
 | P-AF | ⚪ LOW | `common.rb` facade captures methods at load time | ✅ COMPLETED |
 | P-AG | ⚪ LOW | `query.rb` aliases silently ignore args | ✅ COMPLETED |
 | P-AH | ⚪ LOW | `resolve_directory_path` missing type guard | ✅ COMPLETED |
