@@ -41,14 +41,6 @@ module Rulepack
       Rulepack::Common.log '🔧 Loading platform registry...'
       platforms = Rulepack::Common.load_platform_registry
 
-      # ─── Auto-generate build schema from PKGBUILD targets ──────────────────────────
-      begin
-        require_relative 'schema_generator'
-        Rulepack::SchemaGenerator.generate!
-      rescue StandardError => e
-        Rulepack::Common.log_warn "SchemaGenerator: pre-build step failed (#{e.class}: #{e.message}); continuing with existing schema"
-      end
-
       index_data = {
         version: 3.0,
         generated: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'),

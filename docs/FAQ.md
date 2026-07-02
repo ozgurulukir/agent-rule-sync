@@ -180,7 +180,7 @@ class Transform
 end
 ```
 
-Reference it in `data/build_schema.yaml` for automatic resolution, or as an advanced override in PKGBUILD:
+Set the platform's `default_transformer` in `data/registry/platforms.yaml` for automatic resolution, or use it as an advanced override in PKGBUILD:
 
 ```yaml
 targets:

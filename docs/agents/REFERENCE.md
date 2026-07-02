@@ -80,8 +80,8 @@ targets:
   - platform: <platform-id>         # Required: platform key from registry
     format: directory|import|skill|skill-bundle|agent  # Optional: output format (auto-derived if omitted)
     output: <filename|.>            # Optional: output filename (or "." for skill-bundle; auto-derived if omitted)
-    translate: copy|custom:<path>   # Advanced override only (auto-derived if omitted)
-    transformer: copy|custom:<path>  # Advanced override only (default: copy); auto-derived from build_schema
+    translate: copy|custom:<path>   # Advanced override only (default from platform registry)
+    transformer: copy|custom:<path>  # Advanced override only (default from platform registry, fallback: copy)
     agent_config:                   # Optional: for format=agent on Cursor (generates agent.json)
       model: <string>
       temperature: <float>
@@ -155,7 +155,7 @@ targets:
   - platform: oh-my-pi
 ```
 
-Platforms without `agents_dir` in their registry config will skip `format: agent` targets automatically. Agent translators (`agent_to_opencode`, `agent_to_cursor`, `agent_to_claude_code`) are resolved automatically from `build_schema.yaml` — no `translate:` needed in PKGBUILD.
+Platforms without `agents_dir` in their registry config will skip `format: agent` targets automatically. Agent translators (`agent_to_opencode`, `agent_to_cursor`, `agent_to_claude_code`) are resolved automatically from the platform registry (`default_translator`) — no `translate:` needed in PKGBUILD.
 
 ---
 

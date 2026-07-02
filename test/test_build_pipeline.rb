@@ -74,27 +74,39 @@ class TestBuildPipeline < Minitest::Test
     end
   end
 
-  def test_auto_derive_translator_for_skill_platform
-    platform_cfg = { type: 'skill' }
+  def test_resolve_translator_uses_platform_registry_default
+    platform_cfg = { type: 'skill', default_translator: 'custom:data/translators/rule_to_skill.rb' }
 
-    # When target format is skill/skill-bundle and platform type is skill, should use custom translator
-    result1 = Rulepack::SchemaEngine.auto_derive_translator(platform_cfg, 'skill')
-    assert_equal 'custom:data/translators/rule_to_skill.rb', result1
-
-    result2 = Rulepack::SchemaEngine.auto_derive_translator(platform_cfg, 'skill-bundle')
-    assert_equal 'custom:data/translators/rule_to_skill.rb', result2
-
-    # When target format is directory/import, should not translate (return nil)
-    result3 = Rulepack::SchemaEngine.auto_derive_translator(platform_cfg, 'directory')
-    assert_nil result3
+    result = Rulepack::SchemaEngine.resolve_translator(nil, 'crush', 'skill', platform_cfg)
+    assert_equal 'custom:data/translators/rule_to_skill.rb', result
   end
 
-  def test_auto_derive_translator_for_non_skill_platform
+  def test_resolve_translator_explicit_pkbuild_overrides_registry
+    platform_cfg = { type: 'skill', default_translator: 'custom:data/translators/rule_to_skill.rb' }
+
+    result = Rulepack::SchemaEngine.resolve_translator('custom:data/translators/my-translator.rb', 'crush', 'skill', platform_cfg)
+    assert_equal 'custom:data/translators/my-translator.rb', result
+  end
+
+  def test_resolve_translator_returns_nil_when_no_default
+    platform_cfg = { type: 'directory', default_translator: nil }
+
+    result = Rulepack::SchemaEngine.resolve_translator(nil, 'opencode', 'directory', platform_cfg)
+    assert_nil result
+  end
+
+  def test_resolve_transformer_uses_platform_registry_default
+    platform_cfg = { type: 'skill', default_transformer: 'custom:data/transformers/my-transform.rb' }
+
+    result = Rulepack::SchemaEngine.resolve_transformer(nil, 'crush', 'skill', platform_cfg)
+    assert_equal 'custom:data/transformers/my-transform.rb', result
+  end
+
+  def test_resolve_transformer_falls_back_to_copy
     platform_cfg = { type: 'directory' }
 
-    # Should not translate (return nil) even if target format is skill
-    result = Rulepack::SchemaEngine.auto_derive_translator(platform_cfg, 'skill')
-    assert_nil result
+    result = Rulepack::SchemaEngine.resolve_transformer(nil, 'opencode', 'directory', platform_cfg)
+    assert_equal 'copy', result
   end
 
   def test_pipeline_runs_stages_correctly

@@ -60,7 +60,7 @@ module Rulepack
 
       # ─── TRANSFORM STAGE ──────────────────────────────────────────────────
       advance(:transform) do
-        transformer_cfg = Rulepack::SchemaEngine.resolve_transformer(@explicit_transformer, @platform_id, @target_format)
+        transformer_cfg = Rulepack::SchemaEngine.resolve_transformer(@explicit_transformer, @platform_id, @target_format, platform_cfg)
         if transformer_cfg && transformer_cfg != 'copy'
           Rulepack::Common.log "  → Transforming for #{@platform_id} (#{transformer_cfg})"
           puts "  → Transforming for #{@platform_id} (#{transformer_cfg})"

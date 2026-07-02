@@ -1,6 +1,8 @@
 ---
 opencode:
   type: directory
+  default_translator: null
+  default_transformer: copy
   scope: user
   display_name: OpenCode
   base_path: "~/.config/opencode/"
@@ -18,6 +20,8 @@ opencode:
     - ruby
 crush:
   type: skill
+  default_translator: custom:data/translators/rule_to_skill.rb
+  default_transformer: copy
   scope: user
   display_name: Crush
   base_path: "~/.config/crush/"
@@ -30,6 +34,8 @@ crush:
     - ruby
 gemini-cli:
   type: directory
+  default_translator: null
+  default_transformer: copy
   scope: user
   display_name: Gemini CLI
   base_path: "~/.gemini/"
@@ -45,6 +51,8 @@ gemini-cli:
     - python
 goose:
   type: skill
+  default_translator: custom:data/translators/rule_to_skill.rb
+  default_transformer: copy
   scope: user
   display_name: Goose
   base_path: "~/.local/share/goose/"
@@ -58,6 +66,8 @@ goose:
     - ruby
 droid:
   type: skill
+  default_translator: custom:data/translators/rule_to_skill.rb
+  default_transformer: copy
   scope: user
   display_name: Droid
   base_path: "~/.factory/"
@@ -70,6 +80,8 @@ droid:
     - ruby
 qwen-code:
   type: import
+  default_translator: custom:data/translators/rule_to_import.rb
+  default_transformer: copy
   scope: user
   display_name: Qwen Code
   base_path: "~/.config/qwen/"
@@ -85,6 +97,8 @@ qwen-code:
     - python
 oh-my-pi:
   type: directory
+  default_translator: null
+  default_transformer: copy
   scope: user
   display_name: Oh My Pi
   base_path: "~/.omp/agent/"
@@ -103,6 +117,8 @@ oh-my-pi:
     - curl
 cursor:
   type: directory
+  default_translator: null
+  default_transformer: copy
   scope: project
   display_name: Cursor
   base_path: "."
@@ -119,6 +135,8 @@ cursor:
     - ruby
 windsurf:
   type: directory
+  default_translator: null
+  default_transformer: copy
   scope: project
   display_name: Windsurf
   base_path: "."
@@ -135,6 +153,8 @@ windsurf:
     - ruby
 github-copilot:
   type: import
+  default_translator: custom:data/translators/rule_to_import.rb
+  default_transformer: copy
   scope: project
   display_name: GitHub Copilot
   base_path: ".github/"
@@ -148,6 +168,8 @@ github-copilot:
     - node
 claude-code:
   type: directory
+  default_translator: null
+  default_transformer: copy
   scope: project
   display_name: Claude Code
   base_path: "."
@@ -164,6 +186,8 @@ claude-code:
     - ruby
 codex:
   type: skill
+  default_translator: custom:data/translators/rule_to_skill.rb
+  default_transformer: copy
   scope: project
   display_name: Codex CLI
   base_path: "."
@@ -176,6 +200,8 @@ codex:
     - ruby
 agents:
   type: directory
+  default_translator: null
+  default_transformer: copy
   scope: user
   display_name: Agents
   base_path: "~/.agents/"
@@ -188,6 +214,8 @@ agents:
     type: copy
 antigravity:
   type: directory
+  default_translator: null
+  default_transformer: copy
   scope: user
   display_name: Google Antigravity
   base_path: "~/.gemini/"

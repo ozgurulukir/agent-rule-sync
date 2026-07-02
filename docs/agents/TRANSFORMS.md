@@ -5,24 +5,24 @@ The content processing pipeline is **fully automatic**. PKGBUILD authors do not 
 ```
 Source File (src/)
     ↓
-TRANSLATE     — auto-derived from platform type (rule→skill, rule→import, agent→platform)
+TRANSLATE     — default from data/registry/platforms.yaml (skill→rule_to_skill, import→rule_to_import, agent→platform translator)
     ↓
 SCHEMA ENGINE — auto-applied from data/platforms/<agent>.yaml (frontmatter, emoji, bullets, headings)
     ↓
-TRANSFORM     — auto-derived from data/build_schema.yaml (default: copy)
+TRANSFORM     — default from data/registry/platforms.yaml (default: copy)
     ↓
 Built Artifact (build/<platform>/)
 ```
 
-**Translate** converts between format families automatically:
+**Translate** converts between format families automatically. Defaults are declared per platform in `data/registry/platforms.yaml` (`default_translator`):
 - `skill` platforms (crush, goose, droid, codex) → `rule_to_skill.rb`
 - `import` platforms (qwen-code, github-copilot) → `rule_to_import.rb`
 - `agent` format → platform-specific agent translator
 
 **Schema Engine** applies centralized formatting from platform profiles.
-**Transform** applies structural changes (default: no-op).
+**Transform** applies structural changes. Defaults are declared per platform in `data/registry/platforms.yaml` (`default_transformer`); the built-in default is `copy` (no-op).
 
-`translate:` and `transformer:` in PKGBUILD are **advanced overrides only** — use them for edge cases not covered by auto-derive.
+`translate:` and `transformer:` in PKGBUILD are **advanced overrides only** — use them for edge cases not covered by the platform registry defaults.
 
 ---
 
@@ -128,14 +128,13 @@ The **translate step** runs before the schema engine and transform steps. It con
 Translators are resolved automatically in this priority order:
 
 1. **PKGBUILD explicit** — if `translate:` is set in a target entry, it always wins
-2. **Build schema** — `data/build_schema.yaml` defines platform × format defaults (e.g., `agent` format on cursor → `agent_to_cursor.rb`)
-3. **Auto-derive** — if neither 1 nor 2 provides a translator, the SchemaEngine derives one based on platform type and target format:
+2. **Platform registry** — `data/registry/platforms.yaml` declares the `default_translator` for each platform (e.g., `crush` → `rule_to_skill.rb`, `qwen-code` → `rule_to_import.rb`)
 
-| Platform Type | Target Format | Auto-Derived Translator |
-|---|---|---|
-| `skill` (crush, goose, droid, codex) | `skill` | `rule_to_skill.rb` |
-| `import` (qwen-code, github-copilot) | `import` | `rule_to_import.rb` |
-| `directory` | `directory` | *(none — not needed)* |
+| Platform Type | Default Translator |
+|---|---|
+| `skill` (crush, goose, droid, codex) | `rule_to_skill.rb` |
+| `import` (qwen-code, github-copilot) | `rule_to_import.rb` |
+| `directory` | *(none — not needed)* |
 
 This means PKGBUILD authors do **not** need to specify `translate:` for the common case of rules being deployed to skill or import platforms. The system handles it automatically.
 
@@ -223,9 +222,9 @@ targets:
 During build (`lib/rulepack/build.rb`), for each target:
 
 1. **Fetch source**: read local file, fetch URL, or clone git repo
-2. **Translate**: if `translate` specified, apply custom translator
+2. **Translate**: resolve translator from platform registry (`default_translator`), apply if non-nil; PKGBUILD `translate:` overrides the registry default
 3. **Schema Engine**: apply centralized formatting from platform profile
-4. **Transform**: if `transformer` specified, apply (built-in or custom)
+4. **Transform**: resolve transformer from platform registry (`default_transformer`), apply if non-`copy`; PKGBUILD `transformer:` overrides the registry default
 5. **Write artifact**: output to `build/<platform>/<output>`
 
 ---
