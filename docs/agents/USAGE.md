@@ -127,6 +127,31 @@ Redirect rules to a single file instead of the `rules_dir`:
 bin/rulepack install oh-my-pi --rules-to AGENTS.md
 ```
 
+### Appending to AGENTS.md / GEMINI.md without overwriting
+
+Some platforms read a single rules file (e.g. `AGENTS.md`, `GEMINI.md`). Rulepack can append rules safely using marker-boundary blocks instead of replacing the whole file:
+
+```bash
+# Append all rules to the platform rules file
+bin/rulepack install opencode --rules-to rules_file
+
+# Append a single package without touching the rest of the file
+bin/rulepack install memory -t opencode --rules-to rules_file
+
+# Same behavior when a collision occurs on an existing file
+bin/rulepack install opencode --on-collision append
+```
+
+Rulepack wraps each package like this:
+
+```markdown
+<!-- rulepack:memory start -->
+... rule content ...
+<!-- rulepack:memory end -->
+```
+
+Re-installing replaces only that package’s block; uninstalling splices it out. Your own content outside the markers is preserved.
+
 ### Install with --select
 
 For skill-bundle packages, select specific sub-skills:

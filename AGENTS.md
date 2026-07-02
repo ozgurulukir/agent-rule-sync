@@ -130,8 +130,12 @@ bin/rulepack uninstall memory -t cursor --project .
 bin/rulepack install -t <plat> --on-collision stop|ignore|overwrite|append
 
 # Rules installation mode
-bin/rulepack install -t opencode --rules-to rules_dir   # default
-bin/rulepack install -t opencode --rules-to rules_file  # append to platform rules file
+bin/rulepack install -t opencode --rules-to rules_dir   # default: symlink/copy individual files
+bin/rulepack install -t opencode --rules-to rules_file  # append to AGENTS.md / GEMINI.md without overwriting
+
+# Marker-boundary append preserves existing file content:
+# Rulepack wraps each package in <!-- rulepack:<pkg> start --> ... <!-- rulepack:<pkg> end --> blocks.
+# Re-install replaces only its own block; uninstall splices it out.
 
 # Drift detection and repair
 bin/rulepack verify [pkg] -t <plat|all>

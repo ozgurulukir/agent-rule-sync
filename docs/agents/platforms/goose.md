@@ -38,6 +38,7 @@ bin/rulepack install <pkg> -t goose
 bin/rulepack uninstall <pkg> -t goose
 ```
 
+
 ## Notes
 
 Goose's persistent instructions are per-turn, not per-session. This is more reliable for guardrails but costs more tokens. The 64 KB limit means rules must be concise. The Rulepack vendor skill should be referenced from guardrails file.

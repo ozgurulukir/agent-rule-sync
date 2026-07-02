@@ -45,6 +45,7 @@ bin/rulepack install <pkg> -t qwen-code
 bin/rulepack uninstall <pkg> -t qwen-code
 ```
 
+
 ## Notes
 
 Qwen Code has sophisticated query pipeline that automatically translates non-English input and searches in both languages. The permission system is granular; ensure Rulepack rules don't trigger "ask" for common operations.

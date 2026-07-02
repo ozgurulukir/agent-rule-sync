@@ -37,6 +37,7 @@ bin/rulepack install <pkg> -t crush
 bin/rulepack uninstall <pkg> -t crush
 ```
 
+
 ## Notes
 
 Crush is a Go-based coding agent from Charmbracelet (23k+ GitHub stars). Installed via apt from Charm's Debian repository. Skill file contains all rules concatenated.

@@ -42,6 +42,17 @@ bin/rulepack install <pkg> -t gemini-cli
 bin/rulepack uninstall <pkg> -t gemini-cli
 ```
 
+
+### Appending without overwriting
+
+By default, rules are appended to `GEMINI.md` using marker-boundary blocks:
+
+```bash
+bin/rulepack install <pkg> -t gemini-cli
+```
+
+Rulepack wraps each package in `<!-- rulepack:<pkg> start -->` / `<!-- rulepack:<pkg> end -->` markers, so existing content is preserved and re-install/uninstall only affect that package's block.
+
 ## Notes
 
 Gemini CLI uses a directory-based rule structure under `~/.gemini/`. Rules are appended to `GEMINI.md` using marker-boundary blocks for idempotent re-installation. Skills are copied to `skills/`. Extension system is powerful; extensions can provide MCP servers, custom commands, hooks, skills, and agents.

@@ -27,6 +27,17 @@ bin/rulepack install <pkg> -t antigravity
 bin/rulepack uninstall <pkg> -t antigravity
 ```
 
+
+### Appending without overwriting
+
+By default, rules are appended to `GEMINI.md` using marker-boundary blocks:
+
+```bash
+bin/rulepack install <pkg> -t antigravity
+```
+
+Rulepack wraps each package in `<!-- rulepack:<pkg> start -->` / `<!-- rulepack:<pkg> end -->` markers, so existing content is preserved and re-install/uninstall only affect that package's block.
+
 ## Notes
 
 Antigravity is a user-scoped agent (Google). Rules are appended to the shared `~/.gemini/GEMINI.md` file using marker-aware boundaries, merged with any existing content.

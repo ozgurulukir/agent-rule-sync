@@ -39,6 +39,17 @@ bin/rulepack install <pkg> -t opencode
 bin/rulepack uninstall <pkg> -t opencode
 ```
 
+
+### Appending without overwriting
+
+To append rules to `AGENTS.md` without replacing existing content, use `--rules-to rules_file`:
+
+```bash
+bin/rulepack install <pkg> -t opencode --rules-to rules_file
+```
+
+Rulepack wraps each package in marker-boundary blocks (`<!-- rulepack:<pkg> start -->` / `<!-- rulepack:<pkg> end -->`), so your existing content is preserved.
+
 ## Notes
 
 OpenCode is the primary coding agent on this workstation. It uses directory format with per-section rule files. Memory isolation rules and shell strategy are critical for stability.

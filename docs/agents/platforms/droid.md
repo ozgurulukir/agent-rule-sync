@@ -36,6 +36,17 @@ bin/rulepack install <pkg> -t droid
 bin/rulepack uninstall <pkg> -t droid
 ```
 
+
+### Appending without overwriting
+
+To append rules to `AGENTS.md` without replacing existing content, use `--rules-to rules_file`:
+
+```bash
+bin/rulepack install <pkg> -t droid --rules-to rules_file
+```
+
+Rulepack wraps each package in marker-boundary blocks (`<!-- rulepack:<pkg> start -->` / `<!-- rulepack:<pkg> end -->`), so your existing content is preserved.
+
 ## Notes
 
 Droid is the Factory AI coding agent. The binary is `droid` (not `factory-droid`). Uses `--append-system-prompt-file` for custom rules injection, making it compatible with Rulepack-generated AGENTS.md.
