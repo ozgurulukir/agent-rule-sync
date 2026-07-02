@@ -14,6 +14,19 @@ bin/rulepack install antigravity
 # Appends rules to ~/.gemini/GEMINI.md with marker boundaries
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the platform:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t antigravity
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t antigravity
+```
+
 ## Notes
 
 Antigravity is a user-scoped agent (Google). Rules are appended to the shared `~/.gemini/GEMINI.md` file using marker-aware boundaries, merged with any existing content.

@@ -23,6 +23,19 @@ bin/rulepack install codex --project .
 # Generates vendor skill (build/codex/skills/vendor/codex.md) and copies to AGENTS.md
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the project:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t codex --project .
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t codex --project .
+```
+
 ## Notes
 
 Codex CLI uses the same `AGENTS.md` format as OpenCode but as a single concatenated skill file rather than individual rule files. The Rulepack system aggregates all rule fragments and skills into one file for Codex.

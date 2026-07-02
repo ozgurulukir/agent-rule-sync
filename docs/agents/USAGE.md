@@ -139,6 +139,20 @@ bin/rulepack install opencode --select
 bin/rulepack install opencode --select auth,sql
 ```
 
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the platform:
+
+```bash
+# Install a single package
+bin/rulepack install memory -t opencode
+bin/rulepack install memory -t cursor --project .
+
+# Uninstall a single package
+bin/rulepack uninstall memory -t opencode
+bin/rulepack uninstall memory -t cursor --project .
+```
+
 ### Install with --on-collision
 
 Control what happens when a file already exists:

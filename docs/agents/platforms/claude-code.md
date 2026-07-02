@@ -24,6 +24,19 @@ bin/rulepack install claude-code --project .
 # Creates symlinks: .claude/rules/*.md → build/claude-code/
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the project:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t claude-code --project .
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t claude-code --project .
+```
+
 ## Notes
 
 Claude Code does not have a global config file; it uses per-project `CLAUDE.md`. The Rulepack system installs individual rule files into `.claude/rules/` for modular organization.

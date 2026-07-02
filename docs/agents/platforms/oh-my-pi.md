@@ -31,6 +31,19 @@ omp update  # bun-installed self-updater
 bin/rulepack install oh-my-pi   # → ~/.omp/agent/rules/*.md (symlinks)
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the platform:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t oh-my-pi
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t oh-my-pi
+```
+
 ## Notes
 
 Oh My Pi is a TypeScript/Rust monorepo coding agent. Supports multiple model roles and has built-in IPython integration.

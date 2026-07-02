@@ -25,6 +25,19 @@ bin/rulepack install cursor --project .
 # Creates symlinks: .cursor/rules/workstation-*.md → build/cursor/
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the project:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t cursor --project .
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t cursor --project .
+```
+
 ## Notes
 
 Cursor stores global rules in cloud/DB; project rules are version-controlled in repo. Use project-level rules for Rulepack sync. Supports both markdown (`.md`) and mdc (`.mdc`) formats with frontmatter.

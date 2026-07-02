@@ -17,6 +17,19 @@ bin/rulepack install github-copilot --project .
 # Copies instruction files to .github/
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the project:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t github-copilot --project .
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t github-copilot --project .
+```
+
 ## Notes
 
 GitHub Copilot reads the entire `copilot-instructions.md` file as custom instructions. Files in `.github/instructions/` are automatically loaded as additional context. The Rulepack system writes platform-specific instruction files (e.g., `memory-instructions.md`) which can be referenced from the main file.

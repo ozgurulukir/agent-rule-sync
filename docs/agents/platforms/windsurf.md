@@ -23,6 +23,19 @@ bin/rulepack install windsurf --project .
 # Creates symlinks: .windsurf/rules/*.md → build/windsurf/
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the project:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t windsurf --project .
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t windsurf --project .
+```
+
 ## Notes
 
 Windsurf rules can include frontmatter for fine-grained control. Use `alwaysApply: true` for workstation rules that should always be active.

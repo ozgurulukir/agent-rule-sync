@@ -110,6 +110,22 @@ bin/rulepack uninstall [pkg] -t <plat|all>
 bin/rulepack uninstall [pkg] -t <plat|all> --dry-run
 bin/rulepack uninstall -R [pkg] -t <plat|all>        # pacman-style alias
 
+### Surgical install / uninstall
+
+Install or remove a single package instead of the whole platform set:
+
+```bash
+# Install only one package
+bin/rulepack install memory -t opencode
+
+# Uninstall only one package
+bin/rulepack uninstall memory -t opencode
+
+# Project-level platforms also need --project
+bin/rulepack install memory -t cursor --project .
+bin/rulepack uninstall memory -t cursor --project .
+```
+
 # Collision strategies
 bin/rulepack install -t <plat> --on-collision stop|ignore|overwrite|append
 

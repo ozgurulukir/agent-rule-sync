@@ -29,6 +29,19 @@ bin/rulepack install gemini-cli
 # Copies skills to ~/.gemini/sills/
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the platform:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t gemini-cli
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t gemini-cli
+```
+
 ## Notes
 
 Gemini CLI uses a directory-based rule structure under `~/.gemini/`. Rules are appended to `GEMINI.md` using marker-boundary blocks for idempotent re-installation. Skills are copied to `skills/`. Extension system is powerful; extensions can provide MCP servers, custom commands, hooks, skills, and agents.

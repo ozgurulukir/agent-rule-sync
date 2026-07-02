@@ -23,6 +23,19 @@ bin/rulepack install droid
 # Copies build/droid/skills/vendor/droid.md → ~/.factory/AGENTS.md
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the platform:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t droid
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t droid
+```
+
 ## Notes
 
 Droid is the Factory AI coding agent. The binary is `droid` (not `factory-droid`). Uses `--append-system-prompt-file` for custom rules injection, making it compatible with Rulepack-generated AGENTS.md.

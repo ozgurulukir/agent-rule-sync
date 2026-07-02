@@ -15,6 +15,19 @@ bin/rulepack install agents
 # Symlinks/copies to ~/.agents/rules/ and ~/.agents/skills/
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the platform:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t agents
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t agents
+```
+
 ## Notes
 
 The Agents platform is a community-driven collection of rules and skills from various coding agents. It provides a unified interface for accessing shared agent behavior definitions.

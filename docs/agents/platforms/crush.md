@@ -24,6 +24,19 @@ bin/rulepack install crush
 # Copies build/crush/skills/vendor/crush.md → ~/.config/crush/crush.md
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the platform:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t crush
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t crush
+```
+
 ## Notes
 
 Crush is a Go-based coding agent from Charmbracelet (23k+ GitHub stars). Installed via apt from Charm's Debian repository. Skill file contains all rules concatenated.

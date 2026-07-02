@@ -32,6 +32,19 @@ bin/rulepack install qwen-code
 # Injects @import lines into ~/.config/qwen/config.yaml
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the platform:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t qwen-code
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t qwen-code
+```
+
 ## Notes
 
 Qwen Code has sophisticated query pipeline that automatically translates non-English input and searches in both languages. The permission system is granular; ensure Rulepack rules don't trigger "ask" for common operations.

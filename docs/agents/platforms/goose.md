@@ -25,6 +25,19 @@ bin/rulepack install goose
 # Copies build/goose/skills/vendor/goose.md → ~/.local/share/goose/goose.md
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the platform:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t goose
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t goose
+```
+
 ## Notes
 
 Goose's persistent instructions are per-turn, not per-session. This is more reliable for guardrails but costs more tokens. The 64 KB limit means rules must be concise. The Rulepack vendor skill should be referenced from guardrails file.

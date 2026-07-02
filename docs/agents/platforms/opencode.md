@@ -26,6 +26,19 @@ opencode upgrade  # self-updater (supports curl, npm, pnpm, bun, brew)
 bin/rulepack install opencode   # → ~/.config/opencode/rules/*.md (symlinks)
 ```
 
+
+### Surgical install / uninstall
+
+Install or remove individual packages without touching the rest of the platform:
+
+```bash
+# Install a single package
+bin/rulepack install <pkg> -t opencode
+
+# Uninstall a single package
+bin/rulepack uninstall <pkg> -t opencode
+```
+
 ## Notes
 
 OpenCode is the primary coding agent on this workstation. It uses directory format with per-section rule files. Memory isolation rules and shell strategy are critical for stability.
