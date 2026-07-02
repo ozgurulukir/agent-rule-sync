@@ -281,7 +281,7 @@ When installing a skill-bundle with 2-150 sub-skills in a real terminal, Rulepac
 - Use `--select <names>` to skip the menu entirely:
 
 ```bash
-bin/rulepack install antigravity-skills --select llm-evaluation,prompt-engineer
+bin/rulepack install antigravity-skills --target opencode --select llm-evaluation,prompt-engineer
 ```
 
 ## Query Tool
@@ -307,8 +307,8 @@ bin/rulepack query provides <capability>      # Show packages providing a capabi
 ```bash
 bin/rulepack audit                            # Audit all PKGBUILD descriptors (highly recommended)
 bin/rulepack audit --strict                   # Strict audit (warn/error on partial platform coverage)
-bin/rulepack install opencode --dry-run       # Preview changes
-bin/rulepack uninstall opencode --dry-run      # Preview removal
+bin/rulepack install --target opencode --dry-run       # Preview changes
+bin/rulepack uninstall --target opencode --dry-run      # Preview removal
 bin/rulepack install --check --target opencode        # Verify installed state
 rm -rf build/ && bin/rulepack build            # Full rebuild
 ```
@@ -361,16 +361,6 @@ If `git` is not installed on the system, or if a `git clone` fails due to networ
 | `RULEPACK_CACHE_DIR` | `cache` | Cache directory name under project root |
 | `RULEPACK_GIT_DEPTH` | `1` | Git shallow clone depth |
 | `RULEPACK_LOG_LEVEL` | `info` | Log level filtering (`error`, `warn`, `info`, `debug`) |
-
-## Code Quality & Security Fixes (2026-05-29)
-
-Full details with claim-verify-act evidence: [`docs/improvement-plan/OPEN-ITEMS.md`](docs/improvement-plan/OPEN-ITEMS.md) (29 items completed).
-
-Key fixes: `pkgver_func` shell execution (P-J), HTTP 30x redirect handling (P-K), `strip-frontmatter` enforcement (P-L), multi-package checksum verification (P-M), symlink path traversal prevention (P-N), library `exit 1` → `raise ArgumentError` (P-O), TUI selector timeout (P-T).
-
-**Test gate**: 357 unit/integration tests — **0 failures, 0 errors** (E2E gated behind `NETWORK_E2E`).
-
----
 
 ## License
 
