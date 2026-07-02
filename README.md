@@ -1,5 +1,7 @@
 # Rulepack — PKGBUILD-based Agent Rule Manager
 
+_An Elegant Tool For A More Civilized Age_
+
 Package-based rule management for AI coding agents, inspired by PKGBUILD/pacman.
 
 > **For developers**: See [AGENTS.md](AGENTS.md) for architecture, creating packages, pipeline details, testing, and project status.
