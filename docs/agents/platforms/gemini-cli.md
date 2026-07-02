@@ -24,7 +24,7 @@ gemini extensions update --all  # extensions only; CLI updates via npm
 ## Rulepack Integration
 
 ```bash
-bin/rulepack install gemini-cli
+bin/rulepack install --target gemini-cli
 # Appends rules to ~/.gemini/GEMINI.md using marker-boundary blocks
 # Copies skills to ~/.gemini/sills/
 ```

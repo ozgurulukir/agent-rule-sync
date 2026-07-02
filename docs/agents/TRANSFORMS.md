@@ -46,26 +46,23 @@ transformer: copy
 
 ### API
 
-Custom transformers are Ruby scripts located in `data/transformers/`. They must define a `Transform` class with a `#transform` instance method.
+Custom transformers are Ruby scripts located in `data/transformers/`. They define a `RulepackTransformer::<Name>` module with a `.transform(content, pkgname:)` class method. The module name is derived from the filename.
 
 ```ruby
 # data/transformers/example.rb
-class Transform
-  def initialize(content:, pkgname:)
-    @content = content    # Source file content (string)
-    @pkgname = pkgname    # Package name (symbol, optional)
-  end
-
-  def transform
-    # Modify @content as needed
-    @content
+module RulepackTransformer
+  module Example
+    def self.transform(content, pkgname:)
+      # Modify content as needed
+      content
+    end
   end
 end
 ```
 
-**Constructor kwargs**:
+**Method kwargs**:
 - `content:` — full source file content as string
-- `pkgname:` — package name (symbol), optional, for context/logging
+- `pkgname:` — package name (string), optional, for context/logging
 
 **Return value**: Transformed content string.
 
@@ -81,11 +78,12 @@ targets:
 
 ### Available Custom Transformers
 
-| Transformer | Purpose |
-|---|---|
-| `add-header.rb` | Prepends a title header extracted from YAML frontmatter |
-| `strip-comments.rb` | Removes HTML comments and normalizes whitespace |
-| `format-code.rb` | Auto-detects code block language and adds explicit language tags |
+| Transformer | Purpose | Module |
+|---|---|---|
+| `add-header.rb` | Prepends a title header extracted from YAML frontmatter | `RulepackTransformer::AddHeader` |
+| `add_frontmatter.rb` | Injects YAML frontmatter for OpenCode-style skills | `RulepackTransformer::AddFrontmatter` |
+| `strip-comments.rb` | Removes HTML comments and normalizes whitespace | `RulepackTransformer::StripComments` |
+| `format-code.rb` | Auto-detects code block language and adds explicit language tags | `RulepackTransformer::FormatCode` |
 
 ---
 
@@ -150,7 +148,6 @@ Use `translate` when the target platform needs a fundamentally different content
 | Agent → Cursor manifest + prompt | Yes: `agent_to_cursor` |
 | Agent → Claude Code section schema | Yes: `agent_to_claude_code` |
 | Raw upstream format → local normalized format | Yes: `normalize_markdown` |
-| Just strip frontmatter | No: use `strip-frontmatter` transformer |
 | Just copy as-is | No: omit `translate` (default: no-op) |
 
 ### Custom Translators
@@ -159,21 +156,24 @@ Create a Ruby script in `data/translators/`:
 
 ```ruby
 # data/translators/example.rb
-class Translator
-  def self.translate(content, args: {})
-    pkgname = args[:pkgname]
-    extra_args = args[:extra_args] || {}
-    # Transform content
-    content
+module RulepackTranslator
+  module Example
+    def self.translate(content, args: {})
+      pkgname = args[:pkgname]
+      extra_args = args[:extra_args] || {}
+      # Transform content
+      content
+    end
   end
 end
 ```
 
 **Requirements**:
-- Class name must be `Translator`
+- Module name is derived from the filename: `data/translators/my_thing.rb` → `RulepackTranslator::MyThing`
 - `.translate(content, args: {})` returns transformed content as string
 - `args[:pkgname]` provides the package name for context
 - `args[:extra_args]` provides additional metadata (pkgdesc, tags, agent_config)
+- The legacy `RulepackTranslator::Impl` / `Translator` forms are still accepted for old scripts
 
 ### Available Translators
 

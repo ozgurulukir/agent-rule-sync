@@ -28,7 +28,7 @@ omp update  # bun-installed self-updater
 ## Rulepack Integration
 
 ```bash
-bin/rulepack install oh-my-pi   # → ~/.omp/agent/rules/*.md (symlinks)
+bin/rulepack install --target oh-my-pi   # → ~/.omp/agent/rules/*.md (symlinks)
 ```
 
 

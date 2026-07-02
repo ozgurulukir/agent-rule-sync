@@ -11,11 +11,11 @@ How to use the Rulepack system: installation, workflows, commands, and common ta
 bin/rulepack build
 
 # 2. Install to a platform
-bin/rulepack install opencode              # user-level
-bin/rulepack install cursor --project .    # project-level (from project root)
+bin/rulepack install --target opencode              # user-level
+bin/rulepack install --target cursor --project .    # project-level (from project root)
 
 # 3. Verify
-bin/rulepack verify opencode
+bin/rulepack verify --target opencode
 ```
 
 ---
@@ -28,25 +28,25 @@ Global installation to home directory or system paths. No `--project` flag neede
 
 ```bash
 # OpenCode (rules as symlinks)
-bin/rulepack install opencode
+bin/rulepack install --target opencode
 
 # Oh My Pi
-bin/rulepack install oh-my-pi
+bin/rulepack install --target oh-my-pi
 
 # Skill agents (vendor skill file)
-bin/rulepack install crush
-bin/rulepack install goose
-bin/rulepack install droid
+bin/rulepack install --target crush
+bin/rulepack install --target goose
+bin/rulepack install --target droid
 
 # Import agents (inject @import lines)
-bin/rulepack install gemini-cli
-bin/rulepack install qwen-code
+bin/rulepack install --target gemini-cli
+bin/rulepack install --target qwen-code
 
 # Antigravity (skill-bundle)
-bin/rulepack install antigravity
+bin/rulepack install --target antigravity
 
 # Agents
-bin/rulepack install agents
+bin/rulepack install --target agents
 ```
 
 ### Project-Level Platforms
@@ -57,14 +57,14 @@ Per-project installation. Run from project root or use `--project PATH`:
 cd /path/to/your/project
 
 # Install to current project (--project optional when run from project root)
-bin/rulepack install cursor
-bin/rulepack install windsurf
-bin/rulepack install github-copilot
-bin/rulepack install claude-code
-bin/rulepack install codex
+bin/rulepack install --target cursor
+bin/rulepack install --target windsurf
+bin/rulepack install --target github-copilot
+bin/rulepack install --target claude-code
+bin/rulepack install --target codex
 
 # Or specify explicit project path
-bin/rulepack install cursor --project /path/to/project
+bin/rulepack install --target cursor --project /path/to/project
 ```
 
 **Important**: Uninstall for project-level platforms also requires `--project` to locate files.
@@ -79,7 +79,7 @@ bin/rulepack install cursor --project /path/to/project
 # Clean build artifacts, rebuild everything, reinstall
 rm -rf build/
 bin/rulepack build
-bin/rulepack install opencode
+bin/rulepack install --target opencode
 ```
 
 ### Development Cycle
@@ -92,12 +92,12 @@ vim data/packages/memory/src/00-memory.md
 bin/rulepack build
 
 # 3. Reinstall affected platforms
-bin/rulepack install opencode
-bin/rulepack install cursor --project .
+bin/rulepack install --target opencode
+bin/rulepack install --target cursor --project .
 
 # 4. Verify
 bin/rulepack show memory
-bin/rulepack verify opencode
+bin/rulepack verify --target opencode
 ```
 
 ### Multi-Platform Install
@@ -105,7 +105,7 @@ bin/rulepack verify opencode
 ```bash
 # Install to all user-level platforms
 for p in opencode oh-my-pi crush goose droid gemini-cli qwen-code antigravity agents; do
-  bin/rulepack install $p
+  bin/rulepack install --target $p
 done
 ```
 
@@ -114,8 +114,8 @@ done
 Always preview changes before installing:
 
 ```bash
-bin/rulepack install opencode --dry-run
-bin/rulepack uninstall cursor --project . --dry-run
+bin/rulepack install --target opencode --dry-run
+bin/rulepack uninstall --target cursor --project . --dry-run
 ```
 
 ### Install with --rules-to
@@ -124,7 +124,7 @@ Redirect rules to a single file instead of the `rules_dir`:
 
 ```bash
 # Append rules to AGENTS.md instead of creating individual symlinks
-bin/rulepack install oh-my-pi --rules-to AGENTS.md
+bin/rulepack install --target oh-my-pi --rules-to AGENTS.md
 ```
 
 ### Appending to AGENTS.md / GEMINI.md without overwriting
@@ -133,13 +133,13 @@ Some platforms read a single rules file (e.g. `AGENTS.md`, `GEMINI.md`). Rulepac
 
 ```bash
 # Append all rules to the platform rules file
-bin/rulepack install opencode --rules-to rules_file
+bin/rulepack install --target opencode --rules-to rules_file
 
 # Append a single package without touching the rest of the file
-bin/rulepack install memory -t opencode --rules-to rules_file
+bin/rulepack install memory --target opencode --rules-to rules_file
 
 # Same behavior when a collision occurs on an existing file
-bin/rulepack install opencode --on-collision append
+bin/rulepack install --target opencode --on-collision append
 ```
 
 Rulepack wraps each package like this:
@@ -158,10 +158,10 @@ For skill-bundle packages, select specific sub-skills:
 
 ```bash
 # Interactive selection (TUI)
-bin/rulepack install opencode --select
+bin/rulepack install antigravity-skills --target opencode --select
 
 # Non-interactive: specify sub-skills by name
-bin/rulepack install opencode --select auth,sql
+bin/rulepack install antigravity-skills --target opencode --select auth,sql
 ```
 
 ### Surgical install / uninstall
@@ -184,16 +184,16 @@ Control what happens when a file already exists:
 
 ```bash
 # Default: stop and report
-bin/rulepack install opencode --on-collision stop
+bin/rulepack install --target opencode --on-collision stop
 
 # Skip conflicting files and continue
-bin/rulepack install opencode --on-collision ignore
+bin/rulepack install --target opencode --on-collision ignore
 
 # Replace files, generating a surgical backup
-bin/rulepack install opencode --on-collision overwrite
+bin/rulepack install --target opencode --on-collision overwrite
 
 # Append rules using marker boundary blocks
-bin/rulepack install opencode --on-collision append
+bin/rulepack install --target opencode --on-collision append
 ```
 
 ---
@@ -232,19 +232,19 @@ Options:
 **Examples**:
 ```bash
 # Install all packages to user-level platform
-bin/rulepack install opencode
+bin/rulepack install --target opencode
 
 # Install to project-level platform
-bin/rulepack install cursor --project .
+bin/rulepack install --target cursor --project .
 
 # Preview changes
-bin/rulepack install opencode --dry-run
+bin/rulepack install --target opencode --dry-run
 
 # Install only specific sub-skills from a skill-bundle
-bin/rulepack install opencode --select auth,sql
+bin/rulepack install antigravity-skills --target opencode --select auth,sql
 
 # Force downgrade
-bin/rulepack install opencode --force
+bin/rulepack install --target opencode --force
 ```
 
 **Upgrades & Downgrades**:
@@ -267,11 +267,11 @@ Options:
 ### Pacman-Style Shortcuts
 
 ```bash
-bin/rulepack -S opencode            # Install (same as: install)
-bin/rulepack -R opencode            # Uninstall (same as: uninstall)
-bin/rulepack -Qk opencode           # Verify (same as: verify)
-bin/rulepack -F opencode            # Fix (same as: fix)
-bin/rulepack -Q ls                  # Query (same as: query ls)
+bin/rulepack install -S --target opencode      # Install (pacman-style alias)
+bin/rulepack uninstall -R --target opencode    # Uninstall (pacman-style alias)
+bin/rulepack verify -Qk --target opencode      # Verify (pacman-style alias)
+bin/rulepack fix -F --target opencode          # Fix (pacman-style alias)
+bin/rulepack query -Q ls                       # Query (pacman-style alias)
 ```
 
 ### query / list / show / search
@@ -281,7 +281,7 @@ Inspect the package database.
 ```bash
 # List all packages
 bin/rulepack list
-bin/rulepack -Q ls
+bin/rulepack query ls
 
 # Show package details
 bin/rulepack show memory
@@ -290,7 +290,7 @@ bin/rulepack show memory
 bin/rulepack search security
 
 # List installed packages on a platform
-bin/rulepack -Q installed opencode
+bin/rulepack query installed opencode
 
 # List available platforms
 bin/rulepack platforms
@@ -301,8 +301,8 @@ bin/rulepack platforms
 Comprehensive index-disk reconciliation:
 
 ```bash
-bin/rulepack verify opencode
-bin/rulepack -Qk opencode
+bin/rulepack verify --target opencode
+bin/rulepack verify -Qk --target opencode
 ```
 
 Detects drift between index and actual disk state, reports orphans and mismatches.
@@ -312,9 +312,9 @@ Detects drift between index and actual disk state, reports orphans and mismatche
 Automated repair of drift:
 
 ```bash
-bin/rulepack fix opencode
-bin/rulepack -F opencode
-bin/rulepack fix opencode --auto    # Non-interactive
+bin/rulepack fix --target opencode
+bin/rulepack fix -F --target opencode
+bin/rulepack fix --target opencode --auto    # Non-interactive
 ```
 
 Clears broken records, reinstalls missing packages, removes orphans.
@@ -337,12 +337,12 @@ Uninstall removes packages from a platform and cleans up:
 
 ```bash
 # User-level
-bin/rulepack uninstall opencode
-bin/rulepack uninstall goose
+bin/rulepack uninstall --target opencode
+bin/rulepack uninstall --target goose
 
 # Project-level (must specify project)
 cd /my/project
-bin/rulepack uninstall cursor --project .
+bin/rulepack uninstall --target cursor --project .
 ```
 
 **What gets removed:**
@@ -407,14 +407,14 @@ bin/rulepack build
 ### 5. Install
 
 ```bash
-bin/rulepack install opencode
+bin/rulepack install --target opencode
 ```
 
 ### 6. Verify
 
 ```bash
 bin/rulepack show my-rule
-bin/rulepack verify opencode
+bin/rulepack verify --target opencode
 ```
 
 ---

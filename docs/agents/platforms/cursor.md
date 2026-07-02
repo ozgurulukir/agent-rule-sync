@@ -21,7 +21,7 @@ Built-in updater: Menu → Help → Check for Updates
 
 ```bash
 cd /path/to/project
-bin/rulepack install cursor --project .
+bin/rulepack install --target cursor --project .
 # Creates symlinks: .cursor/rules/workstation-*.md → build/cursor/
 ```
 

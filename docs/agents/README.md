@@ -35,7 +35,7 @@ This is the PKGBUILD-based system for managing AI agent rules, skills, and docum
 This repository maintains a **single source of truth** for agent behavior definitions. Each rule or skill is a self-contained package with a PKGBUILD descriptor. The system:
 
 - **Builds** packages from source (local files or upstream URLs)
-- **Transforms** content per-platform via transformers (copy, strip-frontmatter, custom)
+- **Transforms** content per-platform via transformers (built-in `copy` and custom transformers under `data/transformers/`)
 - **Aggregates** skill-based agents' vendor files from rule fragments
 - **Installs** to multiple agent platforms (user-level and project-level)
 - **Tracks** installed state via `data/index.yaml`

@@ -126,7 +126,7 @@ bin/rulepack install memory -t cursor --project .
 bin/rulepack uninstall memory -t cursor --project .
 ```
 
-# Collision strategies
+### Collision strategies
 bin/rulepack install -t <plat> --on-collision stop|ignore|overwrite|append
 
 # Rules installation mode
@@ -348,7 +348,7 @@ data/packages/
 - **Subprocess elimination**: avoid spawning shells where possible; a small number of legacy subprocess calls (`git`, `tar`, `pkgver_func`) remain and are being phased out.
 - **Immutable strings**: every file must declare `# frozen_string_literal: true`.
 - **Pathname API**: use `Pathname` instead of string concatenation for paths.
-- **Tests**: run `bundle exec rake test`. The suite has 305 tests and ~930 assertions; network-dependent E2E tests are gated behind `NETWORK_E2E`.
+- **Tests**: run `bundle exec rake test`. The suite has 357 tests and 1097 assertions; network-dependent E2E tests are gated behind `NETWORK_E2E`.
 
 ---
 

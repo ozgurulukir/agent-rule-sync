@@ -171,13 +171,9 @@ Identity transformation — content written as-is.
 transformer: copy
 ```
 
-#### `strip-frontmatter`
+#### ~~`strip-frontmatter`~~ (Removed)
 
-Removes YAML frontmatter (`---` delimited block) from the top of the file.
-
-```yaml
-transformer: strip-frontmatter
-```
+> **Removed**: YAML frontmatter stripping is now handled automatically by the Schema Engine based on each platform's `frontmatter` policy in `data/platforms/<agent>.yaml`. Specifying `transformer: strip-frontmatter` produces a validation error.
 
 ### Custom Transformers
 
@@ -185,23 +181,20 @@ Create a Ruby script in `data/transformers/`:
 
 ```ruby
 # data/transformers/example.rb
-class Transform
-  def initialize(content:, pkgname:)
-    @content = content
-    @pkgname = pkgname
-  end
-
-  def transform
-    # Transform @content (string) and return new string
-    @content
+module RulepackTransformer
+  module Example
+    def self.transform(content, pkgname:)
+      # Transform content (string) and return new string
+      content
+    end
   end
 end
 ```
 
 **Requirements**:
-- Class name must be `Transform`
-- `#transform` method returns transformed content as string
-- Constructor accepts keyword args: `content:` (source string), `pkgname:` (package name, optional)
+- Module name is derived from the filename: `data/transformers/my_thing.rb` → `RulepackTransformer::MyThing`
+- `.transform(content, pkgname:)` returns transformed content as string
+- The legacy `Transform` class form is still accepted for old scripts
 
 ---
 
@@ -214,11 +207,11 @@ The **translate step** runs *before* the schema engine and transform steps. It c
 ```
 Source (fetched)
     ↓
-TRANSLATE     ← platform-specific content conversion
+TRANSLATE     ← platform-specific content conversion (registry default or PKGBUILD override)
     ↓
 SCHEMA ENGINE ← centralized formatting (frontmatter, emoji, bullets, headings)
     ↓
-TRANSFORM     ← structural/format changes (copy, strip-frontmatter, custom)
+TRANSFORM     ← structural/format changes (copy or custom transformer)
     ↓
 Build artifact → Install → Target platform
 ```
@@ -229,21 +222,24 @@ Create a Ruby script in `data/translators/`:
 
 ```ruby
 # data/translators/example.rb
-class Translator
-  def self.translate(content, args: {})
-    pkgname = args[:pkgname]
-    extra_args = args[:extra_args] || {}  # pkgdesc, tags, agent_config
-    # Transform content
-    content
+module RulepackTranslator
+  module Example
+    def self.translate(content, args: {})
+      pkgname = args[:pkgname]
+      extra_args = args[:extra_args] || {}  # pkgdesc, tags, agent_config
+      # Transform content
+      content
+    end
   end
 end
 ```
 
 **Requirements**:
-- Class name must be `Translator`
-- `.translate(content, args: {})` returns transformed content as string
+- Module name is derived from the filename: `data/translators/my_thing.rb` → `RulepackTranslator::MyThing`
+- `.translate(content, args: {})` returns translated content as string
 - `args[:pkgname]` provides the package name
 - `args[:extra_args]` provides additional PKGBUILD metadata
+- The legacy `RulepackTranslator::Impl` / `Translator` forms are still accepted for old scripts
 
 ### Available Translators
 
@@ -368,7 +364,7 @@ Platforms are defined in `data/registry/platforms.yaml`:
 |----------|---------|-------------|
 | `RULEPACK_MAX_REDIRECTS` | `3` | Maximum HTTP redirects for URL source fetches |
 | `RULEPACK_READ_TIMEOUT` | `30` | HTTP read timeout in seconds |
-| `RULEPACK_CACHE_DIR` | `cache` | Cache directory name under `build/` |
+| `RULEPACK_CACHE_DIR` | `cache` | Cache directory name under project root |
 | `RULEPACK_GIT_DEPTH` | `1` | Git shallow clone depth |
 | `RULEPACK_LOG_LEVEL` | `info` | Log level filtering (`error`, `warn`, `info`, `debug`) |
 

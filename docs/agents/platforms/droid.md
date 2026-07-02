@@ -19,7 +19,7 @@ droid update  # if available
 ## Rulepack Integration
 
 ```bash
-bin/rulepack install droid
+bin/rulepack install --target droid
 # Copies build/droid/skills/vendor/droid.md → ~/.factory/AGENTS.md
 ```
 

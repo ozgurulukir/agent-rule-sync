@@ -13,7 +13,7 @@
 
 ```bash
 cd /path/to/project
-bin/rulepack install github-copilot --project .
+bin/rulepack install --target github-copilot --project .
 # Copies instruction files to .github/
 ```
 

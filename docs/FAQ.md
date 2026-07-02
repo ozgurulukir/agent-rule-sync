@@ -33,7 +33,7 @@ cd agent-rule-sync
 bin/rulepack build
 
 # Install to a platform
-bin/rulepack install opencode
+bin/rulepack install --target opencode
 ```
 
 ### What are the prerequisites?
@@ -57,13 +57,13 @@ This reads all `PKGBUILD` files from `data/packages/*/`, fetches sources, applie
 
 ```bash
 # User-level platform (global)
-bin/rulepack install opencode
+bin/rulepack install --target opencode
 
 # Project-level platform (version-controlled)
-bin/rulepack install cursor --project .
+bin/rulepack install --target cursor --project .
 
 # Install specific package to a platform
-bin/rulepack install memory --target opencode
+bin/rulepack install --target memory --target opencode
 
 # Install with pacman-style flag
 bin/rulepack install -S opencode
@@ -79,7 +79,7 @@ bin/rulepack show memory
 bin/rulepack search security
 
 # Verify installed state matches index
-bin/rulepack verify opencode
+bin/rulepack verify --target opencode
 
 # Query package database
 bin/rulepack query show memory
@@ -91,10 +91,10 @@ bin/rulepack query search shell
 ```bash
 # Rebuild and reinstall
 bin/rulepack build
-bin/rulepack install opencode
+bin/rulepack install --target opencode
 
 # Force reinstall (allows downgrades)
-bin/rulepack install opencode --force
+bin/rulepack install --target opencode --force
 ```
 
 ---
@@ -109,7 +109,7 @@ bin/rulepack install opencode --force
 
 ```bash
 bin/rulepack build
-bin/rulepack install opencode
+bin/rulepack install --target opencode
 ```
 
 ### "Platform not found"
@@ -149,9 +149,9 @@ Then update `data/packages/<name>/PKGBUILD`.
 
 **Solution**:
 1. Verify the artifact was rebuilt: `ls build/<platform>/`
-2. Reinstall: `bin/rulepack install opencode --force`
+2. Reinstall: `bin/rulepack install --target opencode --force`
 3. Check the agent's config location (some agents cache rules)
-4. Repair drift: `bin/rulepack fix opencode`
+4. Repair drift: `bin/rulepack fix --target opencode`
 
 ---
 
@@ -163,19 +163,16 @@ See [Usage](agents/USAGE.md) for a step-by-step guide.
 
 ### How do I create a custom transformer?
 
-Create a Ruby class in `data/transformers/`:
+Create a Ruby module in `data/transformers/`:
 
 ```ruby
-# data/transformers/my-transform.rb
-class Transform
-  def initialize(content:, pkgname:)
-    @content = content
-    @pkgname = pkgname
-  end
-
-  def transform
-    # Your transformation here
-    @content.upcase
+# data/transformers/my_transform.rb
+module RulepackTransformer
+  module MyTransform
+    def self.transform(content, pkgname:)
+      # Your transformation here
+      content.upcase
+    end
   end
 end
 ```
@@ -185,7 +182,7 @@ Set the platform's `default_transformer` in `data/registry/platforms.yaml` for a
 ```yaml
 targets:
   - platform: opencode
-    transformer: custom:data/transformers/my-transform.rb
+    transformer: custom:data/transformers/my_transform.rb
 ```
 
 ### How do I create a custom translator?
@@ -193,12 +190,14 @@ targets:
 Similar to transformers, but in `data/translators/`:
 
 ```ruby
-# data/translators/my-translate.rb
-class Translator
-  def self.translate(content, args: {})
-    pkgname = args[:pkgname]
-    # Your translation here
-    content
+# data/translators/my_translate.rb
+module RulepackTranslator
+  module MyTranslate
+    def self.translate(content, args: {})
+      pkgname = args[:pkgname]
+      # Your translation here
+      content
+    end
   end
 end
 ```
@@ -242,7 +241,7 @@ For skill-based platforms (Crush, Goose, Droid, Codex), Rulepack aggregates mult
 ### How do I run tests?
 
 ```bash
-rake test                    # All tests (277 tests, 855 assertions)
+rake test                    # All tests (357 tests, 1097 assertions)
 ```
 
 ### How do I debug a build?
@@ -267,7 +266,7 @@ RULEPACK_LOG_LEVEL=debug bin/rulepack build
 
 - Claude Code reads rules from `.claude/rules/` in the project
 - Ensure you're running from the project root
-- Install with: `bin/rulepack install claude-code --project .`
+- Install with: `bin/rulepack install --target claude-code --project .`
 
 ### GitHub Copilot: Instructions not applying
 

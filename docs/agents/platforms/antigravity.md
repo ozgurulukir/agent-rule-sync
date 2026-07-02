@@ -10,7 +10,7 @@
 ## Rulepack Integration
 
 ```bash
-bin/rulepack install antigravity
+bin/rulepack install --target antigravity
 # Appends rules to ~/.gemini/GEMINI.md with marker boundaries
 ```
 

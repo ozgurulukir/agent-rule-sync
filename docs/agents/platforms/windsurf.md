@@ -19,7 +19,7 @@ Built-in updater (Windsurf IDE menu)
 
 ```bash
 cd /path/to/project
-bin/rulepack install windsurf --project .
+bin/rulepack install --target windsurf --project .
 # Creates symlinks: .windsurf/rules/*.md → build/windsurf/
 ```
 

@@ -11,7 +11,7 @@ Package-based rule management for AI coding agents, inspired by PKGBUILD/pacman.
 A **PKGBUILD-inspired package manager** for agent rules and skills:
 
 - **Package format**: Each rule/skill is a package with a `PKGBUILD` descriptor
-- **Build pipeline**: 4-stage sequential pipeline (Fetch → Auto-derive Translator → Dynamic Schema Engine → Transformer) mapping dynamically via registry formatting profiles
+- **Build pipeline**: 4-stage sequential pipeline (Fetch → Translate via Registry → Schema Engine → Transform via Registry) driven by platform defaults in `data/registry/platforms.yaml`
 - **Multi-platform**: One source → multiple target platforms (OpenCode, Crush, Gemini CLI, etc.)
 - **Change detection**: SHA256 checksums track source and built artifacts
 - **Index database**: `data/index.yaml` tracks package state, versions, and installations
@@ -208,7 +208,7 @@ rulepack/
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database (schema v3.0)
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (331 runs, 1017 assertions, 0 failures, 0 errors, 2 skips)
+├── test/                     # Test suite (357 runs, 1097 assertions, 0 failures, 0 errors, 2 skips)
 ├── docs/agents/              # Developer reference (ARCHITECTURE, PLATFORMS, REFERENCE, TRANSFORMS)
 ├── Rakefile
 ├── README.md
@@ -368,7 +368,7 @@ Full details with claim-verify-act evidence: [`docs/improvement-plan/OPEN-ITEMS.
 
 Key fixes: `pkgver_func` shell execution (P-J), HTTP 30x redirect handling (P-K), `strip-frontmatter` enforcement (P-L), multi-package checksum verification (P-M), symlink path traversal prevention (P-N), library `exit 1` → `raise ArgumentError` (P-O), TUI selector timeout (P-T).
 
-**Test gate**: 331 unit/integration tests — **0 failures, 0 errors** (E2E gated behind `NETWORK_E2E`).
+**Test gate**: 357 unit/integration tests — **0 failures, 0 errors** (E2E gated behind `NETWORK_E2E`).
 
 ---
 

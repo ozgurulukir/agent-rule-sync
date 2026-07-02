@@ -6,20 +6,20 @@ Complete reference for all supported agent platforms, their configuration locati
 
 | Platform | Scope | Type | Config Location | Install Command |
 |----------|-------|------|-----------------|-----------------|
-| [OpenCode](#opencode) | user | directory | `~/.config/opencode/rules/` | `bin/rulepack install opencode` |
-| [Oh My Pi](#oh-my-pi) | user | directory | `~/.omp/agent/rules/` | `bin/rulepack install oh-my-pi` |
-| [Crush](#crush) | user | skill | `~/.config/crush/crush.md` | `bin/rulepack install crush` |
-| [Goose](#goose) | user | skill | `~/.local/share/goose/goose.md` | `bin/rulepack install goose` |
-| [Droid](#droid) | user | skill | `~/.factory/AGENTS.md` | `bin/rulepack install droid` |
-| [Gemini CLI](#gemini-cli) | user | directory | `~/.gemini/GEMINI.md` | `bin/rulepack install gemini-cli` |
-| [Qwen Code](#qwen-code) | user | import | `~/.config/qwen/config.yaml` | `bin/rulepack install qwen-code` |
-| [Cursor](#cursor) | project | directory | `.cursor/rules/` | `bin/rulepack install cursor --project .` |
-| [Windsurf](#windsurf) | project | directory | `.windsurf/rules/` | `bin/rulepack install windsurf --project .` |
-| [GitHub Copilot](#github-copilot) | project | import | `.github/copilot-instructions.md` | `bin/rulepack install github-copilot --project .` |
-| [Claude Code](#claude-code) | project | directory | `.claude/rules/` | `bin/rulepack install claude-code --project .` |
-| [Codex CLI](#codex-cli) | project | skill | `AGENTS.md` | `bin/rulepack install codex --project .` |
-| [Antigravity](#antigravity) | user | directory | `~/.gemini/antigravity/.agent/skills/` | `bin/rulepack install antigravity` |
-| [Agents](#agents) | user | directory | `~/.agents/rules/` | `bin/rulepack install agents` |
+| [OpenCode](#opencode) | user | directory | `~/.config/opencode/rules/` | `bin/rulepack install --target opencode` |
+| [Oh My Pi](#oh-my-pi) | user | directory | `~/.omp/agent/rules/` | `bin/rulepack install --target oh-my-pi` |
+| [Crush](#crush) | user | skill | `~/.config/crush/crush.md` | `bin/rulepack install --target crush` |
+| [Goose](#goose) | user | skill | `~/.local/share/goose/goose.md` | `bin/rulepack install --target goose` |
+| [Droid](#droid) | user | skill | `~/.factory/AGENTS.md` | `bin/rulepack install --target droid` |
+| [Gemini CLI](#gemini-cli) | user | directory | `~/.gemini/GEMINI.md` | `bin/rulepack install --target gemini-cli` |
+| [Qwen Code](#qwen-code) | user | import | `~/.config/qwen/config.yaml` | `bin/rulepack install --target qwen-code` |
+| [Cursor](#cursor) | project | directory | `.cursor/rules/` | `bin/rulepack install --target cursor --project .` |
+| [Windsurf](#windsurf) | project | directory | `.windsurf/rules/` | `bin/rulepack install --target windsurf --project .` |
+| [GitHub Copilot](#github-copilot) | project | import | `.github/copilot-instructions.md` | `bin/rulepack install --target github-copilot --project .` |
+| [Claude Code](#claude-code) | project | directory | `.claude/rules/` | `bin/rulepack install --target claude-code --project .` |
+| [Codex CLI](#codex-cli) | project | skill | `AGENTS.md` | `bin/rulepack install --target codex --project .` |
+| [Antigravity](#antigravity) | user | directory | `~/.gemini/antigravity/.agent/skills/` | `bin/rulepack install --target antigravity` |
+| [Agents](#agents) | user | directory | `~/.agents/rules/` | `bin/rulepack install --target agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
@@ -41,7 +41,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Rules loading**: All `rules/*.md` files injected at session start via `AGENTS.md`
 - **Update**: `opencode upgrade` (self-updater, multiple backends)
 
-**Rulepack integration**: `bin/rulepack install opencode` → symlinks to `~/.config/opencode/rules/`
+**Rulepack integration**: `bin/rulepack install --target opencode` → symlinks to `~/.config/opencode/rules/`
 
 ---
 
@@ -59,7 +59,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: Hash-anchored edits, TTSR rules (zero context until triggered), IPython kernel
 - **Update**: `omp update` (bun-installed self-updater)
 
-**Rulepack integration**: `bin/rulepack install oh-my-pi` → symlinks to `~/.omp/agent/rules/`
+**Rulepack integration**: `bin/rulepack install --target oh-my-pi` → symlinks to `~/.omp/agent/rules/`
 
 ---
 
@@ -74,7 +74,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: Session-based, LSP-enhanced, mid-session model switching
 - **Update**: `sudo apt update && sudo apt install crush` (Debian repo)
 
-**Rulepack integration**: `bin/rulepack install crush` → copies `build/crush/skills/vendor/crush.md` to `~/.config/crush/crush.md`
+**Rulepack integration**: `bin/rulepack install --target crush` → copies `build/crush/skills/vendor/crush.md` to `~/.config/crush/crush.md`
 
 ---
 
@@ -89,7 +89,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Persistent instructions**: `GOOSE_MOIM_MESSAGE_FILE` env var → `~/.config/goose/guardrails.md` (re-read every turn, 64KB limit)
 - **Update**: `goose update` (npm)
 
-**Rulepack integration**: `bin/rulepack install goose` → copies `build/goose/skills/vendor/goose.md` to `~/.local/share/goose/goose.md`
+**Rulepack integration**: `bin/rulepack install --target goose` → copies `build/goose/skills/vendor/goose.md` to `~/.local/share/goose/goose.md`
 
 ---
 
@@ -103,7 +103,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Rules loading**: `AGENTS.md` hierarchy (project → parents → `~/.factory/AGENTS.md`)
 - **Update**: `droid update` (if available)
 
-**Rulepack integration**: `bin/rulepack install droid` → copies `build/droid/skills/vendor/droid.md` to `~/.factory/AGENTS.md`
+**Rulepack integration**: `bin/rulepack install --target droid` → copies `build/droid/skills/vendor/droid.md` to `~/.factory/AGENTS.md`
 
 ---
 
@@ -119,7 +119,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Auth**: OAuth personal
 - **Update**: `gemini extensions update --all` (CLI via npm; extensions separate)
 
-**Rulepack integration**: `bin/rulepack install gemini-cli` → appends rules to `~/.gemini/GEMINI.md` using marker-boundary blocks
+**Rulepack integration**: `bin/rulepack install --target gemini-cli` → appends rules to `~/.gemini/GEMINI.md` using marker-boundary blocks
 
 ---
 
@@ -133,7 +133,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Auth**: Qwen OAuth
 - **Features**: auto-update, git co-author, chat compression at 70% threshold
 
-**Rulepack integration**: `bin/rulepack install qwen-code` → injects `@import` lines into `~/.config/qwen/config.yaml`
+**Rulepack integration**: `bin/rulepack install --target qwen-code` → injects `@import` lines into `~/.config/qwen/config.yaml`
 
 ---
 
@@ -149,7 +149,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: AI-first IDE (VS Code fork), team rules via dashboard, `.mdc` frontmatter support
 - **Update**: Built-in updater (menu → Help → Check for Updates)
 
-**Rulepack integration**: `bin/rulepack install cursor --project /path/to/project` → symlinks to `.cursor/rules/`
+**Rulepack integration**: `bin/rulepack install --target cursor --project /path/to/project` → symlinks to `.cursor/rules/`
 
 ---
 
@@ -165,7 +165,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: Codeium's agentic IDE (Cascade), GUI rule editor, `.mdc` frontmatter support
 - **Update**: Built-in updater
 
-**Rulepack integration**: `bin/rulepack install windsurf --project .` → symlinks to `.windsurf/rules/`
+**Rulepack integration**: `bin/rulepack install --target windsurf --project .` → symlinks to `.windsurf/rules/`
 
 ---
 
@@ -179,7 +179,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Features**: VS Code extension (also GitHub web, CLI), supports `.github/instructions/*.md` additional files
 - **Update**: VS Code extension update
 
-**Rulepack integration**: `bin/rulepack install github-copilot --project .` → copies instruction files to `.github/`
+**Rulepack integration**: `bin/rulepack install --target github-copilot --project .` → copies instruction files to `.github/`
 
 ---
 
@@ -195,7 +195,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Config**: `CLAUDE.md` in project root (loaded automatically), plus per-directory rules in `.claude/rules/`
 - **Update**: `claude update` (if installed via npm)
 
-**Rulepack integration**: `bin/rulepack install claude-code --project .` → symlinks to `.claude/rules/`
+**Rulepack integration**: `bin/rulepack install --target claude-code --project .` → symlinks to `.claude/rules/`
 
 ---
 
@@ -212,7 +212,7 @@ Complete reference for all supported agent platforms, their configuration locati
 
 **⚠️ Important**: Codex uses `AGENTS.md` as a **project-level instruction file** (layered guidance discovered by walking up the directory tree). This is completely different from `format: agent`. Codex has no `agents_dir` — do NOT write `format: agent` targets for codex; they will be silently skipped. The `skill_file: AGENTS.md` field means vendor rules are aggregated into a single `AGENTS.md` file at the project root.
 
-**Rulepack integration**: `bin/rulepack install codex --project .` → generates vendor skill and writes to `AGENTS.md`
+**Rulepack integration**: `bin/rulepack install --target codex --project .` → generates vendor skill and writes to `AGENTS.md`
 
 ---
 
@@ -226,7 +226,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Install method**: copy (skill-bundle), append (rules)
 - **Skills**: antigravity-skills (300+ sub-skills from upstream)
 
-**Rulepack integration**: `bin/rulepack install antigravity` → copies skill-bundle to `~/.gemini/antigravity/.agent/skills/`
+**Rulepack integration**: `bin/rulepack install --target antigravity` → copies skill-bundle to `~/.gemini/antigravity/.agent/skills/`
 
 ---
 
@@ -239,7 +239,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Skills dir**: `skills/`
 - **Install method**: symlink for rules, copy for skills
 
-**Rulepack integration**: `bin/rulepack install agents` → symlinks/copies to `~/.agents/rules/` and `~/.agents/skills/`
+**Rulepack integration**: `bin/rulepack install --target agents` → symlinks/copies to `~/.agents/rules/` and `~/.agents/skills/`
 
 ---
 
@@ -303,11 +303,11 @@ Platforms are defined in `data/registry/platforms.yaml`:
 Install to fixed locations in home directory or system paths:
 
 ```bash
-bin/rulepack install opencode    # → ~/.config/opencode/rules/
-bin/rulepack install oh-my-pi    # → ~/.omp/agent/rules/
-bin/rulepack install crush       # → ~/.config/crush/crush.md
-bin/rulepack install goose       # → ~/.local/share/goose/goose.md
-bin/rulepack install antigravity # → ~/.gemini/antigravity/.agent/skills/
+bin/rulepack install --target opencode    # → ~/.config/opencode/rules/
+bin/rulepack install --target oh-my-pi    # → ~/.omp/agent/rules/
+bin/rulepack install --target crush       # → ~/.config/crush/crush.md
+bin/rulepack install --target goose       # → ~/.local/share/goose/goose.md
+bin/rulepack install --target antigravity # → ~/.gemini/antigravity/.agent/skills/
 ```
 
 No `--project` flag needed. `base_path` is absolute (tilde-expanded).
@@ -320,14 +320,14 @@ Per-project installation. Run from project root or use `--project PATH`:
 cd /path/to/your/project
 
 # Install to current project (--project optional when run from project root)
-bin/rulepack install cursor
-bin/rulepack install windsurf
-bin/rulepack install github-copilot
-bin/rulepack install claude-code
-bin/rulepack install codex
+bin/rulepack install --target cursor
+bin/rulepack install --target windsurf
+bin/rulepack install --target github-copilot
+bin/rulepack install --target claude-code
+bin/rulepack install --target codex
 
 # Or specify explicit project path
-bin/rulepack install cursor --project /path/to/project
+bin/rulepack install --target cursor --project /path/to/project
 ```
 
 **Important**: Uninstall for project-level platforms also requires `--project` to locate files.

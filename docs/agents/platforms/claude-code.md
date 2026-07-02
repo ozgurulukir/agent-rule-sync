@@ -20,7 +20,7 @@ claude update  # if installed via npm
 
 ```bash
 cd /path/to/project
-bin/rulepack install claude-code --project .
+bin/rulepack install --target claude-code --project .
 # Creates symlinks: .claude/rules/*.md → build/claude-code/
 ```
 

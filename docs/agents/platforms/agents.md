@@ -11,7 +11,7 @@
 ## Rulepack Integration
 
 ```bash
-bin/rulepack install agents
+bin/rulepack install --target agents
 # Symlinks/copies to ~/.agents/rules/ and ~/.agents/skills/
 ```
 

@@ -19,7 +19,7 @@ codex update  # npm
 
 ```bash
 cd /path/to/project
-bin/rulepack install codex --project .
+bin/rulepack install --target codex --project .
 # Generates vendor skill (build/codex/skills/vendor/codex.md) and copies to AGENTS.md
 ```
 

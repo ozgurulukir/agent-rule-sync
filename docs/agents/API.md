@@ -31,7 +31,8 @@ Rulepack is organized into modular components under `lib/rulepack/`:
 | `version.rb` | Version comparison | `Rulepack::Common.compare_versions` |
 | `source.rb` | Source fetching | `fetch_git_source`, `fetch_url_source` |
 | `translate.rb` | Translator loading/dispatch | `apply_translator` |
-| `transform.rb` | Content transformation | `apply_transformer`, `load_transformer` |
+| `transform.rb` | Content transformation | `apply_transformer` |
+| `processor_loader.rb` | Translator/transformer loading | `ProcessorLoader.load_translator`, `ProcessorLoader.load_transformer` |
 | `schema_engine.rb` | Centralized Dynamic Schema Engine | `SchemaEngine.apply` (frontmatter, emoji, bullets, headings) |
 | `build_pipeline.rb` | 4-stage build pipeline | `BuildPipeline.run` (fetch → translate → schema → transform) |
 | `validation.rb` | PKGBUILD validation | `validate_pkgbuild`, `validate_target` |
@@ -77,7 +78,7 @@ module Rulepack
       Integer(ENV.fetch('RULEPACK_READ_TIMEOUT', '30'))
     end
 
-    # Cache directory name under build/
+    # Cache directory name under project root
     def cache_dir_name
       ENV.fetch('RULEPACK_CACHE_DIR', 'cache')
     end
@@ -151,7 +152,7 @@ checksum = Rulepack::Common.checksum_content(content)
    - **Fetch**: read local file, fetch URL (SHA256 verify), or clone git repo
    - **Translate**: platform-specific format conversion (e.g., rule → skill, agent → platform format)
    - **Schema Engine**: centralized formatting (frontmatter, emoji, bullets, headings)
-   - **Transform**: structural changes (copy, strip-frontmatter, custom)
+   - **Transform**: structural changes (copy or custom transformer)
 4. **Write build index**: `write_yaml_atomic(BUILD_INDEX_PATH, build_index_data)`
 5. **Generate catalog**: `load generate-catalog.rb`
 
@@ -250,7 +251,7 @@ end
 
 - **HTTP fetches**: cached by SHA256 of URL
 - **Git clones**: cached by commit hash
-- Cache directory: `build/cache/` (configurable via `RULEPACK_CACHE_DIR`)
+- Cache directory: `cache/` under project root (configurable via `RULEPACK_CACHE_DIR`)
 
 ---
 
@@ -262,15 +263,12 @@ end
 
 ```ruby
 # data/transformers/example.rb
-class Transform
-  def initialize(content:, pkgname:)
-    @content = content
-    @pkgname = pkgname
-  end
-
-  def transform
-    # Transform @content and return new string
-    @content
+module RulepackTransformer
+  module Example
+    def self.transform(content, pkgname:)
+      # Transform @content and return new string
+      content
+    end
   end
 end
 ```
@@ -285,12 +283,14 @@ end
 
 ```ruby
 # data/translators/example.rb
-class Translator
-  def self.translate(content, args: {})
-    pkgname = args[:pkgname]
-    extra_args = args[:extra_args] || {}  # e.g., pkgdesc, tags, agent_config
-    # Transform content
-    content
+module RulepackTranslator
+  module Example
+    def self.translate(content, args: {})
+      pkgname = args[:pkgname]
+      extra_args = args[:extra_args] || {}  # e.g., pkgdesc, tags, agent_config
+      # Transform content
+      content
+    end
   end
 end
 ```
@@ -363,7 +363,7 @@ Raised for build failures, install failures, validation errors, checksum mismatc
 ### Running Tests
 
 ```bash
-rake test                    # All tests (277 tests, 855 assertions)
+rake test                    # All tests (357 tests, 1097 assertions)
 ```
 
 ### Test Helpers
@@ -391,15 +391,15 @@ end
 
 ### Adding a New Transformer
 
-1. Create `data/transformers/my-transform.rb`
-2. Define `Transform` class with `#transform` method
-3. Set the platform's `default_transformer` in `data/registry/platforms.yaml`, or reference in PKGBUILD as advanced override: `transformer: custom:transformers/my-transform.rb`
+1. Create `data/transformers/my_transform.rb`
+2. Define `RulepackTransformer::MyTransform` module with a `.transform(content, pkgname:)` method
+3. Set the platform's `default_transformer` in `data/registry/platforms.yaml`, or reference in PKGBUILD as advanced override: `transformer: custom:transformers/my_transform.rb`
 
 ### Adding a New Translator
 
-1. Create `data/translators/my-translate.rb`
-2. Define `Translator` class with `.translate` class method
-3. Set the platform's `default_translator` in `data/registry/platforms.yaml`, or reference in PKGBUILD as advanced override: `translate: custom:translators/my-translate.rb`
+1. Create `data/translators/my_translate.rb`
+2. Define `RulepackTranslator::MyTranslate` module with a `.translate(content, args: {})` class method
+3. Set the platform's `default_translator` in `data/registry/platforms.yaml`, or reference in PKGBUILD as advanced override: `translate: custom:translators/my_translate.rb`
 
 ### Adding a New Platform
 

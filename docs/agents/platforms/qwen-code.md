@@ -28,7 +28,7 @@ qwen auth   # re-auth if needed
 ## Rulepack Integration
 
 ```bash
-bin/rulepack install qwen-code
+bin/rulepack install --target qwen-code
 # Injects @import lines into ~/.config/qwen/config.yaml
 ```
 

@@ -23,7 +23,7 @@ opencode upgrade  # self-updater (supports curl, npm, pnpm, bun, brew)
 ## Rulepack Integration
 
 ```bash
-bin/rulepack install opencode   # → ~/.config/opencode/rules/*.md (symlinks)
+bin/rulepack install --target opencode   # → ~/.config/opencode/rules/*.md (symlinks)
 ```
 
 

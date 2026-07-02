@@ -31,9 +31,10 @@ your-project/
 │   │   ├── agent_to_cursor.rb       # Agent → Cursor manifest
 │   │   └── agent_to_claude_code.rb  # Agent → Claude Code sections
 │   ├── transformers/                # Custom transformer scripts
-│   │   ├── add-header.rb
-│   │   ├── strip-comments.rb
-│   │   └── format-code.rb
+│   │   ├── add-header.rb            # Prepend title header
+│   │   ├── add_frontmatter.rb       # Inject YAML frontmatter
+│   │   ├── strip-comments.rb        # Strip HTML comments
+│   │   └── format-code.rb           # Auto-detect code-block languages
 │   ├── platforms/                   # Platform format profiles (informational)
 │   │   ├── opencode.yaml, crush.yaml, goose.yaml ...
 │   ├── index.yaml                   # Master package DB (installed state + metadata)
@@ -313,24 +314,31 @@ targets:
 Built-in transformers:
 
 - `copy` — identity (no transformation)
-- `strip-frontmatter` — remove YAML frontmatter block (`---` delimited)
 
-Custom transformers: Ruby scripts in `data/transformers/` defining a `Transform` class:
+Custom transformers: Ruby scripts in `data/transformers/` defining a `RulepackTransformer::<Name>` module with a `.transform(content, pkgname:)` class method:
 
 ```ruby
 # data/transformers/example.rb
-class Transform
-  def initialize(content:, pkgname:)
-    @content = content    # Source file content (string)
-    @pkgname = pkgname    # Package name (symbol, optional)
-  end
-
-  def transform
-    # Modify @content as needed
-    @content
+module RulepackTransformer
+  module Example
+    def self.transform(content, pkgname:)
+      # Modify content as needed
+      content
+    end
   end
 end
 ```
+
+The filename (without `.rb`) is used to derive the module name:
+
+| File | Module |
+|---|---|
+| `data/transformers/add-header.rb` | `RulepackTransformer::AddHeader` |
+| `data/transformers/add_frontmatter.rb` | `RulepackTransformer::AddFrontmatter` |
+| `data/transformers/format-code.rb` | `RulepackTransformer::FormatCode` |
+| `data/transformers/strip-comments.rb` | `RulepackTransformer::StripComments` |
+
+For backward compatibility the loader also accepts a legacy `Transform` class in the script, but new transformers should use the namespaced module form.
 
 ---
 
@@ -338,18 +346,33 @@ end
 
 The **translate step** runs *before* the transform step. It converts content from one format family to another — e.g., flat rule → skill, agent → platform-specific format.
 
-Custom translators: Ruby scripts in `data/translators/` defining a `Translator` class:
+Custom translators: Ruby scripts in `data/translators/` defining a `RulepackTranslator::<Name>` module with a `.translate(content, args: {})` class method:
 
 ```ruby
 # data/translators/example.rb
-class Translator
-  def self.translate(content, args: {})
-    pkgname = args[:pkgname]
-    # Transform content
-    content
+module RulepackTranslator
+  module Example
+    def self.translate(content, args: {})
+      pkgname = args[:pkgname]
+      # Transform content
+      content
+    end
   end
 end
 ```
+
+The filename (without `.rb`) is used to derive the module name:
+
+| File | Module |
+|---|---|
+| `data/translators/rule_to_skill.rb` | `RulepackTranslator::RuleToSkill` |
+| `data/translators/rule_to_import.rb` | `RulepackTranslator::RuleToImport` |
+| `data/translators/normalize_markdown.rb` | `RulepackTranslator::NormalizeMarkdown` |
+| `data/translators/agent_to_opencode.rb` | `RulepackTranslator::AgentToOpencode` |
+| `data/translators/agent_to_cursor.rb` | `RulepackTranslator::AgentToCursor` |
+| `data/translators/agent_to_claude_code.rb` | `RulepackTranslator::AgentToClaudeCode` |
+
+For backward compatibility the loader also accepts a legacy `RulepackTranslator::Impl` or `Translator` class in the script, but new translators should use the namespaced module form.
 
 **Agent translators** convert agent definitions to platform-specific formats:
 

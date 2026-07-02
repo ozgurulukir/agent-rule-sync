@@ -20,7 +20,7 @@ sudo apt update && sudo apt install crush  # Debian repo from repo.charm.sh
 ## Rulepack Integration
 
 ```bash
-bin/rulepack install crush
+bin/rulepack install --target crush
 # Copies build/crush/skills/vendor/crush.md → ~/.config/crush/crush.md
 ```
 

@@ -21,7 +21,7 @@ goose update  # if available (npm)
 ## Rulepack Integration
 
 ```bash
-bin/rulepack install goose
+bin/rulepack install --target goose
 # Copies build/goose/skills/vendor/goose.md → ~/.local/share/goose/goose.md
 ```
 
