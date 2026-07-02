@@ -117,6 +117,18 @@ bin/rulepack fix --target opencode
 bin/rulepack outdated -t opencode
 ```
 
+### Surgical installs
+
+You don’t have to install everything. Pick exactly what you need:
+
+```bash
+# Install a single package
+bin/rulepack install memory --target opencode
+
+# Install only selected sub-skills from a skill bundle
+bin/rulepack install antigravity-skills --target opencode --select llm-evaluation,prompt-engineer
+```
+
 ### Project-level workflow
 
 ```bash
