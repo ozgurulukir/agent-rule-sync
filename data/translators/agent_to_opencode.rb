@@ -15,7 +15,7 @@
 #   ...prompt body...
 
 module RulepackTranslator
-  class Impl
+  module AgentToOpencode
     def self.translate(content, args: {})
       pkgname = args[:pkgname] || 'unknown'
       pkgdesc = args[:pkgdesc] || ''

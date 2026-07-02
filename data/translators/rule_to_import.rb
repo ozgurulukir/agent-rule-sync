@@ -14,7 +14,7 @@
 # where the rule content is embedded alongside other content.
 
 module RulepackTranslator
-  class Impl
+  module RuleToImport
     def self.translate(content, args: {})
       clean = content.strip
 

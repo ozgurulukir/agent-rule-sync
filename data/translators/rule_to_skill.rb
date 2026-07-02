@@ -20,7 +20,7 @@ require 'set'
 #      from the raw content
 
 module RulepackTranslator
-  class Impl
+  module RuleToSkill
     OVERVIEW_ALIASES = %w[Rationale Overview Context Background Purpose].freeze
     CAPABILITY_ALIASES = %w[Constraints Capabilities Content Rules Requirements].freeze
     USAGE_ALIASES = %w[Strategy Examples Usage Implementation Guidelines Instructions].freeze

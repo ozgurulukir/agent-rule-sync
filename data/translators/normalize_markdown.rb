@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module RulepackTranslator
-  class Impl
+  module NormalizeMarkdown
     def self.translate(content, args: {})
       lines = content.each_line.map do |line|
         line = line.gsub(/\t+/, ' ')

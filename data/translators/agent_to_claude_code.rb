@@ -10,7 +10,7 @@
 # specific section headings that the parser extracts.
 
 module RulepackTranslator
-  class Impl
+  module AgentToClaudeCode
     def self.translate(content, args: {})
       pkgname = args[:pkgname] || 'unknown'
       pkgdesc = args[:pkgdesc] || ''
@@ -37,7 +37,7 @@ module RulepackTranslator
       lines << "- **Name**: #{title}"
       description = pkgdesc.to_s.strip.empty? ? title : pkgdesc.strip.tr("\n", ' ')
       lines << "- **Description**: #{description}"
-      lines << tags.any? ? "- **Tags**: #{tags.join(', ')}" : ''
+      lines << (tags.any? ? "- **Tags**: #{tags.join(', ')}" : '')
       lines << ''
 
       # System Prompt section

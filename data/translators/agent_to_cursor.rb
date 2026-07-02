@@ -15,7 +15,7 @@
 # if the source doesn't already follow a structured format.
 
 module RulepackTranslator
-  class Impl
+  module AgentToCursor
     def self.translate(content, args: {})
       pkgname = args[:pkgname] || 'unknown'
       pkgdesc = args[:pkgdesc] || ''

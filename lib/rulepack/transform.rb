@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'processor_loader'
+
 module Rulepack
   module Common
     module_function
@@ -13,40 +15,8 @@ module Rulepack
       when 'strip-frontmatter'
         raise ArgumentError, "strip-frontmatter transformer is permanently removed. Frontmatter is handled automatically by the SchemaEngine via platform schema (frontmatter: strip). Remove the transformer field from your PKGBUILD."
       when /^custom:(.+)/
-        custom_rel = Regexp.last_match(1)
-        # Resolve relative to repo root (RULEPACK_ROOT)
-        custom_path = if custom_rel.start_with?('/') || custom_rel.start_with?('~')
-                        expand_user_path(custom_rel)
-                      else
-                        RULEPACK_ROOT.join(custom_rel)
-                      end.cleanpath
-        unless custom_path.exist?
-          raise "Custom transformer not found: #{custom_path}. Verify the path in your PKGBUILD transformer field."
-        end
-
-        # Security: ensure transformer path is within repo (symlink attack prevention)
-        real_path = custom_path.realpath
-        unless real_path.to_s.start_with?(RULEPACK_ROOT.to_s + File::SEPARATOR) || real_path == RULEPACK_ROOT
-          raise "Custom transformer path outside repo (symlink attack?): #{custom_path}"
-        end
-
-        abs_path = real_path.to_s
-        $LOADED_FEATURES.delete(abs_path)
-        require abs_path
-
-        transformer_klass = if defined?(RulepackTransformer::Impl)
-                              RulepackTransformer::Impl
-                            elsif defined?(Transform)
-                              Transform
-                            else
-                              nil
-                            end
-
-        if transformer_klass.nil? || !transformer_klass.respond_to?(:transform)
-          raise "Custom transformer #{custom_path} must define RulepackTransformer::Impl.transform(content, pkgname: nil) or Transform.transform method"
-        end
-
-        transformer_klass.transform(content, pkgname: pkgname)
+        processor = Rulepack::ProcessorLoader.load_transformer(transformer)
+        processor.transform(content, pkgname: pkgname)
       else
         raise "Unknown transformer: #{transformer}"
       end
@@ -69,38 +39,8 @@ module Rulepack
       when 'copy', 'identity', nil
         content
       when /^custom:(.+)/
-        custom_rel = Regexp.last_match(1)
-        custom_path = if custom_rel.start_with?('/') || custom_rel.start_with?('~')
-                        expand_user_path(custom_rel)
-                      else
-                        RULEPACK_ROOT.join(custom_rel)
-                      end.cleanpath
-        unless custom_path.exist?
-          raise "Custom translator not found: #{custom_path}. Verify the path in your PKGBUILD translate field."
-        end
-
-        real_path = custom_path.realpath
-        unless real_path.to_s.start_with?(RULEPACK_ROOT.to_s + File::SEPARATOR) || real_path == RULEPACK_ROOT
-          raise "Custom translator path outside repo (symlink attack?): #{custom_path}"
-        end
-
-        abs_path = real_path.to_s
-        $LOADED_FEATURES.delete(abs_path)
-        require abs_path
-
-        translator_klass = if defined?(RulepackTranslator::Impl)
-                             RulepackTranslator::Impl
-                           elsif defined?(Translator)
-                             Translator
-                           else
-                             nil
-                           end
-
-        if translator_klass.nil? || !translator_klass.respond_to?(:translate)
-          raise "Custom translator #{custom_path} must define RulepackTranslator::Impl.translate(content, args: {}) or Translator.translate method"
-        end
-
-        translator_klass.translate(content, args: { pkgname: pkgname }.merge(extra_args))
+        processor = Rulepack::ProcessorLoader.load_translator(translator_cfg)
+        processor.translate(content, args: { pkgname: pkgname }.merge(extra_args))
       else
         raise "Unknown translator: #{translator_cfg}"
       end

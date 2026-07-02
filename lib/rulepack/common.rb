@@ -24,6 +24,7 @@ module Rulepack
   require_relative 'result'
   require_relative 'reporter'
   require_relative 'platform_scanner'
+  require_relative 'processor_loader'
   require_relative 'package_resolver'
 
   module Common
