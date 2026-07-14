@@ -31,7 +31,10 @@ module Rulepack
       atomic_write(path, yaml_content)
     end
 
-    # Atomic write: write content to temp file then rename
+    # Atomic write: write content to temp file then rename.
+    # On Windows, File.rename can fail with EACCES when the destination
+    # exists and is locked (antivirus, file handles). Fall back to
+    # delete-then-rename, then copy-then-delete as a last resort.
     def atomic_write(path, content)
       path = Pathname.new(path)
       path.dirname.mkpath
@@ -39,7 +42,22 @@ module Rulepack
       Tempfile.create(['rulepack', path.extname], path.dirname) do |tmp|
         tmp.write(content)
         tmp.flush
-        FileUtils.mv(tmp.path, path.to_s)
+        tmp.close
+
+        tmp_path = tmp.path
+        dest_path = path.to_s
+
+        begin
+          File.rename(tmp_path, dest_path)
+        rescue Errno::EACCES, Errno::EPERM
+          begin
+            FileUtils.rm_f(dest_path)
+            File.rename(tmp_path, dest_path)
+          rescue Errno::EACCES, Errno::EPERM
+            FileUtils.cp(tmp_path, dest_path)
+            FileUtils.rm_f(tmp_path)
+          end
+        end
       end
     end
 
