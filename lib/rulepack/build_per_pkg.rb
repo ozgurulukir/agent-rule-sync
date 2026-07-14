@@ -183,6 +183,7 @@ module Rulepack
         Rulepack::Common.log "    → Translating agent files for #{platform_id} (#{translator_cfg})"
         puts "    → Translating agent files for #{platform_id} (#{translator_cfg})"
         Dir.glob(build_pkg_dir.join('**', '*.md')).each do |md_file|
+          next if File.symlink?(md_file)
           file_content = File.read(md_file)
           translated = Rulepack::Common.apply_translator(translator_cfg, file_content, pkgname: pkgname.to_s, extra_args: translate_extra)
           File.write(md_file, translated)
@@ -340,6 +341,7 @@ module Rulepack
 
       applied = 0
       md_files.each do |md_file|
+        next if File.symlink?(md_file)
         content = File.read(md_file)
         normalized = Rulepack::SchemaEngine.apply(content, format_profile, format)
         unless normalized == content

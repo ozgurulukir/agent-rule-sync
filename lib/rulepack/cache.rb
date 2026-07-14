@@ -129,12 +129,13 @@ module Rulepack
       require 'tmpdir'
       Dir.mktmpdir('rulepack-git-') do |tmp|
         commit_hash = fetch_git_source(url, ref, tmp, depth: depth)
-        repo_base = Pathname.new(tmp)
+        repo_base = Pathname.new(tmp).realpath
         source_in_repo = repo_base.join(git_path).cleanpath
-        unless source_in_repo.to_s.start_with?(repo_base.to_s + File::SEPARATOR) || source_in_repo == repo_base
+        raise "Path not found in git repo: #{git_path}" unless source_in_repo.exist?
+        resolved_source = source_in_repo.realpath
+        unless resolved_source.to_s.start_with?(repo_base.to_s + File::SEPARATOR) || resolved_source == repo_base
           raise "Path traversal in git source path: #{git_path} escapes repository"
         end
-        raise "Path not found in git repo: #{git_path}" unless source_in_repo.exist?
 
         content = source_in_repo.read
         path_hash = Digest::SHA256.hexdigest(git_path.to_s)[0..7]
@@ -153,12 +154,13 @@ module Rulepack
       require 'tmpdir'
       Dir.mktmpdir('rulepack-git-') do |tmp|
         commit_hash = fetch_git_source(url, ref, tmp, depth: depth)
-        repo_base = Pathname.new(tmp)
+        repo_base = Pathname.new(tmp).realpath
         source_in_repo = repo_base.join(git_path).cleanpath
-        unless source_in_repo.to_s.start_with?(repo_base.to_s + File::SEPARATOR) || source_in_repo == repo_base
+        raise "Path not found in git repo: #{git_path}" unless source_in_repo.exist?
+        resolved_source = source_in_repo.realpath
+        unless resolved_source.to_s.start_with?(repo_base.to_s + File::SEPARATOR) || resolved_source == repo_base
           raise "Path traversal in git source path: #{git_path} escapes repository"
         end
-        raise "Path not found in git repo: #{git_path}" unless source_in_repo.exist?
 
         path_hash = Digest::SHA256.hexdigest(git_path.to_s)[0..7]
         cache_key = "#{commit_hash}-#{path_hash}"
