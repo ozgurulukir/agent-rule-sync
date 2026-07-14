@@ -97,13 +97,19 @@ module Rulepack
 
     def extract_tar_gz(tar_gz_content, dest_dir)
       FileUtils.mkdir_p(dest_dir)
+      expanded_dest_dir = File.expand_path(dest_dir)
+
       Gem::Package::TarReader.new(Zlib::GzipReader.new(StringIO.new(tar_gz_content))) do |tar|
         tar.each do |entry|
           parts = entry.full_name.split('/')
           next if parts.size <= 1 # skip top-level root directory inside tar
 
           rel_path = parts[1..-1].join('/')
-          dest_path = File.join(dest_dir, rel_path)
+          dest_path = File.expand_path(File.join(dest_dir, rel_path))
+
+          unless dest_path.start_with?(expanded_dest_dir + File::SEPARATOR)
+            raise "Path traversal detected in tarball entry: #{entry.full_name}"
+          end
 
           if entry.directory?
             FileUtils.mkdir_p(dest_path)
