@@ -33,51 +33,34 @@ module Rulepack
       end
 
       # 3. Apply heading style normalization
-      lines = processed_content.split("\n")
       if ruleset[:heading_style].to_s == 'atx'
-        lines = convert_setext_to_atx_lines(lines)
+        convert_setext_to_atx!(processed_content)
       end
 
-      # 4. Line-by-line normalization (bullets & heading depth)
-      lines.map! do |line|
-        if ruleset[:bullet_style].to_s == 'dash'
-          line = line.sub(/^(\s*)([*+])(\s+)/, '\1-\3')
-        end
+      # 4. Normalization (bullets & heading depth)
+      if ruleset[:bullet_style].to_s == 'dash'
+        # Optimize: global substitution over the entire multi-line string
+        processed_content.gsub!(/^([ \t]*)([*+])([ \t]+)/, '\1-\3')
+      end
 
-        if ruleset[:max_heading_depth]
-          max_depth = ruleset[:max_heading_depth].to_i
-          if max_depth > 0
-            line = line.sub(/^(\s*)(#{'#' * (max_depth + 1)}#*)(\s+)/) do
-              "#{$1}#{'#' * max_depth}#{$3}"
-            end
+      if ruleset[:max_heading_depth]
+        max_depth = ruleset[:max_heading_depth].to_i
+        if max_depth > 0
+          # Optimize: global substitution over the entire multi-line string
+          processed_content.gsub!(/^([ \t]*)(#{Regexp.escape('#' * (max_depth + 1))}#*)([ \t]+)/) do
+            "#{$1}#{'#' * max_depth}#{$3}"
           end
         end
-
-        line
       end
 
-      lines.join("\n")
+      processed_content
     end
 
-    def convert_setext_to_atx_lines(lines)
-      result = []
-      i = 0
-      while i < lines.size
-        line = lines[i]
-        next_line = lines[i + 1]
-
-        if next_line && line =~ /\S/ && next_line =~ /^={3,}\s*$/
-          result << "# #{line.strip}"
-          i += 2
-        elsif next_line && line =~ /\S/ && next_line =~ /^-{3,}\s*$/
-          result << "## #{line.strip}"
-          i += 2
-        else
-          result << line
-          i += 1
-        end
-      end
-      result
+    # Replaces Setext headings with ATX headings inline
+    def convert_setext_to_atx!(content)
+      # Match line with non-whitespace, followed by newline and then === or ---
+      content.gsub!(/^([ \t]*\S.*)\n={3,}[ \t]*$/) { |m| "# #{$1.strip}" }
+      content.gsub!(/^([ \t]*\S.*)\n-{3,}[ \t]*$/) { |m| "## #{$1.strip}" }
     end
 
     # Resolve effective translator:
