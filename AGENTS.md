@@ -70,7 +70,7 @@ graph TD
 
 ## Modular Architecture
 
-The implementation is split across ~40 Ruby files under `lib/rulepack/`. Key modules:
+The implementation is split across ~42 Ruby files under `lib/rulepack/`. Key modules:
 
 - `common.rb` — thin facade that re-exports submodule APIs for backward compatibility.
 - `encoding_defaults.rb` — sets `Encoding.default_external = UTF-8` early for all entry points and tests.
@@ -80,6 +80,7 @@ The implementation is split across ~40 Ruby files under `lib/rulepack/`. Key mod
 - `install_handlers.rb`, `install_execute.rb`, `transaction.rb` — install logic, marker splicing, backups.
 - `skill_bundle.rb` — resolves directory-based skill bundles.
 - `cache.rb` — content-addressed source cache with optional size limit.
+- `bump.rb` — checks upstream git repositories for new commits and optionally auto-updates PKGBUILD versions.
 - `cli_parser.rb`, `query.rb` — unified command-line parsing and query dispatch.
 - `io.rb` — shared file utilities including `read_text` / `read_binary` helpers.
 - `result.rb` — structured `Rulepack::Result` object returned by backend operations.
@@ -91,6 +92,8 @@ Procedural entry points (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`) are 
 ---
 
 ## CLI Command Reference
+
+> **Windows:** The `bin/rulepack` script uses a Bash shebang. On Windows, prepend `ruby`: `ruby bin/rulepack <command>`. Alternatively, use `bundle exec ruby bin/rulepack <command>` after `bundle install`.
 
 ```bash
 # Build
@@ -348,14 +351,14 @@ data/packages/
 - **Subprocess elimination**: avoid spawning shells where possible; a small number of legacy subprocess calls (`git`, `tar`, `pkgver_func`) remain and are being phased out.
 - **Immutable strings**: every file must declare `# frozen_string_literal: true`.
 - **Pathname API**: use `Pathname` instead of string concatenation for paths.
-- **Tests**: run `bundle exec rake test`. The suite has 357 tests and 1097 assertions; network-dependent E2E tests are gated behind `NETWORK_E2E`.
+- **Tests**: run `bundle exec rake test`. The suite has 366 tests and 1113 assertions; network-dependent E2E tests are gated behind `NETWORK_E2E`.
 
 ---
 
 ## Notable Features
 
 - **UTF-8 by default**: `lib/rulepack/encoding_defaults.rb` forces UTF-8 as the default external encoding, preventing "invalid byte sequence in US-ASCII" errors when processing markdown with non-ASCII characters.
-- **Git HTTP fallback**: if `git` is unavailable or a clone fails, the build engine falls back to GitHub/GitLab tarball URLs using Ruby's built-in `Zlib` and `Gem::Package::TarReader` — no shell subprocesses.
+- **Git HTTP fallback**: if `git` is unavailable or a clone fails, the build engine falls back to GitHub/GitLab tarball URLs using Ruby's built-in `Zlib` and `Gem::Package::TarReader` — no shell subprocesses. Tar extraction is hardened against path traversal (Tar Slip) via `File.expand_path` prefix validation with a `PathTraversalError` guard.
 - **Local registry overrides**: `.rulepack.local.yaml` (per-repo) and `~/.config/rulepack/config.yaml` (user-global) are deep-merged on top of `data/registry/platforms.yaml`.
 - **Git hook integration**: `bin/rulepack init-hooks` installs a pre-commit hook that runs `bin/rulepack audit --strict`.
 - **Sub-skill selector**: `bin/rulepack install <skill-bundle> -t <plat> --select` opens an interactive multi-select menu. Press `q` / `Esc` / `Ctrl-C` to cancel without installing; `Enter` confirms the current selection.

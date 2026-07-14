@@ -6,6 +6,7 @@ GEM
 
 PLATFORMS
   ruby
+  x64-mingw-ucrt
   x86_64-linux
 
 DEPENDENCIES
@@ -13,7 +14,7 @@ DEPENDENCIES
   rake (~> 13.0)
 
 RUBY VERSION
-   ruby 3.3.5p100
+   ruby 3.3.11
 
 BUNDLED WITH
    2.5.16
