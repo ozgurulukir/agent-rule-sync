@@ -5,8 +5,12 @@ require 'open3'
 require 'zlib'
 require 'rubygems/package'
 require 'stringio'
+require 'fileutils'
 module Rulepack
   module Common
+    # Raised when a tarball entry attempts path traversal outside the extraction directory.
+    class PathTraversalError < StandardError; end
+
     module_function
 
     # Check platform prerequisites (system tools) and warn if missing.
@@ -97,21 +101,30 @@ module Rulepack
 
     def extract_tar_gz(tar_gz_content, dest_dir)
       FileUtils.mkdir_p(dest_dir)
+      expanded_dest_dir = File.expand_path(dest_dir)
+
       Gem::Package::TarReader.new(Zlib::GzipReader.new(StringIO.new(tar_gz_content))) do |tar|
         tar.each do |entry|
           parts = entry.full_name.split('/')
           next if parts.size <= 1 # skip top-level root directory inside tar
 
           rel_path = parts[1..-1].join('/')
-          dest_path = File.join(dest_dir, rel_path)
+          dest_path = File.expand_path(File.join(expanded_dest_dir, rel_path))
+
+          unless dest_path == expanded_dest_dir ||
+                 dest_path.start_with?(expanded_dest_dir + File::SEPARATOR)
+            raise PathTraversalError, "Path traversal detected: #{entry.full_name} resolves to #{dest_path} (outside #{expanded_dest_dir})"
+          end
 
           if entry.directory?
             FileUtils.mkdir_p(dest_path)
           elsif entry.file?
             FileUtils.mkdir_p(File.dirname(dest_path))
             File.open(dest_path, 'wb') { |f| f.write(entry.read) }
-          elsif entry.header.typeflag == '2' # Symlink — skip for safety (path traversal risk)
+          elsif entry.symlink? # Symlink — skip for safety (path traversal risk)
             Rulepack::Common.log_warn "Skipping symlink in tarball: #{entry.full_name} -> #{entry.header.linkname}"
+          else
+            Rulepack::Common.log_warn "Skipping unsupported tarball entry type #{entry.header.typeflag.inspect}: #{entry.full_name}"
           end
         end
       end
