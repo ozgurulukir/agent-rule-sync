@@ -19,8 +19,10 @@ module Rulepack
         sub_skills: []
       }
 
-      # Single glob pass: collect all files, group by top-level dir
-      all_files = Dir.glob("#{build_pkg_dir}/**/*", File::FNM_DOTMATCH).select { |f| File.file?(f) }
+      # Single glob pass: collect all files, group by top-level dir.
+      # Security: reject symlinks — path.read below follows them and could read
+      # arbitrary host files if a symlink was planted by an untrusted source.
+      all_files = Dir.glob("#{build_pkg_dir}/**/*", File::FNM_DOTMATCH).select { |f| File.file?(f) && !File.symlink?(f) }
                                                                        .reject { |f| f.end_with?('/manifest.json') }
 
       # Group files into sub-skills (top-level directory = sub-skill name)

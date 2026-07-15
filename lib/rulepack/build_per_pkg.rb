@@ -173,6 +173,13 @@ module Rulepack
         return
       end
 
+      # Security: strip any symlinks that survived cp_r (e.g. from an untrusted
+      # git source). A symlinked .md would otherwise be followed by File.write /
+      # path.read in later translate, schema-engine, and manifest steps, allowing
+      # arbitrary file overwrite/read on the host. Mirrors the skip policy used by
+      # extract_tar_gz in source.rb.
+      strip_symlinks_in_tree(build_pkg_dir)
+
       Rulepack::Common.log '    ✓ Built skill-bundle (directory copied)'
       puts '    ✓ Built skill-bundle (directory copied)'
 
@@ -183,6 +190,7 @@ module Rulepack
         Rulepack::Common.log "    → Translating agent files for #{platform_id} (#{translator_cfg})"
         puts "    → Translating agent files for #{platform_id} (#{translator_cfg})"
         Dir.glob(build_pkg_dir.join('**', '*.md')).each do |md_file|
+          next if File.symlink?(md_file)
           file_content = File.read(md_file)
           translated = Rulepack::Common.apply_translator(translator_cfg, file_content, pkgname: pkgname.to_s, extra_args: translate_extra)
           File.write(md_file, translated)
@@ -340,6 +348,7 @@ module Rulepack
 
       applied = 0
       md_files.each do |md_file|
+        next if File.symlink?(md_file)
         content = File.read(md_file)
         normalized = Rulepack::SchemaEngine.apply(content, format_profile, format)
         unless normalized == content
@@ -351,6 +360,20 @@ module Rulepack
       if applied > 0
         Rulepack::Common.log "    ✓ Schema Engine applied to #{applied} file(s) in directory build"
         puts "    ✓ Schema Engine applied to #{applied} file(s) in directory build"
+      end
+    end
+
+    # Security: recursively remove all symlinks (files and dirs) under a tree.
+    # Used after cp_r to ensure untrusted git/url sources cannot plant symlinks
+    # that later File.write / File.read calls would follow out of the build dir.
+    def strip_symlinks_in_tree(root)
+      return unless Dir.exist?(root)
+      Dir.glob(File.join(root, '**', '*'), File::FNM_DOTMATCH).each do |entry|
+        next if entry == root
+        if File.symlink?(entry)
+          File.unlink(entry)
+          Rulepack::Common.log "    ⚠ Removed untrusted symlink from build tree: #{entry}"
+        end
       end
     end
   end
