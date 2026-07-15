@@ -14,6 +14,12 @@ require "lib/rulepack/common"
 require "lib/rulepack/query"
 require "lib/rulepack/audit"
 
+# Handle SIGINT gracefully
+trap('INT') do
+  puts "\n\e[33m⚠ Command interrupted by user. Exiting cleanly.\e[0m"
+  exit 130
+end
+
 module Rulepack
   class Error < StandardError; end
 
