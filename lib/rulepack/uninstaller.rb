@@ -65,7 +65,7 @@ module Rulepack
         )
       end
 
-      unless dry_run || options[:force] || ENV['RULEPACK_TEST'] || !$stdin.isatty
+      unless dry_run || options[:force] || ENV['RULEPACK_TEST'] || !$stdin.isatty || !$stdout.isatty
         pkg_msg = target_package ? " '#{target_package}' from" : ""
         print "\n\e[33m?\e[0m Are you sure you want to uninstall#{pkg_msg} #{targets_to_uninstall.join(', ')}? [y/N] "
         response = $stdin.gets&.chomp&.downcase
