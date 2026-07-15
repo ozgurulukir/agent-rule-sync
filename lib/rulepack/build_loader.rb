@@ -190,7 +190,7 @@ module Rulepack
 
     # OPTIMIZATION: Use Set for O(1) dependency resolution lookup instead of O(N) Array
     def validate_dependencies(pkg_index, errors)
-      pkg_names = Set.new(pkg_index.keys.map(&:to_s))
+      pkg_names = Set.new(pkg_index.each_key) { |k| k.to_s }
       virtual = {}
       pkg_index.each do |_name, idx|
         (idx[:provides] || []).each { |v| virtual[v.to_s] = _name.to_s }
