@@ -4,6 +4,7 @@
 #
 # Extracted from build.rb (P-B: split 430 LOC build.rb into 3 focused files).
 
+require 'set'
 require 'pathname'
 require 'tsort'
 require_relative 'common'
@@ -187,8 +188,9 @@ module Rulepack
       end
     end
 
+    # OPTIMIZATION: Use Set for O(1) dependency resolution lookup instead of O(N) Array
     def validate_dependencies(pkg_index, errors)
-      pkg_names = pkg_index.keys.map(&:to_s)
+      pkg_names = Set.new(pkg_index.each_key) { |k| k.to_s }
       virtual = {}
       pkg_index.each do |_name, idx|
         (idx[:provides] || []).each { |v| virtual[v.to_s] = _name.to_s }
@@ -196,7 +198,8 @@ module Rulepack
 
       pkg_index.each do |name, idx|
         (idx[:dependencies] || []).each do |dep|
-          resolved = pkg_names.include?(dep.to_s) ? dep.to_s : virtual[dep.to_s]
+          dep_s = dep.to_s
+          resolved = pkg_names.include?(dep_s) ? dep_s : virtual[dep_s]
           unless resolved
             errors << "Package '#{name}' has unresolvable dependency: '#{dep}'"
           end
