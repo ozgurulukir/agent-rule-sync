@@ -152,6 +152,9 @@ module Rulepack
         unless dry_run
           install_path.mkpath
           FileUtils.cp_r(built_path.to_s + '/.', install_path.to_s, preserve: false)
+          # Security: strip symlinks planted by an untrusted build source so they
+          # cannot be followed by downstream agent tooling on the user's host.
+          strip_symlinks_in_tree(install_path)
         end
         Rulepack::Common.log "  ⤷ #{pkgname} (agent) → #{install_path} [copy]" unless quiet
         record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, format: 'agent') unless dry_run
@@ -365,6 +368,20 @@ module Rulepack
         end
       else
         Rulepack::Common.log_error 'Vendor skill aggregation failed'
+      end
+    end
+
+    # Security: recursively remove all symlinks (files and dirs) under a tree.
+    # Used after cp_r to ensure untrusted build sources cannot plant symlinks
+    # that downstream agent tooling might follow out of the install path.
+    def strip_symlinks_in_tree(root)
+      return unless Dir.exist?(root)
+      Dir.glob(File.join(root, '**', '*'), File::FNM_DOTMATCH).each do |entry|
+        next if entry == root
+        if File.symlink?(entry)
+          File.unlink(entry)
+          Rulepack::Common.log "    ⚠ Removed untrusted symlink from install tree: #{entry}"
+        end
       end
     end
   end
