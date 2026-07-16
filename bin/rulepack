@@ -16,7 +16,7 @@ require "lib/rulepack/audit"
 
 # Handle SIGINT gracefully
 trap('INT') do
-  puts "\n\e[33m⚠ Command interrupted by user. Exiting cleanly.\e[0m"
+  warn "\n⚠️  Command interrupted by user. Exiting cleanly."
   exit 130
 end
 
