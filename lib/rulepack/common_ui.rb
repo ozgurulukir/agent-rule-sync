@@ -16,10 +16,14 @@ module Rulepack
       Thread.current[:spinner_msg] = msg
       spinner_chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
+      # Capture msg in a closure so the spinner thread reads the actual message
+      # instead of its own (empty) Thread.current[:spinner_msg] — thread-locals
+      # are per-thread and not shared between main and spawned threads.
+      cur_msg = msg
       thread = Thread.new do
         i = 0
         loop do
-          print "\r\e[K\e[36m#{spinner_chars[i]}\e[0m #{Thread.current[:spinner_msg]}"
+          print "\r\e[K\e[36m#{spinner_chars[i]}\e[0m #{cur_msg}"
           $stdout.flush
           i = (i + 1) % spinner_chars.length
           sleep 0.1

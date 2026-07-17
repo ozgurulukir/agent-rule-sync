@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'logger'
 require 'fileutils'
 require 'pathname'
 
@@ -8,7 +7,7 @@ module Rulepack
   module Logging
     module_function
 
-    @_default_log_file = Pathname.new('install.log')
+    @_default_log_file = Pathname.new(__dir__).parent.parent.join('build', 'install.log')
     @_log_level = nil
     @_show_timing = false
 
