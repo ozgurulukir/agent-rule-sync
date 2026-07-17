@@ -39,15 +39,31 @@ module Rulepack
       root = RULEPACK_ROOT.join(Rulepack::Config.cache_dir_name)
       return unless root.exist?
 
-      while cache_total_bytes > limit_bytes
-        # Collect all top-level cache key directories with their mtime
-        entries = root.children.select(&:directory?).map { |d| [d.mtime, d] }
-        break if entries.empty?
+      total_bytes = cache_total_bytes
+      return if total_bytes <= limit_bytes
 
-        # Sort ascending: oldest mtime first
-        entries.sort_by!(&:first)
-        _oldest_mtime, oldest_dir = entries.first
+      # Collect all top-level cache key directories with their mtime
+      entries = root.children.select(&:directory?).map do |d|
+        [d.mtime, d]
+      end
+
+      # Sort ascending: oldest mtime first
+      entries.sort_by!(&:first)
+
+      # OPTIMIZATION: Calculate initial cache total and sorted list once (O(N)),
+      # then incrementally deduct removed directory sizes to avoid O(N^2) full rescans.
+      while total_bytes > limit_bytes && !entries.empty?
+        _mtime, oldest_dir = entries.shift
+
+        dir_size = 0
+        begin
+          oldest_dir.find { |entry| dir_size += entry.size if entry.file? }
+        rescue Errno::ENOENT
+          # Ignore if files were deleted concurrently
+        end
+
         FileUtils.rm_rf(oldest_dir)
+        total_bytes -= dir_size
       end
     end
 
