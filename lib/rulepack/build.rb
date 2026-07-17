@@ -90,7 +90,7 @@ module Rulepack
           end
         end
 
-        puts "  ✓ Built: #{pkgname}" if build_ok
+        Rulepack::Common.log "  ✓ Built: #{pkgname}" if build_ok
         built << pkgname.to_s if build_ok
       end
 
