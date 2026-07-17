@@ -116,8 +116,9 @@ module Rulepack
         git_path = Pathname.new(src_cfg[:path] || '.')
         git_depth = src_cfg[:depth] || 1
         Rulepack::Common.log "  Fetching git file (cached): #{git_url} (#{git_path})"
-        source_content, source_sha256 = Rulepack::Common.cached_fetch_git_file(git_url, git_ref, git_path,
-                                                                               depth: git_depth)
+        source_content, source_sha256 = Rulepack::Common.spin("Fetching git file...") do
+          Rulepack::Common.cached_fetch_git_file(git_url, git_ref, git_path, depth: git_depth)
+        end
       else
         Rulepack::Common.log_warn "  ⚠ Unknown source type: #{src_cfg[:type]} for #{pkgname}"
         return nil
