@@ -26,6 +26,7 @@ module Rulepack
   require_relative 'platform_scanner'
   require_relative 'processor_loader'
   require_relative 'package_resolver'
+  require_relative 'common_ui'
 
   module Common
     RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path

@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
-require 'pathname'
 require 'fileutils'
+require 'pathname'
 
 module Rulepack
   module Logging
     module_function
 
-    # ─── State ──────────────────────────────────────────────────────────────────
-
     @_default_log_file = Pathname.new(__dir__).parent.parent.join('build', 'install.log')
     @_log_level = nil
     @_show_timing = false
 
-    # ─── Configuration ──────────────────────────────────────────────────────────
+    def log_file
+      @_default_log_file
+    end
 
     def log_file=(path)
       @_default_log_file = Pathname.new(path)
@@ -44,7 +44,18 @@ module Rulepack
       timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
       line = "[#{timestamp}] #{msg}"
       level_order = { error: 0, warn: 1, info: 2, debug: 3 }
-      puts line if level_order[level] <= level_order[log_level]
+
+      if level_order[level] <= level_order[log_level]
+        if Thread.current[:in_spinner] && Thread.current[:spinner_thread]
+          print "\r\e[K"
+          puts line
+          print "\r\e[K\e[36m⠋\e[0m #{Thread.current[:spinner_msg]}"
+          $stdout.flush
+        else
+          puts line
+        end
+      end
+
       FileUtils.mkpath(log_file.dirname)
       File.open(log_file.to_s, 'a') { |f| f.puts(line) }
     end

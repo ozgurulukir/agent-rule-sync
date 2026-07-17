@@ -73,24 +73,24 @@ module Rulepack
 
         build_ok = false
         Rulepack::Common.time("build #{pkgname}") do
-          puts "Building: #{pkgname} (#{Rulepack::Common.format_version(pkg[:epoch], pkg[:pkgver],
-                                                                        pkg[:pkgrel])})"
+          Rulepack::Common.spin("Building: #{pkgname} (#{Rulepack::Common.format_version(pkg[:epoch], pkg[:pkgver], pkg[:pkgrel])})") do
+            pkg_dir = pkgbuild_path.dirname
+            pkg_index = index_data[:packages][pkgname] || BuildLoader.init_pkg_index(pkg)
+            BuildLoader.update_pkg_index_from_pkg(pkg_index, pkg)
 
-          pkg_dir = pkgbuild_path.dirname
-          pkg_index = index_data[:packages][pkgname] || BuildLoader.init_pkg_index(pkg)
-          BuildLoader.update_pkg_index_from_pkg(pkg_index, pkg)
+            source_content = BuildPerPkg.fetch_source(pkg, pkgname, pkg_index, pkg_dir)
+            unless source_content
+              failed << pkgname.to_s
+              next
+            end
 
-          source_content = BuildPerPkg.fetch_source(pkg, pkgname, pkg_index, pkg_dir)
-          unless source_content
-            failed << pkgname.to_s
-            next
+            BuildPerPkg.process_targets(pkg, pkgname, pkg_index, platforms, source_content)
+            index_data[:packages][pkgname] = pkg_index
+            build_ok = true
           end
-
-          BuildPerPkg.process_targets(pkg, pkgname, pkg_index, platforms, source_content)
-          index_data[:packages][pkgname] = pkg_index
-          build_ok = true
         end
 
+        Rulepack::Common.log "  ✓ Built: #{pkgname}" if build_ok
         built << pkgname.to_s if build_ok
       end
 
