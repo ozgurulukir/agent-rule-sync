@@ -7,16 +7,16 @@
 module RulepackTransformer
   module FormatCode
     LANGUAGE_KEYWORDS = {
-      'ruby'       => %w[def class module require puts gets end do yield binding],
-      'python'     => %w[def class import from print return elif lambda yield self],
+      'ruby' => %w[def class module require puts gets end do yield binding],
+      'python' => %w[def class import from print return elif lambda yield self],
       'javascript' => %w[const let function console return export import async await],
       'typescript' => %w[interface type enum namespace declare readonly as extends implements],
-      'go'         => %w[func package import fmt return defer go chan select range],
-      'bash'       => %w[echo fi done esac then elif export source readonly local],
-      'rust'       => %w[fn let mut pub impl trait use mod crate async unsafe],
-      'sql'        => %w[SELECT FROM WHERE INSERT UPDATE DELETE CREATE TABLE ALTER],
-      'yaml'       => %w[--- true false null],
-      'json'       => %w[true false null]
+      'go' => %w[func package import fmt return defer go chan select range],
+      'bash' => %w[echo fi done esac then elif export source readonly local],
+      'rust' => %w[fn let mut pub impl trait use mod crate async unsafe],
+      'sql' => %w[SELECT FROM WHERE INSERT UPDATE DELETE CREATE TABLE ALTER],
+      'yaml' => %w[--- true false null],
+      'json' => %w[true false null]
     }.freeze
 
     def self.transform(content, _pkgname:)
@@ -53,9 +53,7 @@ module RulepackTransformer
 
     def self.process_code_block(opening_fence, content_lines)
       stripped = opening_fence.strip
-      if stripped =~ /^```(\w+)$/
-        return [opening_fence] + content_lines
-      end
+      return [opening_fence] + content_lines if stripped =~ /^```(\w+)$/
 
       content = content_lines.join
       tag = detect_language(content)
@@ -73,7 +71,7 @@ module RulepackTransformer
       end
 
       best = scores.max_by(&:last)
-      (best && best.last >= 2) ? best.first : ''
+      best && best.last >= 2 ? best.first : ''
     end
   end
 end

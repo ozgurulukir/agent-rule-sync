@@ -50,20 +50,19 @@ module RulepackTranslator
 
     def self.parse_sections(body)
       sections = {}
-      current_heading = nil
-      current_lines = []
 
-      body.each_line do |line|
-        if line =~ /^##\s+(.+)$/
-          sections[current_heading] = current_lines.join("\n").strip if current_heading
-          current_heading = Regexp.last_match(1).strip
-          current_lines = []
-        else
-          current_lines << line.chomp
-        end
+      parts = body.split(/^##\s+(.+)$/)
+
+      return sections if parts.size == 1
+
+      i = 1
+      while i < parts.size
+        heading = parts[i].strip
+        content = parts[i + 1] ? parts[i + 1].strip : ''
+        sections[heading] = content unless heading.empty?
+        i += 2
       end
 
-      sections[current_heading] = current_lines.join("\n").strip if current_heading
       sections
     end
 
