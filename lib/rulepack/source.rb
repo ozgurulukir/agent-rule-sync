@@ -140,6 +140,7 @@ module Rulepack
           cmd << '--depth=1' if depth && !is_commit
           cmd << "--branch=#{ref}" if ref && !is_commit
           cmd << '--quiet'
+          cmd << '--'
           cmd << url
           cmd << dest_dir
 
