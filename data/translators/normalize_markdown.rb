@@ -15,6 +15,9 @@ module RulepackTranslator
       # Max out at 2 newlines (1 blank line)
       clean.gsub!(/\n{3,}/, "\n\n")
 
+      # Collapse leading empty lines to at most one leading newline
+      clean.sub!(/\A\n+/, "\n")
+
       # Strip trailing empty lines (preserve leading)
       clean.sub!(/\n+\z/, '')
 

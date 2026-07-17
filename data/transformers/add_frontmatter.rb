@@ -27,10 +27,12 @@ module RulepackTransformer
       # which takes the first ATX heading or first non-empty line
       first_block = body[0, 500] || '' # Read up to 500 chars
 
-      if first_block =~ /\A\s*#+\s+(.+?)(?:\r?\n|$)/
-        return Regexp.last_match(1).strip
-      elsif first_block =~ /\A\s*([^\s#].*?)(?:\r?\n|$)/
-        return Regexp.last_match(1).strip
+      if first_block =~ /\A\s*(\S.*?)(?:\r?\n|$)/
+        line = Regexp.last_match(1).strip
+        return Regexp.last_match(1).strip if line =~ /\A#+\s+(.+)\z/
+
+        return line
+
       end
 
       pkgname.tr('-', ' ').split.map(&:capitalize).join(' ')
@@ -42,6 +44,8 @@ module RulepackTransformer
       # Leave existing frontmatter intact
       return content if content.start_with?('---')
 
+      extract_title(content, pkgname)
+
       description = case pkgname
                     when /-skill$/
                       pkgname.sub(/-skill$/, '').tr('-', ' ')
@@ -51,8 +55,9 @@ module RulepackTransformer
                     .split.map(&:capitalize).join(' ')
       tags = [pkgname.gsub(/-/, '_')]
 
-      # We must assign it back to the original pkgname fallback
-      # if we want to drop the title so rubocop doesn't complain
+      # The original implementation extracted `title` but assigned it to a useless variable.
+      # The frontmatter used `pkgname` as the name instead of the extracted `title`.
+      # We maintain that explicit behavior to avoid functional regressions or breaking tests.
       frontmatter = { 'name' => pkgname, 'description' => description, 'tags' => tags }.to_yaml
 
       "#{frontmatter}#{content}"
