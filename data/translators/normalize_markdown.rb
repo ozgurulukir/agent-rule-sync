@@ -3,26 +3,22 @@
 module RulepackTranslator
   module NormalizeMarkdown
     def self.translate(content, args: {})
-      lines = content.each_line.map do |line|
-        line = line.gsub(/\t+/, ' ')
-        line = line.gsub(/^[ \t]+$/, '')
-        line.rstrip
-      end
+      # Strip trailing whitespace on each line, replace tabs with spaces
+      clean = content.dup
 
-      result = []
-      blank_count = 0
-      lines.each do |line|
-        if line.empty?
-          blank_count += 1
-          result << line if blank_count <= 1
-        else
-          blank_count = 0
-          result << line
-        end
-      end
+      # Normalize windows newlines
+      clean.gsub!(/\r\n/, "\n")
 
-      result.pop while !result.empty? && result.last.empty?
-      "#{result.join("\n")}\n"
+      clean.gsub!(/\t+/, ' ')
+      clean.gsub!(/[ \t]+$/, '')
+
+      # Max out at 2 newlines (1 blank line)
+      clean.gsub!(/\n{3,}/, "\n\n")
+
+      # Strip trailing empty lines (preserve leading)
+      clean.sub!(/\n+\z/, '')
+
+      "#{clean}\n"
     end
   end
 end

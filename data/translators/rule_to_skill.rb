@@ -121,20 +121,20 @@ module RulepackTranslator
 
     def self.parse_sections(body)
       sections = {}
-      current_heading = nil
-      current_lines = []
 
-      body.each_line do |line|
-        if line =~ /^##\s+(.+)$/
-          sections[current_heading] = current_lines.join("\n").strip if current_heading
-          current_heading = Regexp.last_match(1).strip
-          current_lines = []
-        else
-          current_lines << line.chomp
-        end
+      # Use regex split for faster parsing than iterating line-by-line
+      parts = body.split(/^##\s+(.+)$/)
+
+      return sections if parts.size == 1
+
+      i = 1
+      while i < parts.size
+        heading = parts[i].strip
+        content = parts[i + 1] ? parts[i + 1].strip : ''
+        sections[heading] = content unless heading.empty?
+        i += 2
       end
 
-      sections[current_heading] = current_lines.join("\n").strip if current_heading
       sections
     end
 
@@ -151,9 +151,8 @@ module RulepackTranslator
 
     def self.extract_bullet_items(text)
       items = []
-      text.each_line do |line|
-        items << line.rstrip if line =~ /^[-*+]\s+/
-      end
+      # Faster than each_line with regex match
+      text.scan(/^[-*+]\s+.*$/) { |match| items << match.rstrip }
       items
     end
 

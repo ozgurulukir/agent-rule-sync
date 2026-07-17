@@ -16,20 +16,18 @@
 module RulepackTranslator
   module RuleToImport
     def self.translate(content, args: {})
-      clean = content.strip
+      clean = content.strip.dup
 
-      lines = clean.each_line.map do |line|
-        normalized = line.rstrip
+      clean.gsub!(/\r\n/, "\n")
 
-        # Flatten heading depth: ### and deeper → ##
-        # Preserves ## (section) and # (title) as-is
-        normalized = normalized.sub(/^(#{'#'}{3,})(\s+)/, '##\2')
+      # Strip trailing whitespace on each line
+      clean.gsub!(/[ \t]+$/, '')
 
-        normalized
-      end
+      # Flatten heading depth: ### and deeper → ##
+      # Preserves ## (section) and # (title) as-is
+      clean.gsub!(/^(#{Regexp.escape('#' * 3)}#*)(\s+)/, '##\2')
 
-      result = lines.join("\n")
-      "#{result.strip}\n"
+      "#{clean.strip}\n"
     end
   end
 end

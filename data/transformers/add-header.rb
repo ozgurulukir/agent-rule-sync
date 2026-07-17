@@ -21,9 +21,7 @@ module RulepackTransformer
         end_idx = content.index("\n---\n") || content.index("\n---")
         if end_idx
           frontmatter = content[3...end_idx].strip
-          if frontmatter =~ /title:\s*(.+)/
-            return Regexp.last_match(1).strip
-          end
+          return Regexp.last_match(1).strip if frontmatter =~ /title:\s*(.+)/
         end
       end
 
@@ -33,8 +31,7 @@ module RulepackTransformer
 
     def self.strip_existing_h1(content)
       body = content.sub(/\A---\n.*?---\n*/m, '')
-      body = body.sub(/^#\s+.+\n*/, '').strip
-      body
+      body.sub(/^#\s+.+\n*/, '').strip
     end
   end
 end
