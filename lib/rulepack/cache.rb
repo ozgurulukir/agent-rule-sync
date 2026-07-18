@@ -19,13 +19,19 @@ module Rulepack
       RULEPACK_ROOT.join(Rulepack::Config.cache_dir_name, key.to_s)
     end
 
+    # Calculates the total size of a directory in bytes
+    def directory_size(path)
+      sum = 0
+      path.find { |entry| sum += entry.size if entry.file? }
+      sum
+    end
+
     # Total size of the cache root directory in bytes.
     def cache_total_bytes
       root = RULEPACK_ROOT.join(Rulepack::Config.cache_dir_name)
       return 0 unless root.exist?
-      sum = 0
-      root.find { |entry| sum += entry.size if entry.file? }
-      sum
+
+      directory_size(root)
     end
 
     # Evict least-recently-used cache entries until total size is under the limit.
@@ -57,9 +63,10 @@ module Rulepack
 
         dir_size = 0
         begin
-          oldest_dir.find { |entry| dir_size += entry.size if entry.file? }
-        rescue Errno::ENOENT
-          # Ignore if files were deleted concurrently
+          dir_size = directory_size(oldest_dir)
+        rescue Errno::ENOENT => e
+          Rulepack::Common.log_warn "Warning: File disappeared during eviction: #{oldest_dir} (#{e.message})"
+          next # Skip this entry and continue
         end
 
         FileUtils.rm_rf(oldest_dir)
