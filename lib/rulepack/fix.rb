@@ -194,11 +194,14 @@ module Rulepack
         return { orphans_removed: [] }
       end
 
-      should_remove = auto_mode
-      unless should_remove || ENV['RULEPACK_TEST'] || !$stdin.isatty || !$stdout.isatty
+      should_remove = if auto_mode
+        true
+      elsif ENV['RULEPACK_TEST'] || !$stdin.isatty || !$stdout.isatty
+        false
+      else
         print "\n  \e[33m?\e[0m Remove #{orphans.size} orphan(s)? [y/N] "
         response = $stdin.gets&.chomp&.downcase
-        should_remove = (response == 'y' || response == 'yes')
+        response == 'y' || response == 'yes'
       end
 
       if should_remove
