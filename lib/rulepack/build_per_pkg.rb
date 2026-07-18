@@ -140,6 +140,7 @@ module Rulepack
       manifest_generated = false
       manifest_path = nil
 
+      success = true
       targets.each do |tgt|
         platform_id = tgt[:platform]
         format = tgt[:format]
@@ -147,13 +148,16 @@ module Rulepack
         translate = tgt[:translate] || nil
         transformer = tgt[:transformer] || 'copy'
 
-        if %w[skill-bundle agent].include?(format)
+        result = if %w[skill-bundle agent].include?(format)
           build_skill_bundle_target(pkg, pkgname, pkg_index, tgt, platforms, translate, manifest_generated, manifest_path)
         else
           build_single_file_target(pkg, pkgname, pkg_index, tgt, platforms, source_content, translate, transformer)
         end
+        success = false unless result
       end
+      success
     end
+
 
     def build_skill_bundle_target(pkg, pkgname, pkg_index, tgt, platforms, translate, manifest_generated, manifest_path)
       platform_id = tgt[:platform]
@@ -171,7 +175,7 @@ module Rulepack
         FileUtils.cp_r("#{source_dir}/.", build_pkg_dir, preserve: false)
       rescue StandardError => e
         Rulepack::Common.log_error "Failed to copy skill-bundle source: #{e.message}"
-        return
+        return false
       end
 
       # Security: strip any symlinks that survived cp_r (e.g. from an untrusted
@@ -234,6 +238,7 @@ module Rulepack
       # Record in package index
       pkg_index[:available_targets] << platform_id unless pkg_index[:available_targets].include?(platform_id)
       pkg_index[:checksums][:built][platform_id.to_s] = pkg_index[:source_sha256]
+      true
     end
 
     def build_single_file_target(pkg, pkgname, pkg_index, tgt, platforms, source_content, translate, transformer)
@@ -249,7 +254,7 @@ module Rulepack
         Rulepack::Common.validate_output_filename(output, pkgname)
       rescue StandardError => e
         Rulepack::Common.log_error e.message
-        return
+        return false
       end
 
       # Run the build pipeline
@@ -264,13 +269,12 @@ module Rulepack
           target_format: tgt[:format],
           format_profile: format_profile,
           transformer: transformer,       # explicit from PKGBUILD (may be 'copy')
-          explicit_translate: translate,  # explicit from PKGBUILD (nil if not set)
-          explicit_transformer: transformer
+          explicit_translate: translate   # explicit from PKGBUILD (nil if not set)
         )
         transformed = pipeline.run(platform_cfg)
       rescue StandardError => e
         Rulepack::Common.log_error "Build pipeline failed for #{pkgname}/#{platform_id}: #{e.message}"
-        return
+        return false
       end
 
       transformed_sha256 = Digest::SHA256.hexdigest(transformed)
@@ -293,10 +297,14 @@ module Rulepack
 
         # Create relative symlink
         target_rel = store_file.relative_path_from(build_file.parent)
-        FileUtils.ln_s(target_rel, build_file)
+        begin
+          FileUtils.ln_s(target_rel, build_file)
+        rescue NotImplementedError, SystemCallError
+          FileUtils.cp(store_file, build_file)
+        end
       rescue StandardError => e
         Rulepack::Common.log_error "Failed to write build artifact for #{pkgname}/#{platform_id}: #{e.message}"
-        return
+        return false
       end
 
       Rulepack::Common.log "    ✓ Built #{output} (#{transformed_sha256[0..7]})"
@@ -305,6 +313,7 @@ module Rulepack
       # Record in package index
       pkg_index[:available_targets] << platform_id unless pkg_index[:available_targets].include?(platform_id)
       pkg_index[:checksums][:built][platform_id.to_s] = transformed_sha256
+      true
     end
 
     # ─── Helper ──────────────────────────────────────────────────────────────────
@@ -314,7 +323,7 @@ module Rulepack
 
       Rulepack::Common.log "  Running pkgver_func: #{pkg[:pkgver_func]}"
       stdout_err, status = Dir.chdir(source_dir) do
-        Open3.capture2e({ 'LC_ALL' => 'C.UTF-8' }, 'sh', '-c', pkg[:pkgver_func])
+        Open3.capture2e({ 'LC_ALL' => 'C.UTF-8' }, 'bash', '-c', pkg[:pkgver_func])
       end
       new_pkgver = stdout_err.force_encoding(Encoding::UTF_8).scrub.strip
       unless status.success?

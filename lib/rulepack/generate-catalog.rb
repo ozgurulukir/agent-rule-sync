@@ -11,8 +11,12 @@ require_relative 'common'
 
 
 
-def main
-  unless Rulepack::Common::BUILD_INDEX_PATH.exist?
+module Rulepack
+  module CatalogGenerator
+    module_function
+
+    def main
+      unless Rulepack::Common::BUILD_INDEX_PATH.exist?
     abort 'Build index not found. Run `ruby lib/rulepack/build.rb` first.'
   end
 
@@ -95,4 +99,5 @@ def read_source_info(name)
   end
 end
 
-main
+  end
+end
