@@ -4,9 +4,7 @@
 #
 # Extracted from build.rb (P-B: split 430 LOC build.rb into 3 focused files).
 
-require 'set'
 require 'pathname'
-require 'tsort'
 require_relative 'common'
 
 module Rulepack

@@ -323,7 +323,7 @@ module Rulepack
 
       Rulepack::Common.log "  Running pkgver_func: #{pkg[:pkgver_func]}"
       stdout_err, status = Dir.chdir(source_dir) do
-        Open3.capture2e({ 'LC_ALL' => 'C.UTF-8' }, 'bash', '-c', pkg[:pkgver_func])
+        Open3.capture2e({ 'LC_ALL' => 'C.UTF-8' }, 'sh', '-c', pkg[:pkgver_func])
       end
       new_pkgver = stdout_err.force_encoding(Encoding::UTF_8).scrub.strip
       unless status.success?
