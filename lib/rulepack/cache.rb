@@ -19,13 +19,19 @@ module Rulepack
       RULEPACK_ROOT.join(Rulepack::Config.cache_dir_name, key.to_s)
     end
 
+    # Calculates the total size of a directory in bytes
+    def directory_size(path)
+      sum = 0
+      path.find { |entry| sum += entry.size if entry.file? }
+      sum
+    end
+
     # Total size of the cache root directory in bytes.
     def cache_total_bytes
       root = RULEPACK_ROOT.join(Rulepack::Config.cache_dir_name)
       return 0 unless root.exist?
-      sum = 0
-      root.find { |entry| sum += entry.size if entry.file? }
-      sum
+
+      directory_size(root)
     end
 
     # Evict least-recently-used cache entries until total size is under the limit.
@@ -39,15 +45,32 @@ module Rulepack
       root = RULEPACK_ROOT.join(Rulepack::Config.cache_dir_name)
       return unless root.exist?
 
-      while cache_total_bytes > limit_bytes
-        # Collect all top-level cache key directories with their mtime
-        entries = root.children.select(&:directory?).map { |d| [d.mtime, d] }
-        break if entries.empty?
+      total_bytes = cache_total_bytes
+      return if total_bytes <= limit_bytes
 
-        # Sort ascending: oldest mtime first
-        entries.sort_by!(&:first)
-        _oldest_mtime, oldest_dir = entries.first
+      # Collect all top-level cache key directories with their mtime
+      entries = root.children.select(&:directory?).map do |d|
+        [d.mtime, d]
+      end
+
+      # Sort ascending: oldest mtime first
+      entries.sort_by!(&:first)
+
+      # OPTIMIZATION: Calculate initial cache total and sorted list once (O(N)),
+      # then incrementally deduct removed directory sizes to avoid O(N^2) full rescans.
+      while total_bytes > limit_bytes && !entries.empty?
+        _mtime, oldest_dir = entries.shift
+
+        dir_size = 0
+        begin
+          dir_size = directory_size(oldest_dir)
+        rescue Errno::ENOENT => e
+          Rulepack::Common.log_warn "Warning: File disappeared during eviction: #{oldest_dir} (#{e.message})"
+          next # Skip this entry and continue
+        end
+
         FileUtils.rm_rf(oldest_dir)
+        total_bytes -= dir_size
       end
     end
 
