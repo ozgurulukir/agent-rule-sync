@@ -133,7 +133,7 @@ module Rulepack
 end
 
 # CLI runner block
-if __FILE__ == $PROGRAM_NAME || caller.none? || caller.any? { |c| c.include?('capture_script_run') }
+if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI) || caller.any? { |c| c.include?('capture_script_run') }
   begin
     opts = Rulepack::CliParser.parse(ARGV)
     result = Rulepack::Build.run(opts)
