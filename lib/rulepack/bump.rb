@@ -134,7 +134,7 @@ module Rulepack
     end
 
     def fetch_remote_head_git(url, ref)
-      stdout, stderr, status = Open3.capture3('git', 'ls-remote', url, ref)
+      stdout, stderr, status = Open3.capture3('git', 'ls-remote', '--', url, ref)
       unless status.success?
         return { error: "git ls-remote failed: #{stderr.strip}" }
       end
