@@ -191,8 +191,20 @@ module Rulepack
       orphans.each { |f| puts "    #{f}" }
       if dry_run
         puts '  [DRY-RUN] Would not remove orphans'
-        { orphans_removed: [] }
-      elsif auto_mode
+        return { orphans_removed: [] }
+      end
+
+      should_remove = if auto_mode
+        true
+      elsif ENV['RULEPACK_TEST'] || !$stdin.isatty || !$stdout.isatty
+        false
+      else
+        print "\n  \e[33m?\e[0m Remove #{orphans.size} orphan(s)? [y/N] "
+        response = $stdin.gets&.chomp&.downcase
+        response == 'y' || response == 'yes'
+      end
+
+      if should_remove
         puts "  Removing #{orphans.size} orphan(s)..."
         orphans.each { |f| FileUtils.rm_rf(f) }
         puts '  ✓ Orphans removed'
