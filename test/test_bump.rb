@@ -195,4 +195,23 @@ class TestBump < Minitest::Test
       assert_equal original_content, pkgbuild.read, 'File should not change if version is same'
     end
   end
+
+  def test_fetch_remote_head_git_uses_end_of_options_separator
+    url = 'https://github.com/example/repo.git'
+    ref = 'main'
+
+    captured = nil
+    Open3.stub :capture3, lambda { |*args| captured = args; ['', '', Struct.new(:success?).new(false)] } do
+      Rulepack::Bump.fetch_remote_head_git(url, ref)
+    end
+
+    assert captured, 'Open3.capture3 was not called'
+    dash_index = captured.index('--')
+    url_index = captured.index(url)
+    ref_index = captured.index(ref)
+
+    assert dash_index, 'Expected -- separator in git ls-remote call'
+    assert dash_index < url_index, 'Expected -- before url'
+    assert dash_index < ref_index, 'Expected -- before ref'
+  end
 end
