@@ -9,14 +9,14 @@ module Rulepack
 
     attr_reader :current_stage, :content, :platform_id, :pkgname, :target_format, :format_profile, :transformer, :stage_log
 
-    def initialize(content, platform_id:, pkgname:, target_format:, format_profile:, transformer: 'copy', explicit_translate: nil, explicit_transformer: nil)
+    def initialize(content, platform_id:, pkgname:, target_format:, format_profile:, transformer: 'copy', explicit_translate: nil)
       @content = content
       @platform_id = platform_id.to_s
       @pkgname = pkgname.to_s
       @target_format = target_format.to_s
       @format_profile = format_profile || {}
       @transformer = transformer
-      @explicit_transformer = explicit_transformer
+
       @explicit_translate = explicit_translate
       @current_stage = :fetch
       @stage_log = [:fetch]
@@ -60,7 +60,7 @@ module Rulepack
 
       # ─── TRANSFORM STAGE ──────────────────────────────────────────────────
       advance(:transform) do
-        transformer_cfg = Rulepack::SchemaEngine.resolve_transformer(@explicit_transformer, @platform_id, @target_format, platform_cfg)
+        transformer_cfg = Rulepack::SchemaEngine.resolve_transformer(@transformer, @platform_id, @target_format, platform_cfg)
         if transformer_cfg && transformer_cfg != 'copy'
           Rulepack::Common.log "  → Transforming for #{@platform_id} (#{transformer_cfg})"
           puts "  → Transforming for #{@platform_id} (#{transformer_cfg})"

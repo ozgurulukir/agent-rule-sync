@@ -4,9 +4,7 @@
 #
 # Extracted from build.rb (P-B: split 430 LOC build.rb into 3 focused files).
 
-require 'set'
 require 'pathname'
-require 'tsort'
 require_relative 'common'
 
 module Rulepack
@@ -188,53 +186,5 @@ module Rulepack
       end
     end
 
-    # OPTIMIZATION: Use Set for O(1) dependency resolution lookup instead of O(N) Array
-    def validate_dependencies(pkg_index, errors)
-      pkg_names = Set.new(pkg_index.each_key) { |k| k.to_s }
-      virtual = {}
-      pkg_index.each do |_name, idx|
-        (idx[:provides] || []).each { |v| virtual[v.to_s] = _name.to_s }
-      end
-
-      pkg_index.each do |name, idx|
-        (idx[:dependencies] || []).each do |dep|
-          dep_s = dep.to_s
-          resolved = pkg_names.include?(dep_s) ? dep_s : virtual[dep_s]
-          unless resolved
-            errors << "Package '#{name}' has unresolvable dependency: '#{dep}'"
-          end
-        end
-      end
-    end
-
-    def resolve_install_order(pkg_index)
-      graph = {}
-      virtual = {}
-      pkg_index.each do |name, idx|
-        name_s = name.to_s
-        deps = (idx[:dependencies] || []).map do |dep|
-          dep_s = dep.to_s
-          virtual[dep_s] ? virtual[dep_s] : (pkg_index.key?(dep_s.to_sym) || pkg_index.key?(dep_s) ? dep_s : nil)
-        end.compact
-        graph[name_s] = deps
-        (idx[:provides] || []).each { |v| virtual[v.to_s] = name_s }
-      end
-
-      resolver = DependencyGraph.new(graph)
-      begin
-        resolver.tsort
-      rescue TSort::Cyclic => e
-        raise "Circular dependency detected: #{e.message}"
-      end
-    end
-
-    class DependencyGraph < Hash
-      include TSort
-      alias tsort_each_node each_key
-
-      def tsort_each_child(node, &blk)
-        fetch(node, []).each(&blk)
-      end
-    end
   end
 end

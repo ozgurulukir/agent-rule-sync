@@ -21,15 +21,17 @@ module Rulepack
         Rulepack::Common.write_yaml_atomic(Rulepack::Common::BUILD_INDEX_PATH, build_index_data)
         Rulepack::Common.log "📝 Build index written: #{Rulepack::Common::BUILD_INDEX_PATH}"
         puts "\n📝 Build index written: #{Rulepack::Common::BUILD_INDEX_PATH}"
+        true
       rescue StandardError => e
         Rulepack::Common.log_error "Failed to write build index: #{e.message}"
-        exit 1
+        false
       end
     end
 
     def generate_catalog
       begin
-        load Rulepack::Common::RULEPACK_ROOT.join('lib', 'rulepack', 'generate-catalog.rb').to_s
+        require_relative 'generate-catalog'
+        Rulepack::CatalogGenerator.main
       rescue StandardError => e
         Rulepack::Common.log_error "Failed to generate catalog: #{e.message}"
       end
