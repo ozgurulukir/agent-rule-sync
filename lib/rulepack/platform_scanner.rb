@@ -69,6 +69,7 @@ module Rulepack
           next if child.basename.to_s.start_with?('.')
           next if child.basename.to_s == 'manifest.json'
           next if tracked_paths.include?(child.expand_path.to_s)
+          next if tracked_paths.any? { |tp| tp.start_with?(child.expand_path.to_s + File::SEPARATOR) }
 
           type = infer_type(child, platform_cfg)
           orphans << {

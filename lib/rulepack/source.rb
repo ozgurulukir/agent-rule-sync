@@ -27,7 +27,13 @@ module Rulepack
 
       # Check tools
       Array(tools).each do |tool|
-        found = ENV['PATH'].split(File::PATH_SEPARATOR).any? { |d| File.executable?("#{d}/#{tool}") }
+        found = ENV['PATH'].split(File::PATH_SEPARATOR).any? do |d|
+          if Gem.win_platform?
+            %w[.exe .bat .cmd .com].any? { |ext| File.executable?("#{d}/#{tool}#{ext}") } || File.executable?("#{d}/#{tool}")
+          else
+            File.executable?("#{d}/#{tool}")
+          end
+        end
         missing << tool unless found
       end
 

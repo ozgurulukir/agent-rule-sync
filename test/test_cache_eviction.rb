@@ -45,9 +45,16 @@ class TestCacheEviction < Minitest::Test
     # Restore original methods
     orig_dir = @original_cache_dir_name
     Rulepack::Config.define_singleton_method(:cache_dir_name, &orig_dir)
+    orig_size = @original_cache_max_size_mb
+    if orig_size
+      Rulepack::Config.define_singleton_method(:cache_max_size_mb, &orig_size)
+    else
+      class << Rulepack::Config
+        remove_method(:cache_max_size_mb) rescue nil
+      end
+    end
     class << Rulepack::Config
       remove_method(:cache_max_size_mb=) rescue nil
-      remove_method(:cache_max_size_mb) rescue nil
     end
 
     orig_warn = @original_log_warn

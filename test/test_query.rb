@@ -67,6 +67,25 @@ class TestQueryListPlatforms < Minitest::Test
 end
 
 class TestQuerySearch < Minitest::Test
+  def setup
+    @original_load_index = Rulepack::Query.method(:load_index)
+    Rulepack::Query.define_singleton_method(:load_index) do
+      {
+        packages: {
+          memory: {
+            pkgdesc: 'Memory package description',
+            tags: ['memory', 'system']
+          }
+        }
+      }
+    end
+  end
+
+  def teardown
+    orig = @original_load_index
+    Rulepack::Query.define_singleton_method(:load_index, &orig)
+  end
+
   def test_search_no_results
     result = Rulepack::Query.search('xyznonexistent12345')
     assert result.success?
