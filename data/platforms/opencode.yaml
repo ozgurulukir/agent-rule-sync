@@ -17,7 +17,7 @@ rules:
 skills:
   format: single_file
   content_type: markdown
-  frontmatter: strip           # skills installed as plain .md files
+  frontmatter: keep           # skills installed as plain .md files
   content:                     # skill file structure
     - "# Skill Name"            # H1 title
     - "## Overview"             # H2 sections

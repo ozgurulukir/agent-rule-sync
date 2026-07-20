@@ -42,8 +42,14 @@ module Rulepack
         else
           do_yaml_merge(built_path, install_path, pkgname, ctx)
         end
+      when 'structured_inject'
+        if ctx.dry_run
+          Rulepack::Common.log "    [DRY-RUN] Would structured_inject: #{output} → #{install_path}" unless ctx.quiet
+        else
+          do_structured_inject(install_path, platform_cfg, output, pkgname, ctx)
+        end
       else
-        Rulepack::Common.log_error "Unknown install type: #{install_type}. Valid types: symlink, copy, inject, append, json_merge, yaml_merge."
+        Rulepack::Common.log_error "Unknown install type: #{install_type}. Valid types: symlink, copy, inject, append, json_merge, yaml_merge, structured_inject."
       end
     end
 
@@ -221,6 +227,44 @@ module Rulepack
       Rulepack::Common.log '    ✓ YAML merged'
     rescue StandardError => e
       Rulepack::Common.log_error "YAML merge failed: #{e.message}"
+      raise e
+    end
+
+    def do_structured_inject(install_path, platform_cfg, output, pkgname, ctx)
+      rule_inst = platform_cfg[:rule_install] || {}
+      directive = rule_inst[:directive] || '@import'
+      key = (rule_inst[:inject_key] || 'imports').to_sym
+      format = rule_inst[:format] || (install_path.extname == '.json' ? 'json' : 'yaml')
+
+      entry_to_add = "#{directive} \"#{output}\""
+
+      if install_path.exist?
+        backup_path = Rulepack::Common.backup_file(install_path)
+        Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
+      else
+        Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
+      end
+
+      if format == 'json'
+        data = install_path.exist? ? JSON.parse(install_path.read) : {}
+        data[key.to_s] ||= []
+        unless data[key.to_s].include?(entry_to_add)
+          data[key.to_s] << entry_to_add
+        end
+        Rulepack::Common.atomic_write(install_path, JSON.pretty_generate(data) + "\n")
+      else
+        data = install_path.exist? ? (YAML.safe_load(install_path.read, permitted_classes: [Symbol], symbolize_names: true) || {}) : {}
+        data[key] ||= []
+        data_key_arr = Array(data[key])
+        unless data_key_arr.include?(entry_to_add)
+          data_key_arr << entry_to_add
+          data[key] = data_key_arr
+        end
+        Rulepack::Common.atomic_write(install_path, YAML.dump(data).sub(/\A---\n/, ''))
+      end
+      Rulepack::Common.log '    ✓ Structured inject complete'
+    rescue StandardError => e
+      Rulepack::Common.log_error "Structured inject failed: #{e.message}"
       raise e
     end
   end

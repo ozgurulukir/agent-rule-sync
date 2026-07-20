@@ -188,7 +188,7 @@ module Rulepack
         puts "  No index found. Run `rulepack build` first."
         return
       end
-      index = Rulepack::Common.load_yaml(Pathname.new(index_path)) || {}
+      index = Rulepack::IO.load_yaml(Pathname.new(index_path)) || {}
       total = index[:packages]&.size || 0
       installed_platforms = {}
       index[:packages]&.each do |name, pkg|

@@ -67,11 +67,12 @@ module Rulepack
     # 1. PKGBUILD explicit translate value wins
     # 2. Platform registry default_translator (from data/registry/platforms.yaml)
     # 3. nil (no translation)
-    def resolve_translator(explicit_translate, _platform_id, _target_format, platform_cfg = nil)
+    def resolve_translator(explicit_translate, _platform_id, target_format, platform_cfg = nil)
       return explicit_translate unless explicit_translate.nil?
       return nil unless platform_cfg
 
-      platform_cfg[:default_translator]
+      format_key = "default_#{target_format.to_s.tr('-', '_')}_translator".to_sym
+      platform_cfg[format_key] || platform_cfg[:default_translator]
     end
 
     # Resolve effective transformer:

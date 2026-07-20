@@ -2,6 +2,7 @@
 opencode:
   type: directory
   default_translator: null
+  default_skill_translator: custom:data/translators/agent_to_opencode.rb
   default_transformer: copy
   scope: user
   display_name: OpenCode
@@ -215,6 +216,7 @@ agents:
 antigravity:
   type: directory
   default_translator: null
+  default_skill_translator: custom:data/translators/agent_to_opencode.rb
   default_transformer: copy
   scope: user
   display_name: Google Antigravity

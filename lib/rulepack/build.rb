@@ -35,8 +35,9 @@ module Rulepack
       if Rulepack::Common.build_dir.exist?
         puts "🧹 Cleaning stale build directory: #{Rulepack::Common.build_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT)}"
         FileUtils.rm_rf(Rulepack::Common.build_dir)
+        sleep 0.1 # wait for Windows file system to catch up
       end
-      Rulepack::Common.build_dir.mkdir
+      FileUtils.mkpath(Rulepack::Common.build_dir)
 
       Rulepack::Common.log '🔧 Loading platform registry...'
       platforms = Rulepack::Common.load_platform_registry

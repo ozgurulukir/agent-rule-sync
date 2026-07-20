@@ -9,7 +9,7 @@ rules:
 skills:
   format: directory_or_bundle  # single SKILL.md or skill-bundle directory
   content_type: markdown
-  frontmatter: strip
+  frontmatter: keep
   content:
     - "# Skill Name"
     - "## Overview"

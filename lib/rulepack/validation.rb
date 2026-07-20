@@ -120,7 +120,7 @@ module Rulepack
         end
         if t[:install]
           inst = t[:install]
-          if inst[:type] && !%w[symlink copy inject append json_merge yaml_merge].include?(inst[:type])
+          if inst[:type] && !%w[symlink copy inject append json_merge yaml_merge structured_inject].include?(inst[:type])
             errors << "targets[#{i}]: invalid install.type '#{inst[:type]}'"
           end
           validate_target_dir(inst[:target_dir], pkg[:pkgname]) if inst[:target_dir]
