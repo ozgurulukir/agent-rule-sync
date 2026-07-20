@@ -6,34 +6,32 @@ require_relative '../lib/rulepack/config'
 require_relative '../lib/rulepack/cache'
 require_relative '../lib/rulepack/common'
 
-module Rulepack
-  module Config
-    class << self
+class TestCacheEviction < Minitest::Test
+  def setup
+    # Save original config methods
+    @original_cache_dir_name = Rulepack::Config.method(:cache_dir_name)
+    @original_cache_max_size_mb = Rulepack::Config.respond_to?(:cache_max_size_mb) ? Rulepack::Config.method(:cache_max_size_mb) : nil
+    @original_log_warn = Rulepack::Common.method(:log_warn)
+
+    # Apply overrides
+    class << Rulepack::Config
       attr_accessor :cache_max_size_mb
       def cache_dir_name
         '.test_cache_eviction'
       end
     end
-  end
 
-  module Common
-    class << self
+    class << Rulepack::Common
       attr_reader :warnings
-
       def log_warn(msg, log_file: nil)
         @warnings ||= []
         @warnings << msg
       end
-
       def clear_warnings
         @warnings = []
       end
     end
-  end
-end
 
-class TestCacheEviction < Minitest::Test
-  def setup
     @root = Pathname.new(__dir__).join('..').join(Rulepack::Config.cache_dir_name)
     FileUtils.rm_rf(@root)
     @root.mkpath
@@ -43,6 +41,21 @@ class TestCacheEviction < Minitest::Test
 
   def teardown
     FileUtils.rm_rf(@root)
+
+    # Restore original methods
+    orig_dir = @original_cache_dir_name
+    Rulepack::Config.define_singleton_method(:cache_dir_name, &orig_dir)
+    class << Rulepack::Config
+      remove_method(:cache_max_size_mb=) rescue nil
+      remove_method(:cache_max_size_mb) rescue nil
+    end
+
+    orig_warn = @original_log_warn
+    Rulepack::Common.define_singleton_method(:log_warn, &orig_warn)
+    class << Rulepack::Common
+      remove_method(:warnings) rescue nil
+      remove_method(:clear_warnings) rescue nil
+    end
   end
 
   def create_entry(name, size, time_offset = 0)
