@@ -41,6 +41,18 @@ module Rulepack
 
       Rulepack::Common.log '🔧 Loading platform registry...'
       platforms = Rulepack::Common.load_platform_registry
+      if options[:target] && options[:target].to_s != 'all'
+        target_list = options[:target].to_s.split(',').map(&:strip)
+        platforms = platforms.select { |id, _| target_list.include?(id.to_s) }
+        if platforms.empty?
+          return Rulepack::Result.new(
+            status: :failure,
+            errors: ["❌ Build failed: No matching platforms found for target '#{options[:target]}'."]
+          )
+        end
+        Rulepack::Common.log "🎯 Filtering targets for platform(s): #{target_list.join(', ')}"
+        puts "🎯 Filtering targets for platform(s): #{target_list.join(', ')}\n\n"
+      end
 
       index_data = {
         version: 3.0,

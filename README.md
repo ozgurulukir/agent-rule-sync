@@ -19,28 +19,30 @@ A **PKGBUILD-inspired package manager** for agent rules and skills:
 ## Quick Start
 
 ```bash
-# Build all packages
-bin/rulepack build
-
-# Build with timing info
-bin/rulepack build --timing
+# Build
+bin/rulepack build                                 # Build for all registered platforms
+bin/rulepack build -t opencode                     # Build only for a specific target platform
+bin/rulepack build -t cursor,opencode              # Build for multiple target platforms
+bin/rulepack build --timing                        # Build with stage timing breakdown
 
 # Check upstream for new versions (git-sourced packages)
-bin/rulepack bump                                  # Check all
-bin/rulepack bump vibe-security                    # Check single
-bin/rulepack bump --apply                          # Auto-update + rebuild
+bin/rulepack bump                                  # Check all packages
+bin/rulepack bump vibe-security                    # Check single package
+bin/rulepack bump --apply                          # Auto-update PKGBUILDs + rebuild
 
 # Install to a user-level platform (Zero Assumptions: target is mandatory)
-bin/rulepack install --target opencode              # Real install (all built packages)
-bin/rulepack install memory --target opencode       # Real install of a single package (exact match)
+bin/rulepack install --target opencode              # Install all built packages
+bin/rulepack install memory --target opencode       # Install single package
 bin/rulepack install memory -t opencode --dry-run   # Dry run preview
+bin/rulepack install vibe-security -t opencode --select # Interactive sub-skill selection
+bin/rulepack install -t opencode --on-collision overwrite # Handle existing target file collisions
 
-# Pacman flag shortcut equivalents (as options on subcommands)
-bin/rulepack install -S --target opencode            # Equivalent to install --target opencode
-bin/rulepack install -S memory -t opencode           # Equivalent to install memory -t opencode
+# Pacman flag shortcut equivalents
+bin/rulepack install -S --target opencode            # Alias for install --target opencode
+bin/rulepack install -S memory -t opencode           # Alias for install memory -t opencode
 
-# Install to a project-level platform (Target and Project are mandatory)
-bin/rulepack install --target cursor --project .    # Install to current project
+# Install to a project-level platform
+bin/rulepack install --target cursor --project .    # Install to current project directory
 bin/rulepack install memory -t cursor --project /path/to/project
 
 # Global Sync (Install all packages to all user-level platforms)
@@ -48,7 +50,7 @@ bin/rulepack install --target all
 
 # Rules installation mode (--rules-to)
 bin/rulepack install -t opencode --rules-to rules_dir    # (Default) Symlinks rules to rules/ directory
-bin/rulepack install -t opencode --rules-to rules_file   # Appends rules into AGENTS.md instead
+bin/rulepack install -t opencode --rules-to rules_file   # Appends rules into AGENTS.md / GEMINI.md
 
 # Verify installed packages and integrity (verify or -Qk)
 bin/rulepack verify --target opencode               # Verify all packages on opencode
@@ -58,27 +60,27 @@ bin/rulepack verify -Qk memory -t opencode           # Verify single package on 
 bin/rulepack fix --target opencode                  # Repair any modified/missing files
 bin/rulepack fix -F memory -t opencode               # Repair single package
 
-# Check for outdated installs or packages newer than your install
+# Check for outdated installs or available upgrades
 bin/rulepack outdated -t opencode                   # Compare installed versions to build index
-bin/rulepack outdated -t opencode --format json     # Machine-readable
+bin/rulepack outdated -t opencode --format json     # Machine-readable output
 
-# Audit package descriptors for integrity & platforms coverage
-bin/rulepack audit                                  # Audit all packages (schema, local sources, platforms)
-bin/rulepack audit --strict                         # Strict audit (requires targets for all 14 platforms)
-bin/rulepack audit --target opencode                # Target-specific platform check
-bin/rulepack audit --format json                    # Machine-readable output
+# Audit package descriptors for integrity & platform coverage
+bin/rulepack audit                                  # Audit all packages
+bin/rulepack audit --strict                         # Strict audit (requires explicit platform targets)
+bin/rulepack audit --target opencode                # Target-specific platform audit
+bin/rulepack audit --format json                    # Machine-readable JSON output
 
 # Uninstall from platforms (uninstall or -R)
 bin/rulepack uninstall --target opencode            # Uninstall all packages from opencode
 bin/rulepack uninstall -R memory -t cursor --project . # Uninstall single package from cursor project
 
-# Query database (query)
+# Query database
 bin/rulepack query show memory                      # Show package details
-bin/rulepack query search security                  # Search packages by tag or term
-bin/rulepack query installed opencode               # Show installed packages (and manual/orphan items)
+bin/rulepack query search security                  # Search packages by tag or keyword
+bin/rulepack query installed opencode               # Show installed packages & orphan items
 
-# Install Git pre-commit hooks
-bin/rulepack init-hooks                             # Audits PKGBUILDs automatically on commit
+# Git pre-commit hook setup
+bin/rulepack init-hooks                             # Run PKGBUILD audit automatically on commit
 ```
 
 ## Typical Workflow

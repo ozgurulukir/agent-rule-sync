@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'config'
+
 module Rulepack
   module Common
     module_function

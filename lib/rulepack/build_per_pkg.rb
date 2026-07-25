@@ -140,6 +140,8 @@ module Rulepack
       manifest_generated = false
       manifest_path = nil
 
+      transform_cache = {}
+
       success = true
       targets.each do |tgt|
         platform_id = tgt[:platform]
@@ -151,7 +153,7 @@ module Rulepack
         result = if %w[skill-bundle agent].include?(format)
           build_skill_bundle_target(pkg, pkgname, pkg_index, tgt, platforms, translate, manifest_generated, manifest_path)
         else
-          build_single_file_target(pkg, pkgname, pkg_index, tgt, platforms, source_content, translate, transformer)
+          build_single_file_target(pkg, pkgname, pkg_index, tgt, platforms, source_content, translate, transformer, transform_cache)
         end
         success = false unless result
       end
@@ -241,13 +243,10 @@ module Rulepack
       true
     end
 
-    def build_single_file_target(pkg, pkgname, pkg_index, tgt, platforms, source_content, translate, transformer)
+    def build_single_file_target(pkg, pkgname, pkg_index, tgt, platforms, source_content, translate, transformer, transform_cache = {})
       platform_id = tgt[:platform]
       format = tgt[:format]
       output = tgt[:output]
-
-      Rulepack::Common.log "  → Building for #{platform_id} (#{output})"
-      puts "  → Building for #{platform_id} (#{output})"
 
       # Validate output filename (path traversal protection)
       begin
@@ -257,24 +256,50 @@ module Rulepack
         return false
       end
 
-      # Run the build pipeline
-      begin
-        format_profile = Rulepack::Common.platform_config(platform_id, platforms)[:format_profile]
-        platform_cfg = Rulepack::Common.platform_config(platform_id, platforms)
+      platform_cfg = Rulepack::Common.platform_config(platform_id, platforms)
+      format_profile = platform_cfg[:format_profile] || {}
+      target_format = tgt[:format]
 
-        pipeline = Rulepack::BuildPipeline.new(
-          source_content,
-          platform_id: platform_id,
-          pkgname: pkgname,
-          target_format: tgt[:format],
-          format_profile: format_profile,
-          transformer: transformer,       # explicit from PKGBUILD (may be 'copy')
-          explicit_translate: translate   # explicit from PKGBUILD (nil if not set)
-        )
-        transformed = pipeline.run(platform_cfg)
-      rescue StandardError => e
-        Rulepack::Common.log_error "Build pipeline failed for #{pkgname}/#{platform_id}: #{e.message}"
-        return false
+      translator_cfg = Rulepack::SchemaEngine.resolve_translator(translate, platform_id, target_format, platform_cfg)
+      schema_section = %w[skill skill-bundle].include?(target_format) ? :skills : :rules
+      ruleset = format_profile[schema_section] || {}
+      transformer_cfg = Rulepack::SchemaEngine.resolve_transformer(transformer, platform_id, target_format, platform_cfg)
+
+      source_sha = pkg_index[:source_sha256] || Digest::SHA256.hexdigest(source_content.to_s)
+      union_key = Digest::SHA256.hexdigest([
+        source_sha,
+        target_format,
+        translator_cfg.to_s,
+        ruleset.to_json,
+        transformer_cfg.to_s
+      ].join('::'))
+
+      transformed = nil
+      if transform_cache.key?(union_key)
+        transformed, cached_plat = transform_cache[union_key]
+        Rulepack::Common.log "  → Building for #{platform_id} (#{output}) [Union cached from #{cached_plat}]"
+        puts "  → Building for #{platform_id} (#{output}) [Union cached from #{cached_plat}]"
+      else
+        Rulepack::Common.log "  → Building for #{platform_id} (#{output})"
+        puts "  → Building for #{platform_id} (#{output})"
+
+        # Run the build pipeline
+        begin
+          pipeline = Rulepack::BuildPipeline.new(
+            source_content,
+            platform_id: platform_id,
+            pkgname: pkgname,
+            target_format: tgt[:format],
+            format_profile: format_profile,
+            transformer: transformer,       # explicit from PKGBUILD (may be 'copy')
+            explicit_translate: translate   # explicit from PKGBUILD (nil if not set)
+          )
+          transformed = pipeline.run(platform_cfg)
+          transform_cache[union_key] = [transformed, platform_id]
+        rescue StandardError => e
+          Rulepack::Common.log_error "Build pipeline failed for #{pkgname}/#{platform_id}: #{e.message}"
+          return false
+        end
       end
 
       transformed_sha256 = Digest::SHA256.hexdigest(transformed)

@@ -98,6 +98,8 @@ Procedural entry points (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`) are 
 ```bash
 # Build
 bin/rulepack build
+bin/rulepack build -t <plat>                         # Build for specific platform(s)
+bin/rulepack build -t cursor,opencode              # Build for multiple target platforms
 bin/rulepack build --timing
 
 # Upstream version tracking
@@ -366,6 +368,8 @@ data/packages/
 - **Outdated check**: `bin/rulepack outdated -t <plat>` compares installed package versions with `build/index.yaml` and lists both outdated installs and packages available but not installed.
 - **Agent drift handling**: agent packages are verified by directory existence, not checksums, avoiding false positives on platforms that have no `agents_dir`.
 - **Skill-bundle manifest checksums**: `manifest.json` is generated after the Schema Engine runs so that stored checksums match the installed files and `verify` stays accurate.
+- **Schema Profile Union**: `Rulepack::BuildPerPkg` computes SHA256 transform signatures (`union_key`) for target transformations and caches pipeline outputs in memory. Targets sharing identical translators, schema rulesets, and transformers reuse transformed content without re-running regex/translation passes.
+- **Target-scoped builds**: `bin/rulepack build -t <plat>` filters target platforms during build, allowing developers to build artifacts exclusively for active platform(s) instead of all registry platforms.
 - **Transactional fix**: `bin/rulepack fix` backs up the original index and only commits the cleared state after all reinstalls succeed; on failure it rolls back.
 
 For detailed improvement notes, see [`docs/improvement-plan/OPEN-ITEMS.md`](docs/improvement-plan/OPEN-ITEMS.md).

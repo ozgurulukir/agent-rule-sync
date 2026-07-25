@@ -133,6 +133,7 @@ module Rulepack
       source_basename = File.basename(source_path)
       source_is_dir = source_path.end_with?('/')
 
+      has_explicit_targets = pkg[:targets] && !pkg[:targets].empty?
       existing = {}
       (pkg[:targets] || []).each do |t|
         existing[t[:platform].to_s] = t
