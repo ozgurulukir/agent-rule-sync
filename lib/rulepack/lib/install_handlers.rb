@@ -54,7 +54,7 @@ module Rulepack
     end
 
     def do_symlink(built_path, install_path, pkgname, ctx)
-      strategy = ctx.collision_strategy
+      strategy = ctx.collision_strategy || 'interactive'
       if install_path.symlink?
         if install_path.readlink == built_path.relative_path_from(install_path.parent)
           Rulepack::Common.log '    ↺ Already symlinked'
@@ -63,7 +63,11 @@ module Rulepack
       end
 
       if install_path.exist? || install_path.symlink?
-        case strategy
+        effective_strategy = strategy
+        if effective_strategy == 'interactive'
+          effective_strategy = Rulepack::Common.interactive_collision_prompt(install_path)
+        end
+        case effective_strategy
         when 'overwrite', 'append' # append doesn't make sense for symlinks, treat as overwrite
           backup_path = Rulepack::Common.backup_file(install_path) if install_path.file? && !install_path.symlink?
           Rulepack::Transaction.record_journal(ctx, { action: :replace_file, path: install_path, backup: backup_path })
@@ -89,11 +93,15 @@ module Rulepack
     end
 
     def do_copy(built_path, install_path, content_sha256, pkgname, ctx)
-      strategy = ctx.collision_strategy
+      strategy = ctx.collision_strategy || 'interactive'
       if install_path.exist?
         return Rulepack::Common.log '    ↺ Already up-to-date' if Rulepack::Common.verify_checksum(install_path, content_sha256, pkgname)
 
-        case strategy
+        effective_strategy = strategy
+        if effective_strategy == 'interactive'
+          effective_strategy = Rulepack::Common.interactive_collision_prompt(install_path)
+        end
+        case effective_strategy
         when 'append'
           backup_path = Rulepack::Common.backup_file(install_path)
           Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
@@ -121,7 +129,7 @@ module Rulepack
     end
 
     def do_inject_append(install_path, content, install_type, platform_cfg, output, pkgname, ctx)
-      strategy = ctx.collision_strategy
+      strategy = ctx.collision_strategy || 'interactive'
       if install_type == 'append' || strategy == 'append'
         if content_already_present?(install_path, content)
           Rulepack::Common.log '    ↺ Already present (skipping duplicate append)'
@@ -144,7 +152,11 @@ module Rulepack
           if existing.start_with?(import_line)
             Rulepack::Common.log '    ↺ Already injected'
           else
-            case strategy
+            effective_strategy = strategy
+            if effective_strategy == 'interactive'
+              effective_strategy = Rulepack::Common.interactive_collision_prompt(install_path)
+            end
+            case effective_strategy
             when 'overwrite', 'append'
               backup_path = Rulepack::Common.backup_file(install_path)
               Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })

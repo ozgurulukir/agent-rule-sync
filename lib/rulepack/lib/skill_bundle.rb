@@ -111,9 +111,13 @@ module Rulepack
     end
 
     def copy_sub_skills(build_src_dir, dest_dir, selected, pkgname, ctx, quiet: false)
-      strategy = ctx.collision_strategy || 'stop'
+      strategy = ctx.collision_strategy || 'interactive'
       if dest_dir.exist?
-        case strategy
+        effective_strategy = strategy
+        if effective_strategy == 'interactive'
+          effective_strategy = Rulepack::Common.interactive_collision_prompt(dest_dir)
+        end
+        case effective_strategy
         when 'overwrite', 'append' # append for directory bundle is treated as overwrite/merge
           backup_path = Rulepack::Common.backup_file(dest_dir)
           Rulepack::Transaction.record_journal(ctx, { action: :replace_dir, path: dest_dir, backup: backup_path })

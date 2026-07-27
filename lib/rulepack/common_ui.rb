@@ -44,5 +44,31 @@ module Rulepack
       end
       result
     end
+
+    def interactive_collision_prompt(install_path)
+      return 'stop' if ENV['RULEPACK_TEST'] || !$stdin.isatty || !$stdout.isatty
+
+      loop do
+        print "\n  \e[33m?\e[0m Collision detected: #{install_path} exists. Overwrite? [o(verwrite)/a(ppend)/i(gnore)/s(top)] "
+
+        input = $stdin.gets
+        return 'stop' if input.nil? # Handle EOF (Ctrl+D)
+
+        response = input.chomp.downcase
+
+        case response
+        when 'o', 'overwrite', 'y', 'yes'
+          return 'overwrite'
+        when 'a', 'append'
+          return 'append'
+        when 'i', 'ignore', 'n', 'no'
+          return 'ignore'
+        when 's', 'stop', 'q', 'quit'
+          return 'stop'
+        else
+          puts "\n  Invalid input. Please enter 'o', 'a', 'i', or 's'."
+        end
+      end
+    end
   end
 end
