@@ -57,7 +57,7 @@ module Rulepack
       end
 
       FileUtils.mkpath(log_file.dirname)
-      File.open(log_file.to_s, 'a') { |f| f.puts(line) }
+      File.open(log_file.to_s, File::WRONLY | File::CREAT | File::APPEND, 0600) { |f| f.puts(line) }
     end
 
     def log_error(msg, log_file: nil)

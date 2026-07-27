@@ -66,7 +66,7 @@ module Rulepack
       path = Pathname.new(path)
       path.dirname.mkpath
 
-      File.open(path.to_s, 'a') { |f| f.write(content) }
+      File.open(path.to_s, File::WRONLY | File::CREAT | File::APPEND, 0600) { |f| f.write(content) }
     end
 
     # Update content wrapped in markers (idempotent)

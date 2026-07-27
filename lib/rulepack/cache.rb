@@ -97,7 +97,7 @@ module Rulepack
         end
       when 'git_archive'
         extracted.mkpath
-        system('tar', '-xzf', Pathname.new(content_or_path).to_s, '-C', extracted.to_s)
+        system(*['tar', '-xzf', Pathname.new(content_or_path).to_s, '-C', extracted.to_s])
       end
       enforce_cache_limit!
     end
