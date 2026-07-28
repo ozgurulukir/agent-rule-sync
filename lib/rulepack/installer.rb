@@ -42,7 +42,7 @@ module Rulepack
       select_list = options.fetch(:select_list, nil)
       project_arg = options.fetch(:project_arg, nil)
       specific_package = options.fetch(:specific_package, nil)
-      collision_strategy = options.fetch(:collision_strategy, 'stop')
+      collision_strategy = options.fetch(:collision_strategy, 'interactive')
       rules_to = options.fetch(:rules_to, nil)
 
       Rulepack::Logging.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
@@ -220,7 +220,7 @@ module Rulepack
       ctx = InstallContext.new(
         index: index, build_index: build_index, platform_id: platform_id,
         dry_run: options.fetch(:dry_run, false), force_mode: options.fetch(:force_mode, false),
-        needed_mode: options.fetch(:needed_mode, false), collision_strategy: options.fetch(:collision_strategy, 'stop'), rules_to: options[:rules_to],
+        needed_mode: options.fetch(:needed_mode, false), collision_strategy: options.fetch(:collision_strategy, 'interactive'), rules_to: options[:rules_to],
         select_list: options.fetch(:select_list, nil), quiet: true,
         project_root: options[:project_arg] ? Pathname.new(options[:project_arg]).expand_path : nil,
         installed_this_run: [],
@@ -250,7 +250,7 @@ module Rulepack
       verbose_mode     = options[:verbose]
       needed_mode      = options[:needed]
       select_list      = options[:select]
-      collision_strategy = options[:on_collision] || 'stop'
+      collision_strategy = options[:on_collision] || 'interactive'
       rules_to         = options[:rules_to]
       targets_mode     = options[:targets_mode]
 

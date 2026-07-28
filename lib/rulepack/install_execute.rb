@@ -316,7 +316,7 @@ module Rulepack
     # ─── Vendor skill aggregation ─────────────────────────────────────────────────
 
     def aggregate_vendor_skills(platform_id, platform_cfg, base_path, ctx)
-      collision_strategy = ctx.collision_strategy || 'stop'
+      collision_strategy = ctx.collision_strategy || 'interactive'
       Rulepack::Common.log "  🧱 Aggregating vendor skills for #{platform_id}..."
       puts "\n  🧱 Aggregating vendor skills for #{platform_id}..."
       agg_ok = begin
@@ -336,7 +336,11 @@ module Rulepack
           install_path.parent.mkpath
 
           if install_path.exist?
-            case collision_strategy
+            effective_strategy = collision_strategy
+            if effective_strategy == 'interactive'
+              effective_strategy = Rulepack::Common.interactive_collision_prompt(install_path)
+            end
+            case effective_strategy
             when 'append'
               backup_path = Rulepack::Common.backup_file(install_path)
               Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
