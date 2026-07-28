@@ -48,7 +48,14 @@ module Rulepack
           record = installed_records.find { |r| r[:platform].to_s == platform_id.to_s }
           if record
             installed_ver = record[:version]
-            if installed_ver != build_ver
+            # Use full version comparison (epoch + pkgver + pkgrel) so that
+            # pkgrel bumps are also detected as outdated.
+            cmp = Rulepack::Common.compare_versions(
+              build_ver, installed_ver,
+              epoch1: pkgdata[:epoch] || 0, epoch2: record[:epoch] || 0,
+              pkgrel1: pkgdata[:pkgrel] || 1, pkgrel2: record[:pkgrel] || 1
+            )
+            if cmp.positive?
               outdated << {
                 pkgname: pkgname.to_s,
                 platform: platform_id.to_s,

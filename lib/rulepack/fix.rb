@@ -65,8 +65,7 @@ module Rulepack
         orphans_removed.concat(pf[:orphans_removed] || [])
       end
 
-      status = failed.empty? ? (fixed.empty? && orphans_removed.empty? ? :success : :success) : :partial
-      status = :success if fixed.empty? && orphans_removed.empty? && failed.empty?
+      status = failed.empty? ? :success : :partial
 
       messages = []
       if fixed.any? || orphans_removed.any?
@@ -151,6 +150,11 @@ module Rulepack
         puts "  Cleared index record for #{pkgname}"
       end
 
+      # Write cleared index to disk BEFORE reinstall so Install.run sees no
+      # existing record and performs a fresh install (instead of skipping
+      # same-version packages as "already installed").
+      Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
+
       puts "  Reinstalling #{broken.size} package(s) on #{platform_id}..."
 
       fixed = []
@@ -173,6 +177,9 @@ module Rulepack
       end
 
       if failed.empty?
+        # Reload index from disk to pick up records written by Install.run,
+        # avoiding overwrite with stale in-memory state.
+        index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
         index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
         Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
         puts '  ✓ Reinstall complete'

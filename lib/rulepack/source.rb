@@ -201,7 +201,7 @@ module Rulepack
         end
         fetch_with_redirects(redirect_url, limit - 1)
       else
-        response.body
+        raise "HTTP #{response.code} for #{url}: #{response.message}"
       end
     end
 

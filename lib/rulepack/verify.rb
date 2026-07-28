@@ -120,7 +120,19 @@ module Rulepack
       platform_pkgs.each do |pkgname, pkgdata|
         inst = pkgdata[:installed].find { |i| i[:platform] == platform_id }
         target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
-        format_type = target ? target[:format] : 'directory'
+
+        unless target
+          items << {
+            pkgname: pkgname.to_s,
+            type: :rule,
+            status: :missing,
+            messages: ["  ⚠ No target for #{pkgname} on #{platform_id} (stale install record)"]
+          }
+          platform_drifts += 1
+          next
+        end
+
+        format_type = target[:format]
 
         installed_path = if inst[:target_path]
                            Pathname.new(inst[:target_path])

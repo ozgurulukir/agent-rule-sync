@@ -105,7 +105,7 @@ module Rulepack
         end
       end
 
-      status = installed.empty? && specific_package ? :success : (installed.empty? ? :success : :success)
+      status = :success
       Rulepack::Result.new(
         status: status,
         data: {

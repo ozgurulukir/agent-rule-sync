@@ -283,6 +283,77 @@ class TestFix < Minitest::Test
     end
   end
 
+  # ─── fix_drift: Real reinstall flow ──────────────────────────────────────────
+
+  def test_fix_drift_writes_cleared_index_before_reinstall_and_reloads_after
+    # Create build artifact
+    build_artifact = @build_dir.join('opencode', 'test-pkg', 'test-rule.md')
+    build_artifact.parent.mkpath
+    build_artifact.write('# Correct content')
+    correct_sha = Digest::SHA256.hexdigest('# Correct content')
+
+    # Create installed file with wrong content (drift)
+    installed_file = @install_dir.join('test-rule.md')
+    installed_file.write('# Wrong drifted content')
+
+    # Update build index with real checksum
+    build_index = Rulepack::Common.load_yaml(@build_dir / 'index.yaml')
+    build_index[:packages][:'test-pkg'][:targets][0][:checksum] = correct_sha
+    (@build_dir / 'index.yaml').write(build_index.to_yaml)
+
+    # Update installed index with wrong checksum (simulate drift)
+    index = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
+    index[:packages][:'test-pkg'][:installed][0][:checksum] = 'wrongchecksum'
+    (@install_dir / 'index.yaml').write(index.to_yaml)
+
+    # Reload index for fix_drift
+    index = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
+
+    install_called = false
+
+    Rulepack::Fix.stub(:resolve_install_path, installed_file) do
+      Rulepack::Common.stub(:backup_index, nil) do
+        Rulepack::Install.stub(:run, lambda { |platform_id, **opts|
+          install_called = true
+          assert_equal 'opencode', platform_id
+          assert_equal 'test-pkg', opts[:specific_package]
+
+          # Verify cleared index was written to disk BEFORE Install.run
+          disk_index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+          pkg = disk_index[:packages][:'test-pkg']
+          assert pkg[:installed].empty?,
+                 'Index on disk must have cleared records before Install.run'
+
+          # Simulate reinstall: write correct content + update index on disk
+          installed_file.write('# Correct content')
+          install_index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+          install_index[:packages][:'test-pkg'][:installed] = [
+            { platform: 'opencode', version: '1.0.0', output: 'test-rule.md',
+              checksum: correct_sha,
+              installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+              pkgrel: 1, epoch: 0 }
+          ]
+          Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, install_index)
+
+          Rulepack::Result.new(status: :success, data: { installed: ['test-pkg'] })
+        }) do
+          result = Rulepack::Fix.fix_drift('opencode', nil, nil, false, index)
+
+          assert install_called, 'Install.run must have been called'
+          assert_includes result[:fixed], 'test-pkg'
+          assert_empty result[:failed]
+
+          # Verify final index was reloaded from disk (picks up Install.run's writes)
+          final_index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+          refute_empty final_index[:packages][:'test-pkg'][:installed],
+                       'Index must have reinstalled record after fix_drift'
+          assert_equal correct_sha,
+                       final_index[:packages][:'test-pkg'][:installed][0][:checksum]
+        end
+      end
+    end
+  end
+
   # ─── Build Artifacts Missing ─────────────────────────────────────────────────
 
   def test_fix_returns_failure_when_build_artifacts_missing

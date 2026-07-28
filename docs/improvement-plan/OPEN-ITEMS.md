@@ -1,7 +1,7 @@
 # Improvement Plan — Post Phase 7
 
 **Goal**: Address structural debt identified during architecture review (2026-05-25).
-All items verified against the current HEAD (`37bd68b` — test baseline: 287 runs, 929 assertions, 0 failures, 0 errors, 6 skips).
+All items verified against the current HEAD (`bac38a9` — test baseline: 390 runs, 1191 assertions, 0 failures, 0 errors, 2 skips).
 
 ---
 

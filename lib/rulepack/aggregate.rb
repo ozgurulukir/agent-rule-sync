@@ -28,7 +28,7 @@ module Rulepack
       platforms = Rulepack::Common.load_platform_registry
 
       # Identify skill-based agents
-      skill_agents = platforms.select { |_id, cfg| cfg[:type] == :skill || cfg[:type] == 'skill' }.keys
+      skill_agents = platforms.select { |_id, cfg| cfg[:type] == 'skill' }.keys
 
       if target_filter
         skill_agents = skill_agents.select { |agent_id| agent_id.to_s == target_filter.to_s }
