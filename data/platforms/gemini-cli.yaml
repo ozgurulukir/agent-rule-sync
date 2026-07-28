@@ -10,6 +10,7 @@ rules:
   heading_style: atx
   bullet_style: dash
   no_code_blocks: false
+  note: "Global: ~/.gemini/GEMINI.md, Workspace: .gemini/GEMINI.md"
 
 skills:
   format: directory
@@ -17,6 +18,7 @@ skills:
   frontmatter: strip
   heading_style: atx
   bullet_style: dash
+  note: "User: ~/.gemini/skills/*/SKILL.md, Workspace: .gemini/skills/*/SKILL.md. Also supports ~/.agents/skills/ alias"
 
 notes: |
   Gemini CLI uses GEMINI.md as a rules file (appended via marker-boundary blocks).

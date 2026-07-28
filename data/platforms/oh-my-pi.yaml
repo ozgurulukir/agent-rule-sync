@@ -9,17 +9,18 @@ rules:
   bullet_style: dash
   code_block: fenced
   frontmatter: strip
-  note: "Same as OpenCode directory format"
+  note: "Oh My Pi discovers AGENTS.md and rule files from ~/.omp/agent/ and project root"
 
 skills:
-  format: single_file
+  format: directory
   content_type: markdown
   frontmatter: strip
-  note: "Same as OpenCode directory format"
+  bullet_style: dash
+  code_block: fenced
+  note: "Native: ~/.omp/agent/skills/*/SKILL.md, Agents: ~/.agents/skills/*/SKILL.md, Project: .agents/skills/*/SKILL.md"
 
 notes: |
-  Oh My Pi reads ~/.omp/agent/rules/*.md and ~/.omp/agent/skills/*/SKILL.md.
-  User-scoped. Base path is ~/.omp/agent/ (NOT ~/.config/oh-my-pi/).
-  omp also discovers rules from other agent dirs (.cursor, .claude, etc.)
-  via its TTSR stream rules system with native priority 100.
+  Oh My Pi reads rules from AGENTS.md and ~/.omp/agent/ configuration.
+  Skills are discovered from ~/.omp/agent/skills/, ~/.agents/skills/, and .agents/skills/.
   Config: ~/.omp/agent/config.yml, models: ~/.omp/agent/models.yml
+  Base path is ~/.omp/agent/ (NOT ~/.config/oh-my-pi/).

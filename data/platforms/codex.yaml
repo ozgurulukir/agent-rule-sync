@@ -3,23 +3,24 @@
 # NOT enforced by build system — informational for translator authoring.
 
 rules:
-  format: none                   # Codex has no separate rules
-  note: "All rules are embedded in AGENTS.md via vendor aggregation"
+  format: file
+  file_name: "AGENTS.md"
+  note: "Project: ./AGENTS.md, Global: ~/.codex/AGENTS.md. Codex recursively discovers AGENTS.md; root applies globally, subdirectories override"
 
 skills:
-  format: single_file
+  format: directory
   content_type: markdown
-  file_name: "AGENTS.md"
-  frontmatter: strip             # AGENTS.md is plain markdown
+  frontmatter: strip
   heading_style: atx
   bullet_style: dash
   code_block: fenced
+  note: "User: ~/.codex/skills/*/SKILL.md, Project: .codex/skills/*/SKILL.md. Also supports ~/.agents/skills/ and .agents/skills/ aliases"
 
 aggregation: |
-  Codex reads AGENTS.md from the project root. Rulepack vendor aggregation
-  (lib/rulepack/aggregate.rb) writes all skill/rule fragments into this file.
-  Each package's content is concatenated with "---\n\n" separator.
-  No per-package headers added by default.
+  Codex reads AGENTS.md from the project root (and subdirectories).
+  Rulepack vendor aggregation (lib/rulepack/aggregate.rb) writes all skill/rule
+  fragments into this file. Each package's content is concatenated with "---\n\n"
+  separator. No per-package headers added by default.
 
 notes: |
   Codex CLI reads AGENTS.md at the project root.

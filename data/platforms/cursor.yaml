@@ -9,7 +9,7 @@ rules:
   code_block: fenced
   frontmatter: strip
   max_heading_depth: 3
-  note: "Rules go to .cursor/rules/*.md, symlinked from build/"
+  note: "Rules go to .cursor/rules/*.md (project). Symlinked from build/"
 
 skills:
   format: directory_or_bundle  # single SKILL.md or skill-bundle directory
@@ -22,7 +22,7 @@ skills:
     - "## Usage"
   bullet_style: dash
   code_block: fenced
-  note: "Skills go to .cursor/skills/<name>/SKILL.md (copied)"
+  note: "Skills go to .cursor/skills/<name>/SKILL.md (project, copied)"
 
 notes: |
   Cursor reads .cursor/rules/*.md and .cursor/skills/*/SKILL.md.

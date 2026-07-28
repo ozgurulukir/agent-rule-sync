@@ -9,7 +9,7 @@ rules:
   code_block: fenced
   frontmatter: strip
   max_heading_depth: 3
-  note: "Rules go to .claude/rules/*.md"
+  note: "Project: .claude/rules/*.md, User: ~/.claude/rules/*.md"
 
 skills:
   format: directory_or_bundle  # single SKILL.md or skill-bundle directory
@@ -22,7 +22,7 @@ skills:
     - "## Usage"
   bullet_style: dash
   code_block: fenced
-  note: "Skills go to .claude/skills/*/SKILL.md"
+  note: "Project: .claude/skills/*/SKILL.md, User: ~/.claude/skills/*/SKILL.md"
 
 notes: |
   Claude Code reads .claude/rules/*.md and .claude/skills/*/SKILL.md.

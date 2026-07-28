@@ -3,20 +3,24 @@
 # NOT enforced by build system — informational for translator authoring.
 
 rules:
-  format: import_file
+  format: single_file
   content_type: markdown
-  config_file: "config.yaml"
-  injection_method: "@import"
+  file_name: "QWEN.md"
   frontmatter: strip
-  note: "Same import mechanism as Gemini CLI"
+  heading_style: atx
+  bullet_style: dash
+  note: "Global: ~/.qwen/QWEN.md, Project: .qwen/QWEN.md. Qwen Code uses QWEN.md, not @import directives."
 
 skills:
-  format: import_file
+  format: directory
   content_type: markdown
-  injection_method: "@import"
   frontmatter: strip
+  heading_style: atx
+  bullet_style: dash
+  note: "User: ~/.qwen/skills/*/SKILL.md, Project: .qwen/skills/*/SKILL.md. Standard Agent Skills directories."
 
-import_directive: "@import 'relative/path/to/file.md'"
 notes: |
-  Qwen Code uses @import directives in ~/.config/qwen/config.yaml.
-  Same import mechanism as Gemini CLI.
+  Qwen Code uses QWEN.md for rules (global ~/.qwen/QWEN.md or project .qwen/QWEN.md).
+  Configuration is in settings.json (~/.qwen/settings.json or .qwen/settings.json).
+  QWEN_HOME env var overrides the default ~/.qwen directory.
+  Skills are standard SKILL.md directories, not @import directives.
