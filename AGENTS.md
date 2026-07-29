@@ -361,6 +361,21 @@ data/packages/
 - **UTF-8 by default**: `encoding_defaults.rb` forces UTF-8 encoding, preventing ASCII encoding errors in markdown.
 - **Git HTTP fallback**: when `git` is unavailable, the build engine falls back to GitHub/GitLab tarballs using Ruby's built-in `Zlib` and `Gem::Package::TarReader` — no shell subprocesses. Tar extraction is hardened against path traversal (Tar Slip) via `File.expand_path` prefix validation with a `PathTraversalError` guard.
 - **Source-centric build (2026-07-29)**: Skill-bundles are **lazily materialized at install time**, not eagerly written to `build/<plat>/<pkg>/`. Build records metadata (`available_targets`, `source_sha`); install copies from `pkgdata[:source_dir]` into `build/<plat>/<pkg>/` on demand, gated by `manifest.json` `source_sha256`. Shrunken `build/` from 1.3 GB → 46 MB (−96.5%) for the `anthropics-skills` workload. See [`ADR-2026-07-29-build-pipeline-refactor.md`](docs/improvement-plan/ADR-2026-07-29-build-pipeline-refactor.md) and `lib/rulepack/lib/skill_bundle_lazy.rb`.
+
+  **Baseline comparison (pre vs post):**
+
+  | Metric | Before | After | Change |
+  |---|---|---|---|
+  | `build/` total size | 1.3 GB | 46 MB | −96.5% |
+  | `build/` (excl. git-sources) | 1.26 GB | 2.1 MB | −99.8% |
+  | Store files | N/A | 52 | — |
+  | Store size | N/A | 272 KB | — |
+  | `(pkg, target)` slots | 266 | 266 | (unchanged) |
+  | Store dedup ratio | 0% | **80.83%** (51 store / 266 slots) | — |
+  | Cross-package dedup | N/A | 0% (each store file → 1 package) | — |
+  | Test suite | 390 runs, 1191 assertions | 394 runs, 1216 assertions | +4/+25 |
+  | Test failures/errors | 0/4 | 0/0 | −4 errors |
+  | `bin/rulepack audit --strict` | — | 18/18 ✓ VALID | — |
 - **Local registry overrides**: `.rulepack.local.yaml` (per-repo) and `~/.config/rulepack/config.yaml` (user-global) are deep-merged on top of `data/registry/platforms.yaml`.
 - **Git hook integration**: `bin/rulepack init-hooks` installs a pre-commit hook that runs `bin/rulepack audit --strict`.
 - **Sub-skill selector**: `bin/rulepack install <skill-bundle> -t <plat> --select` opens an interactive multi-select menu. Press `q` / `Esc` / `Ctrl-C` to cancel; `Enter` confirms selection.
