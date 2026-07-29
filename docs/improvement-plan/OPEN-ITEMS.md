@@ -1661,6 +1661,7 @@ end
 | P-AN | 🟠 MEDIUM | Structured inject handler for config files | OPEN |
 | P-AO | 🟡 MEDIUM | Hybrid pkg_type support in FORMAT_MAP | OPEN |
 | P-AP | 🟡 MEDIUM | Platform format_profile validation on load | OPEN |
+| ADR-2026-07-29 | 🟠 HIGH | Source-centric build: lazy install-time skill-bundle materialization (build/ 1.3 GB → 46 MB, −96.5%) | ✅ PHASE 1 COMPLETED / PHASE 2 DEFERRED (YAGNI) |
 
 ---
 

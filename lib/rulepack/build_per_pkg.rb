@@ -10,6 +10,7 @@ require_relative 'common'
 require_relative 'schema_engine'
 require_relative 'build_pipeline'
 require_relative 'build_loader'
+require_relative 'lib/skill_bundle_lazy'
 
 module Rulepack
   module BuildPerPkg
@@ -137,9 +138,6 @@ module Rulepack
       targets = pkg[:targets]
       targets = [targets] unless targets.is_a?(Array)
 
-      manifest_generated = false
-      manifest_path = nil
-
       transform_cache = {}
 
       success = true
@@ -151,93 +149,34 @@ module Rulepack
         transformer = tgt[:transformer] || 'copy'
 
         result = if %w[skill-bundle agent].include?(format)
-          build_skill_bundle_target(pkg, pkgname, pkg_index, tgt, platforms, translate, manifest_generated, manifest_path)
-        else
-          build_single_file_target(pkg, pkgname, pkg_index, tgt, platforms, source_content, translate, transformer, transform_cache)
-        end
+                   build_skill_bundle_target(pkg, pkgname, pkg_index, tgt, platforms, translate)
+                 else
+                   build_single_file_target(pkg, pkgname, pkg_index, tgt, platforms, source_content, translate, transformer, transform_cache)
+                 end
         success = false unless result
       end
       success
     end
 
-
-    def build_skill_bundle_target(pkg, pkgname, pkg_index, tgt, platforms, translate, manifest_generated, manifest_path)
+    def build_skill_bundle_target(_pkg, pkgname, pkg_index, tgt, _platforms, _translate)
+      # ADR-2026-07-29: source-centric build.
+      # The build phase no longer copies source_dir → build/<plat>/<pkg>/.
+      # That step (cp_r, symlink strip, agent translate, schema engine,
+      # manifest generation) is deferred to install-time via
+      # Rulepack::SkillBundleLazy.ensure_materialized!. Recording the
+      # available_target and source SHA here is sufficient — install will
+      # lazily create the build/<plat>/<pkg>/ tree when needed.
       platform_id = tgt[:platform]
-      format = tgt[:format]
 
-      Rulepack::Common.log "  → Building for #{platform_id} (skill-bundle: #{pkgname})"
-      puts "  → Building for #{platform_id} (skill-bundle: #{pkgname})"
-
-      sd = pkg_index[:source_dir] || raise('internal error: source_dir not set for skill-bundle')
-      source_dir = Pathname.new(sd)
-      build_platform_dir = Rulepack::Common.build_dir.join(platform_id)
-      begin
-        build_pkg_dir = build_platform_dir.join(pkgname.to_s)
-        FileUtils.mkpath(build_pkg_dir)
-        FileUtils.cp_r("#{source_dir}/.", build_pkg_dir, preserve: false)
-      rescue StandardError => e
-        Rulepack::Common.log_error "Failed to copy skill-bundle source: #{e.message}"
+      unless pkg_index[:source_dir]
+        Rulepack::Common.log_error "internal error: source_dir not set for skill-bundle #{pkgname}"
         return false
       end
 
-      # Security: strip any symlinks that survived cp_r (e.g. from an untrusted
-      # git source). A symlinked .md would otherwise be followed by File.write /
-      # path.read in later translate, schema-engine, and manifest steps, allowing
-      # arbitrary file overwrite/read on the host. Mirrors the skip policy used by
-      # extract_tar_gz in source.rb.
-      strip_symlinks_in_tree(build_pkg_dir)
+      Rulepack::Common.log "  → Recorded for #{platform_id} (skill-bundle: #{pkgname}, lazy)"
+      puts "  → Recorded for #{platform_id} (skill-bundle: #{pkgname}, lazy)"
 
-      Rulepack::Common.log '    ✓ Built skill-bundle (directory copied)'
-      puts '    ✓ Built skill-bundle (directory copied)'
-
-      # Agent format: translate each .md file if translator specified
-      if format == 'agent' && translate
-        translator_cfg = translate
-        translate_extra = { pkgdesc: (pkg[:pkgdesc] || ''), tags: (pkg[:tags] || []) }
-        Rulepack::Common.log "    → Translating agent files for #{platform_id} (#{translator_cfg})"
-        puts "    → Translating agent files for #{platform_id} (#{translator_cfg})"
-        Dir.glob(build_pkg_dir.join('**', '*.md')).each do |md_file|
-          next if File.symlink?(md_file)
-          file_content = File.read(md_file)
-          translated = Rulepack::Common.apply_translator(translator_cfg, file_content, pkgname: pkgname.to_s, extra_args: translate_extra)
-          File.write(md_file, translated)
-        end
-        Rulepack::Common.log "    ✓ Agent files translated (#{translator_cfg})"
-        puts "    ✓ Agent files translated (#{translator_cfg})"
-      end
-
-      apply_schema_engine_to_directory(build_pkg_dir, tgt, platforms, format)
-
-      if manifest_generated
-        FileUtils.cp(manifest_path, build_pkg_dir.join('manifest.json'))
-      else
-        manifest_data = Rulepack::Common.generate_skill_bundle_manifest(
-          build_pkg_dir, pkgname, platform_id
-        )
-        manifest_path = build_pkg_dir.join('manifest.json')
-        manifest_generated = true
-        count = manifest_data[:sub_skills].size
-        Rulepack::Common.log "    ✓ Manifest generated: #{count} sub-skill(s)"
-        puts "    ✓ Manifest generated: #{count} sub-skill(s)"
-      end
-
-      if format == 'agent' && tgt[:agent_config]
-        agent_cfg = tgt[:agent_config]
-        manifest = {
-          'name' => pkgname.to_s,
-          'description' => (pkg[:pkgdesc] || '').to_s.strip.tr("\n", ' '),
-          'model' => agent_cfg[:model] || 'claude-3.5-sonnet',
-          'temperature' => agent_cfg[:temperature] || 0.3
-        }
-        if agent_cfg[:triggers]
-          manifest['triggers'] = agent_cfg[:triggers].transform_keys(&:to_s)
-        end
-        File.write(build_pkg_dir.join('agent.json'), JSON.pretty_generate(manifest))
-        Rulepack::Common.log "    ✓ Generated agent.json manifest"
-        puts "    ✓ Generated agent.json manifest"
-      end
-
-      # Record in package index
+      # Record in package index — install will use these to materialize on demand.
       pkg_index[:available_targets] << platform_id unless pkg_index[:available_targets].include?(platform_id)
       pkg_index[:checksums][:built][platform_id.to_s] = pkg_index[:source_sha256]
       true
@@ -366,45 +305,27 @@ module Rulepack
     end
 
     def apply_schema_engine_to_directory(build_pkg_dir, tgt, platforms, format)
-      platform_id = tgt[:platform]
-      format_profile = begin
-        Rulepack::Common.platform_config(platform_id, platforms)[:format_profile]
-      rescue StandardError
-        {}
-      end
-      return if format_profile.nil? || format_profile.empty?
-
-      schema_section = %w[skill skill-bundle].include?(format) ? :skills : :rules
-      ruleset = format_profile[schema_section]
-      return unless ruleset
-
-      md_files = Dir.glob(build_pkg_dir.join('**', '*.md'))
-      return if md_files.empty?
-
-      applied = 0
-      md_files.each do |md_file|
-        next if File.symlink?(md_file)
-        content = File.read(md_file)
-        normalized = Rulepack::SchemaEngine.apply(content, format_profile, format)
-        unless normalized == content
-          File.write(md_file, normalized)
-          applied += 1
-        end
-      end
-
-      if applied > 0
-        Rulepack::Common.log "    ✓ Schema Engine applied to #{applied} file(s) in directory build"
-        puts "    ✓ Schema Engine applied to #{applied} file(s) in directory build"
-      end
+      # DEPRECATED — moved to Rulepack::SkillBundleLazy.
+      # Kept as a thin shim so external code that might reference
+      # BuildPerPkg.apply_schema_engine_to_directory still resolves. New
+      # callers should use Rulepack::SkillBundleLazy.apply_schema_engine_to_directory
+      # directly. The shim preserves the prior public signature and delegates.
+      Rulepack::SkillBundleLazy.apply_schema_engine_to_directory(build_pkg_dir, tgt, platforms, format)
     end
 
     # Security: recursively remove all symlinks (files and dirs) under a tree.
     # Used after cp_r to ensure untrusted git/url sources cannot plant symlinks
     # that later File.write / File.read calls would follow out of the build dir.
+    #
+    # Kept in BuildPerPkg because test_symlink_hardening.rb calls
+    # Rulepack::BuildPerPkg.strip_symlinks_in_tree directly. The SkillBundleLazy
+    # materializer uses its own copy internally to avoid cross-module coupling.
     def strip_symlinks_in_tree(root)
       return unless Dir.exist?(root)
+
       Dir.glob(File.join(root, '**', '*'), File::FNM_DOTMATCH).each do |entry|
         next if entry == root
+
         if File.symlink?(entry)
           File.unlink(entry)
           Rulepack::Common.log "    ⚠ Removed untrusted symlink from build tree: #{entry}"
