@@ -10,3 +10,6 @@
 ## 2026-07-25 - Optimize Hash sorting overhead
 **Learning:** Calling `Hash#sort_by` creates an array of key-value pair arrays before sorting, generating unnecessary intermediate object allocations.
 **Action:** When you only need to extract values from a hash sorted by its keys, use `hash.keys.sort.map { |k| hash[k] }` to avoid intermediate object allocations and improve performance.
+## 2026-07-31 - Optimize Bullet Item Extraction in Translators
+**Learning:** Using block iteration (`scan { |match| array << match.rstrip }`) is slower and creates unnecessary block overhead compared to returning an array directly from `scan`. Additionally, replacing substrings on the whole text (`gsub`) to avoid `.rstrip` is slow because it forces Ruby to allocate a completely new copy of the string in memory.
+**Action:** For text transformation tasks in this Ruby codebase, prefer returning matched arrays from `scan` directly and manipulating them (`scan(/^.../).map!(&:rstrip)`) to avoid block overhead, array append operations, and full string allocations.
