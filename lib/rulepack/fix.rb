@@ -207,8 +207,8 @@ module Rulepack
         false
       else
         print "\n  \e[33m?\e[0m Remove #{orphans.size} orphan(s)? [y/N] "
-        response = $stdin.gets&.chomp&.downcase
-        response == 'y' || response == 'yes'
+        input = $stdin.gets
+        !input.nil? && (input.chomp.downcase == 'y' || input.chomp.downcase == 'yes')
       end
 
       if should_remove
