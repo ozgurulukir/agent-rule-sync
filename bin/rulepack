@@ -24,6 +24,10 @@ module Rulepack
   class Error < StandardError; end
 
   module CLI
+    VALID_COMMANDS = %w[install uninstall query fix build bump list show search status audit check verify outdated catalog platforms init-hooks help].freeze
+
+    VALID_COMMANDS = %w[install uninstall query fix build bump list show search status audit check verify outdated catalog platforms init-hooks help].freeze
+
     def self.run(argv)
       if argv.include?('--timing')
         Rulepack::Logging.show_timing = true
@@ -108,8 +112,12 @@ module Rulepack
         print_help
         0
       else
-        warn "Unknown command: #{command}"
-        print_help
+        warn "\e[31m❌ Unknown command: '#{command}'\e[0m"
+        if defined?(DidYouMean::SpellChecker)
+          corrections = DidYouMean::SpellChecker.new(dictionary: VALID_COMMANDS).correct(command)
+          warn "💡 Did you mean? \e[1mrulepack #{corrections.first}\e[0m" if corrections.any?
+        end
+        warn "\nRun \e[1mrulepack help\e[0m to see a list of available commands."
         1
       end
     rescue Rulepack::Error => e
