@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'pathname'
+require_relative 'errors'
 
 module Rulepack
   module CliParser
@@ -36,18 +37,18 @@ module Rulepack
         arg = args[i]
         case arg
         when '--target', '-t'
-          raise Rulepack::Error, 'Missing value for --target' if i + 1 >= args.length
+          raise Rulepack::MissingOptionValue, 'Missing value for --target' if i + 1 >= args.length
           options[:target] = args[i + 1]
           i += 2
         when '--project', '-p'
-          raise Rulepack::Error, 'Missing path for --project' if i + 1 >= args.length
+          raise Rulepack::MissingOptionValue, 'Missing path for --project' if i + 1 >= args.length
           options[:project_path] = args[i + 1]
           i += 2
         when '--on-collision'
-          raise Rulepack::Error, 'Missing value for --on-collision' if i + 1 >= args.length
+          raise Rulepack::MissingOptionValue, 'Missing value for --on-collision' if i + 1 >= args.length
           val = args[i + 1].downcase
           unless %w[stop ignore overwrite append].include?(val)
-            raise Rulepack::Error, "Invalid collision strategy: #{val}. Valid: stop, ignore, overwrite, append"
+            raise Rulepack::InvalidOptionValue, "Invalid collision strategy: #{val}. Valid: stop, ignore, overwrite, append"
           end
           options[:on_collision] = val
           i += 2
@@ -81,23 +82,26 @@ module Rulepack
           options[:strict] = true
           i += 1
         when '--format'
-          raise Rulepack::Error, 'Missing value for --format' if i + 1 >= args.length
+          raise Rulepack::MissingOptionValue, 'Missing value for --format' if i + 1 >= args.length
           fmt_val = args[i + 1].downcase
           unless %w[text json yaml].include?(fmt_val)
-            raise Rulepack::Error, "Invalid --format value: #{fmt_val}. Valid: text, json, yaml"
+            raise Rulepack::InvalidOptionValue, "Invalid --format value: #{fmt_val}. Valid: text, json, yaml"
           end
           options[:format] = fmt_val.to_sym
           i += 2
         when '--rules-to'
-          raise Rulepack::Error, 'Missing value for --rules-to' if i + 1 >= args.length
+          raise Rulepack::MissingOptionValue, 'Missing value for --rules-to' if i + 1 >= args.length
           val = args[i + 1].downcase
           unless %w[rules_dir rules_file].include?(val)
-            raise Rulepack::Error, "Invalid --rules-to value: #{val}. Valid: rules_dir, rules_file"
+            raise Rulepack::InvalidOptionValue, "Invalid --rules-to value: #{val}. Valid: rules_dir, rules_file"
           end
           options[:rules_to] = val
           i += 2
         when '--targets'
           options[:targets_mode] = true
+          i += 1
+        when '--locked'
+          options[:locked] = true
           i += 1
         else
           positional << arg

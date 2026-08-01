@@ -13,26 +13,28 @@ module Rulepack
     def validate_output_filename(output, pkgname)
       # Must not contain '..' or absolute path
       if output.include?('..') || Pathname.new(output).absolute?
-        raise "Invalid output path '#{output}' in package '#{pkgname}': path traversal not allowed"
+        raise Rulepack::InvalidPkgbuild, "Invalid output path '#{output}' in package '#{pkgname}': path traversal not allowed"
       end
 
       # Must not contain directory separators that escape current dir
       clean = Pathname.new(output).cleanpath
       return unless clean.to_s != output || clean.to_s.include?(File::SEPARATOR)
 
-      raise "Invalid output path '#{output}' in package '#{pkgname}': only filename allowed"
+      raise Rulepack::InvalidPkgbuild, "Invalid output path '#{output}' in package '#{pkgname}': only filename allowed"
     end
 
     # Validate target_dir - no path traversal
     def validate_target_dir(target_dir, pkgname)
       return unless target_dir.include?('..') || Pathname.new(target_dir).absolute?
 
-      raise "Invalid target_dir '#{target_dir}' in package '#{pkgname}': path traversal not allowed"
+      raise Rulepack::InvalidPkgbuild, "Invalid target_dir '#{target_dir}' in package '#{pkgname}': path traversal not allowed"
     end
 
     # ─── PKGBUILD Structure Validation ───────────────────────────────────────────
 
+    # Accepts either a Rulepack::Package or a Hash (backward compat).
     def validate_pkgbuild(pkg, _pkgdir)
+      pkg = Rulepack::Package.from_hash(pkg) unless pkg.is_a?(Rulepack::Package)
       errors = []
       validate_pkgname(pkg, errors)
       validate_version_fields(pkg, errors)
@@ -44,39 +46,39 @@ module Rulepack
     end
 
     def validate_pkgname(pkg, errors)
-      return if pkg[:pkgname] =~ /\A[a-z0-9][a-z0-9_-]*\z/
+      return if pkg.pkgname =~ /\A[a-z0-9][a-z0-9_-]*\z/
 
-      errors << "Invalid pkgname '#{pkg[:pkgname]}': must be lowercase alphanumeric with - or _"
+      errors << "Invalid pkgname '#{pkg.pkgname}': must be lowercase alphanumeric with - or _"
     end
 
     def validate_version_fields(pkg, errors)
-      errors << 'Invalid pkgver: must be non-empty string' unless pkg[:pkgver].is_a?(String) && !pkg[:pkgver].empty?
-      if pkg.key?(:pkgver_func) && !(pkg[:pkgver_func].is_a?(String) && !pkg[:pkgver_func].empty?)
+      errors << 'Invalid pkgver: must be non-empty string' unless pkg.pkgver.is_a?(String) && !pkg.pkgver.empty?
+      if pkg.pkgver_func && !(pkg.pkgver_func.is_a?(String) && !pkg.pkgver_func.empty?)
         errors << 'pkgver_func must be a non-empty string'
       end
-      errors << 'Invalid epoch: must be integer >= 0' unless pkg[:epoch].is_a?(Integer) && pkg[:epoch] >= 0
-      errors << 'Invalid pkgrel: must be integer >= 1' unless pkg[:pkgrel].is_a?(Integer) && pkg[:pkgrel] >= 1
+      errors << 'Invalid epoch: must be integer >= 0' unless pkg.epoch.is_a?(Integer) && pkg.epoch >= 0
+      errors << 'Invalid pkgrel: must be integer >= 1' unless pkg.pkgrel.is_a?(Integer) && pkg.pkgrel >= 1
     end
 
     def validate_descriptive_fields(pkg, errors)
-      errors << 'Invalid pkgdesc: must be non-empty string' unless pkg[:pkgdesc].is_a?(String) && !pkg[:pkgdesc].empty?
-      errors << "Invalid arch: only 'any' supported" unless pkg[:arch] == 'any'
-      order_val = pkg[:order] || 0
+      errors << 'Invalid pkgdesc: must be non-empty string' unless pkg.pkgdesc.is_a?(String) && !pkg.pkgdesc.empty?
+      errors << "Invalid arch: only 'any' supported" unless pkg.arch == 'any'
+      order_val = pkg.order || 0
       errors << 'Invalid order: must be integer >= 0' unless order_val.is_a?(Integer) && order_val >= 0
     end
 
     VALID_PKG_TYPES = %w[rule skill skill-bundle agent hybrid].freeze
 
     def validate_pkg_type_field(pkg, errors)
-      pkg_type = pkg[:pkg_type]
+      pkg_type = pkg.pkg_type
       if pkg_type.nil? || !pkg_type.is_a?(String) || !VALID_PKG_TYPES.include?(pkg_type)
         errors << "Invalid or missing pkg_type '#{pkg_type}': must be one of #{VALID_PKG_TYPES.join('/')}"
       end
     end
 
     def validate_source_entries(pkg, errors)
-      errors << 'source must be a non-empty array' unless pkg[:source].is_a?(Array) && !pkg[:source].empty?
-      pkg[:source]&.each_with_index do |src, i|
+      errors << 'source must be a non-empty array' unless pkg.source.is_a?(Array) && !pkg.source.empty?
+      pkg.source&.each_with_index do |src, i|
         errors << "source[#{i}] missing type or path/url" unless src[:type] && (src[:path] || src[:url])
         case src[:type]
         when 'local'
@@ -97,37 +99,40 @@ module Rulepack
       end
     end
 
+    # Accepts either Rulepack::Target objects or hashes (backward compat).
     def validate_target_entries(pkg, errors)
-      unless pkg[:targets].nil? || (pkg[:targets].is_a?(Array) && !pkg[:targets].empty?)
+      targets = pkg.targets
+      unless targets.nil? || (targets.is_a?(Array) && !targets.empty?)
         errors << 'targets must be a non-empty array or omitted (auto-expanded)'
       end
-      return unless pkg[:targets].is_a?(Array)
+      return unless targets.is_a?(Array)
 
       valid_formats = %w[directory import skill skill-bundle agent]
-      pkg[:targets].each_with_index do |t, i|
-        errors << "targets[#{i}]: missing platform" unless t[:platform].is_a?(String)
-        if t[:format] && !valid_formats.include?(t[:format])
-          errors << "targets[#{i}]: invalid format '#{t[:format]}' (must be #{valid_formats.join('/')})"
+      targets.each_with_index do |raw, i|
+        t = raw.is_a?(Rulepack::Target) ? raw : Rulepack::Target.from_hash(raw)
+        errors << "targets[#{i}]: missing platform" unless t.platform.is_a?(String) && !t.platform.empty?
+        if t.format && !valid_formats.include?(t.format)
+          errors << "targets[#{i}]: invalid format '#{t.format}' (must be #{valid_formats.join('/')})"
         end
         begin
           validate_target_entry_output(t, i, pkg)
         rescue StandardError => e
           errors << "targets[#{i}]: #{e.message}"
         end
-        tf = t[:transformer]
+        tf = t.transformer
         if tf && tf != 'copy' && tf !~ /\Acustom:.+\z/
           errors << "targets[#{i}]: invalid transformer '#{tf}' (strip-frontmatter is deprecated; remove it — frontmatter is handled automatically by SchemaEngine)"
         end
-        if t[:install]
-          inst = t[:install]
+        if t.install
+          inst = t.install
           if inst[:type] && !%w[symlink copy inject append json_merge yaml_merge structured_inject].include?(inst[:type])
             errors << "targets[#{i}]: invalid install.type '#{inst[:type]}'"
           end
-          validate_target_dir(inst[:target_dir], pkg[:pkgname]) if inst[:target_dir]
+          validate_target_dir(inst[:target_dir], pkg.pkgname) if inst[:target_dir]
         end
-        next unless t[:format] == 'skill-bundle'
+        next unless t.format == 'skill-bundle'
 
-        inst = t[:install] || {}
+        inst = t.install || {}
         unless inst[:target_dir].is_a?(String) && !inst[:target_dir].empty?
           errors << "targets[#{i}]: skill-bundle requires install.target_dir"
         end
@@ -135,10 +140,10 @@ module Rulepack
       end
     end
 
-    def validate_target_entry_output(t, _i, _pkg)
-      return unless t[:output]
+    def validate_target_entry_output(t, _i, pkg)
+      return unless t.output
 
-      validate_output_filename(t[:output], _pkg[:pkgname])
+      validate_output_filename(t.output, pkg.pkgname)
     end
 
     # ─── PKGBUILD Load & Validate ────────────────────────────────────────────────
@@ -148,7 +153,7 @@ module Rulepack
     def load_pkgbuild(pkgdir)
       pkgbuild_path = Pathname.new(pkgdir).join('PKGBUILD')
       unless pkgbuild_path.exist?
-        raise "PKGBUILD not found in #{pkgdir}. " \
+        raise Rulepack::PkgbuildNotFound, "PKGBUILD not found in #{pkgdir}. " \
               'Create data/packages/<name>/PKGBUILD, data/packages/local/<name>/PKGBUILD, ' \
               'or data/packages/upstream/<name>/PKGBUILD.'
       end
@@ -159,42 +164,42 @@ module Rulepack
       # Validate required fields
       %i[pkgname pkgver source].each do |field|
         unless data.key?(field)
-          raise "PKGBUILD missing required field: #{field}. Ensure every PKGBUILD has #{field} defined."
+          raise Rulepack::InvalidPkgbuild, "PKGBUILD missing required field: #{field}. Ensure every PKGBUILD has #{field} defined."
         end
       end
 
       # Validate source array
-      raise 'PKGBUILD must have at least one source entry' unless data[:source].is_a?(Array) && !data[:source].empty?
+      raise Rulepack::InvalidPkgbuild, 'PKGBUILD must have at least one source entry' unless data[:source].is_a?(Array) && !data[:source].empty?
 
       data[:source].each do |src|
-        raise "Invalid source entry: #{src.inspect}" unless src[:type] && (src[:path] || src[:url])
+        raise Rulepack::InvalidPkgbuild, "Invalid source entry: #{src.inspect}" unless src[:type] && (src[:path] || src[:url])
       end
 
       # Validate targets array (optional — auto-expanded when omitted)
       return data unless data.key?(:targets)
 
       unless data[:targets].is_a?(Array) && !data[:targets].empty?
-        raise 'PKGBUILD must have at least one target'
+        raise Rulepack::InvalidPkgbuild, 'PKGBUILD must have at least one target'
       end
 
       valid_formats = %w[directory import skill skill-bundle agent]
       data[:targets].each do |t|
-        raise "Target missing platform: #{t.inspect}" unless t[:platform]
+        raise Rulepack::InvalidPkgbuild, "Target missing platform: #{t.inspect}" unless t[:platform]
 
         next unless t[:format]
 
-        raise "Invalid format '#{t[:format]}' for platform '#{t[:platform]}'" unless valid_formats.include?(t[:format])
+        raise Rulepack::InvalidPkgbuild, "Invalid format '#{t[:format]}' for platform '#{t[:platform]}'" unless valid_formats.include?(t[:format])
 
         # skill-bundle/agent: output must be '.' (directory marker), target_dir required
         next unless %w[skill-bundle agent].include?(t[:format])
         if t[:output] && t[:output] != '.' && !t[:output].empty?
-          raise "skill-bundle output must be '.' (directory marker), got '#{t[:output]}'"
+          raise Rulepack::InvalidPkgbuild, "skill-bundle output must be '.' (directory marker), got '#{t[:output]}'"
         end
-        raise 'skill-bundle requires install.target_dir in PKGBUILD' unless t[:install] && t[:install][:target_dir]
+        raise Rulepack::InvalidPkgbuild, 'skill-bundle requires install.target_dir in PKGBUILD' unless t[:install] && t[:install][:target_dir]
 
         # install type for skill-bundle should be 'copy' only
         install_type = t[:install][:type] || 'copy'
-        raise "skill-bundle only supports install.type: 'copy', got '#{install_type}'" unless install_type == 'copy'
+        raise Rulepack::InvalidPkgbuild, "skill-bundle only supports install.type: 'copy', got '#{install_type}'" unless install_type == 'copy'
       end
 
       data
@@ -241,7 +246,7 @@ module Rulepack
       if package_arg
         unless packages.key?(package_arg) || packages.key?(package_arg.to_sym)
           msg = "Package '#{package_arg}' is not registered as installed in index."
-          exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
+          exit_on_failure ? abort("❌ Error: #{msg}") : raise(Rulepack::StateError, msg)
         end
         target_package = packages.keys.find { |k| k.to_s == package_arg }.to_s
       end
@@ -249,7 +254,7 @@ module Rulepack
       # ── Target arg required ──────────────────────────────────────────────────────
       unless target_arg
         msg = "Please specify target platform(s) with --target <platform> (or --target all)."
-        exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
+        exit_on_failure ? abort("❌ Error: #{msg}") : raise(Rulepack::ConfigError, msg)
       end
 
       # ── Expand targets ───────────────────────────────────────────────────────────
@@ -276,7 +281,7 @@ module Rulepack
         cfg = registry[p.to_sym] || registry[p.to_s]
         unless cfg
           msg = "Unknown target platform '#{p}'."
-          exit_on_failure ? abort("❌ Error: #{msg}") : raise(msg)
+          exit_on_failure ? abort("❌ Error: #{msg}") : raise(Rulepack::UnknownPlatform, msg)
         end
         Rulepack::Common.project_root_for(cfg, project_arg) if enforce_project_scope
       end

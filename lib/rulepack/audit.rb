@@ -26,12 +26,12 @@ module Rulepack
         all_platforms = platforms_registry.keys.map(&:to_s)
       rescue StandardError => e
         $stderr.puts "❌ Error loading platforms registry: #{e.message}"
-        exit 1
+        return Rulepack::Result.new(status: :failure, errors: [e.message])
       end
 
       if target_filter && !all_platforms.include?(target_filter)
         $stderr.puts "❌ Error: Unknown platform '#{target_filter}' specified in --target. Supported: #{all_platforms.join(', ')}"
-        exit 1
+        return Rulepack::Result.new(status: :failure, errors: ["Unknown platform '#{target_filter}'"])
       end
 
       audit_results = {
@@ -141,8 +141,12 @@ module Rulepack
         print_text_report(audit_results)
       end
 
-      # Exit code
-      all_valid ? 0 : 1
+      # Return structured result
+      if all_valid
+        Rulepack::Result.new(status: :success, data: audit_results)
+      else
+        Rulepack::Result.new(status: :failure, data: audit_results)
+      end
     end
 
     def print_text_report(results)
@@ -205,4 +209,4 @@ module Rulepack
   end
 end
 
-exit Rulepack::Audit.run(ARGV) if __FILE__ == $PROGRAM_NAME
+Rulepack::Audit.run(ARGV) if __FILE__ == $PROGRAM_NAME

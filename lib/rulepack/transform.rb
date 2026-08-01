@@ -18,7 +18,7 @@ module Rulepack
         processor = Rulepack::ProcessorLoader.load_transformer(transformer)
         processor.transform(content, pkgname: pkgname)
       else
-        raise "Unknown transformer: #{transformer}"
+        raise Rulepack::ConfigError, "Unknown transformer: #{transformer}"
       end
     end
 
@@ -42,7 +42,7 @@ module Rulepack
         processor = Rulepack::ProcessorLoader.load_translator(translator_cfg)
         processor.translate(content, args: { pkgname: pkgname }.merge(extra_args))
       else
-        raise "Unknown translator: #{translator_cfg}"
+        raise Rulepack::ConfigError, "Unknown translator: #{translator_cfg}"
       end
     end
   end

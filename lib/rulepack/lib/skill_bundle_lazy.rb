@@ -24,6 +24,7 @@ require 'digest'
 require 'json'
 require 'pathname'
 require_relative '../platform'
+require_relative '../security'
 require_relative '../schema_engine'
 require_relative 'skill_bundle'
 
@@ -63,10 +64,10 @@ module Rulepack
     # `platforms` is the full platform registry hash.
     def ensure_materialized!(pkgname, pkg_index, platform_id, tgt, platforms, manifest_generated: false, manifest_path: nil)
       source_dir_str = pkg_index[:source_dir]
-      raise "internal error: source_dir not set for #{pkgname}" unless source_dir_str
+      raise Rulepack::StateError, "internal error: source_dir not set for #{pkgname}" unless source_dir_str
 
       source_dir = Pathname.new(source_dir_str)
-      raise "source_dir does not exist: #{source_dir}" unless source_dir.exist?
+      raise Rulepack::StateError, "source_dir does not exist: #{source_dir}" unless source_dir.exist?
 
       build_pkg_dir = build_dir_for(pkg_index, platform_id, pkgname)
       return build_pkg_dir if materialization_up_to_date?(build_pkg_dir, pkg_index)
@@ -161,13 +162,7 @@ module Rulepack
     end
 
     def strip_symlinks_in_tree(root)
-      return unless Dir.exist?(root)
-
-      Dir.glob(File.join(root, '**', '*'), File::FNM_DOTMATCH).each do |entry|
-        next if entry == root
-
-        File.unlink(entry) if File.symlink?(entry)
-      end
+      Rulepack::Security.strip_symlinks_in_tree(root)
     end
   end
 end

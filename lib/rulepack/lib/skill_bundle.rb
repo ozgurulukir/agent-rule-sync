@@ -152,7 +152,7 @@ module Rulepack
           return :ignored
         else # stop
           Rulepack::Common.log_error "Collision detected: #{dest_dir} exists. Use --on-collision to proceed."
-          raise "Collision at #{dest_dir}"
+          raise Rulepack::StateError, "Collision at #{dest_dir}"
         end
       else
         Rulepack::Transaction.record_journal(ctx, { action: :create_dir, path: dest_dir })

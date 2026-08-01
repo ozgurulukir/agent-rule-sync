@@ -17,12 +17,7 @@ module Rulepack
     def run(options = {})
       result = check(options)
       Rulepack::Reporter.print(result, format: options[:format] || :text, out: options.fetch(:output, $stdout))
-
-      if options[:exit_on_failure]
-        exit(result.failure? ? 1 : 0)
-      end
-
-      result.data || { ok: 0, drift: 0, orphans: 0 }
+      result
     end
 
     # Data-returning API. Returns a Rulepack::Result with structured verify data.
@@ -381,12 +376,15 @@ module Rulepack
 end
 
 # CLI runner block
-if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI) || caller.any? { |c| c.include?('capture_script_run') }
+if __FILE__ == $PROGRAM_NAME
   begin
     opts = Rulepack::CliParser.parse(ARGV)
-    Rulepack::Verify.run(opts.merge(exit_on_failure: true))
+    result = Rulepack::Verify.run(opts.merge(exit_on_failure: false))
+    exit_code = result.failure? ? 1 : 0
   rescue StandardError => e
     $stderr.puts "❌ Error: #{e.message}"
-    exit 1
+    exit_code = 1
   end
+  $rulepack_exit_code = exit_code
+  exit exit_code if __FILE__ == $PROGRAM_NAME
 end

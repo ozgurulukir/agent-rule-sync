@@ -79,7 +79,7 @@ module Rulepack
           Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
         else # stop
           Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
-          raise "Collision at #{install_path}"
+          raise Rulepack::StateError, "Collision at #{install_path}"
         end
       else
         Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
@@ -116,7 +116,7 @@ module Rulepack
           Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
         else # stop
           Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
-          raise "Collision at #{install_path}"
+          raise Rulepack::StateError, "Collision at #{install_path}"
         end
       else
         Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
@@ -166,7 +166,7 @@ module Rulepack
               Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
             else # stop
               Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
-              raise "Collision at #{install_path}"
+              raise Rulepack::StateError, "Collision at #{install_path}"
             end
           end
         else
@@ -190,7 +190,7 @@ module Rulepack
       new_data = begin
         JSON.parse(built_path.read)
       rescue StandardError => e
-        raise "Failed to parse built JSON for #{pkgname}: #{e.message}"
+        raise Rulepack::StateError, "Failed to parse built JSON for #{pkgname}: #{e.message}"
       end
 
       existing = if install_path.exist?
@@ -199,7 +199,7 @@ module Rulepack
                    begin
                      JSON.parse(install_path.read)
                    rescue StandardError => e
-                     raise "Failed to parse existing JSON at #{install_path}: #{e.message}"
+                      raise Rulepack::StateError, "Failed to parse existing JSON at #{install_path}: #{e.message}"
                    end
                  else
                    Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
@@ -218,7 +218,7 @@ module Rulepack
       new_data = begin
         YAML.safe_load(built_path.read, permitted_classes: [Symbol], symbolize_names: true) || {}
       rescue StandardError => e
-        raise "Failed to parse built YAML for #{pkgname}: #{e.message}"
+        raise Rulepack::StateError, "Failed to parse built YAML for #{pkgname}: #{e.message}"
       end
 
       existing = if install_path.exist?
@@ -227,7 +227,7 @@ module Rulepack
                    begin
                      YAML.safe_load(install_path.read, permitted_classes: [Symbol], symbolize_names: true) || {}
                    rescue StandardError => e
-                     raise "Failed to parse existing YAML at #{install_path}: #{e.message}"
+                      raise Rulepack::StateError, "Failed to parse existing YAML at #{install_path}: #{e.message}"
                    end
                  else
                    Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })

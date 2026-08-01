@@ -143,8 +143,8 @@ module Rulepack
 
       targets.each do |p|
         cfg = registry[p.to_sym] || registry[p.to_s]
-        raise "Unknown target platform '#{p}'." unless cfg
-        raise "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>." if cfg[:scope] == 'project' && !project_arg
+        raise Rulepack::UnknownPlatform, "Unknown target platform '#{p}'." unless cfg
+        raise Rulepack::ConfigError, "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>." if cfg[:scope] == 'project' && !project_arg
       end
       targets
     end
@@ -308,9 +308,9 @@ module Rulepack
         skills_dir = platform_cfg[:skills_dir]
         unless skills_dir
           return if %w[skill import].include?(platform_cfg[:type].to_s)
-          raise "Platform #{platform_cfg[:display_name] || platform_cfg} has no skills_dir for skill-bundle"
+          raise Rulepack::ConfigError, "Platform #{platform_cfg[:display_name] || platform_cfg} has no skills_dir for skill-bundle"
         end
-        target_dir = install_cfg[:target_dir] || raise("Missing target_dir: #{pkgname}")
+        target_dir = install_cfg[:target_dir] || raise(Rulepack::ConfigError, "Missing target_dir: #{pkgname}")
         dest_dir = base_path.join(skills_dir).join(target_dir)
         remove_path(dest_dir, pkgname, ctx)
       else

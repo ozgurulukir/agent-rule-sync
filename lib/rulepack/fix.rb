@@ -103,7 +103,15 @@ module Rulepack
       result = run_verify(platform_id, package_arg, project_arg)
       data = result.data || {}
       has_drift = data[:drift].to_i > 0
-      orphans = data[:orphans] || []
+      # Verify.check returns orphans as an integer count at the top level with
+      # the per-platform array inside data[:platforms].  Stubbed results (tests)
+      # may pass orphans as a direct array.  Handle both shapes.
+      orphans = if data[:orphans].is_a?(Array)
+                  data[:orphans]
+                else
+                  platform_data = (data[:platforms] || []).first || {}
+                  platform_data[:orphans] || []
+                end
 
       unless has_drift || orphans.any?
         puts '  ✓ No drift detected.'
@@ -287,7 +295,7 @@ module Rulepack
 end
 
 # CLI runner block
-if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI) || caller.any? { |c| c.include?('capture_script_run') }
+if __FILE__ == $PROGRAM_NAME
   begin
     opts = Rulepack::CliParser.parse(ARGV)
     result = Rulepack::Fix.run(opts)
@@ -299,13 +307,15 @@ if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI) || caller.any? { |c| c.i
       else
         Rulepack::Reporter.print(result, format: opts[:format])
       end
-      exit 1
+      exit_code = 1
+    else
+      Rulepack::Reporter.print(result, format: opts[:format] || :text)
+      exit_code = 0
     end
-
-    Rulepack::Reporter.print(result, format: opts[:format] || :text)
-    exit 0
   rescue StandardError => e
     $stderr.puts "❌ Error: #{e.message}"
-    exit 1
+    exit_code = 1
   end
+  $rulepack_exit_code = exit_code
+  exit exit_code if __FILE__ == $PROGRAM_NAME
 end

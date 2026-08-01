@@ -106,20 +106,20 @@ module Rulepack
     # Validate a single platform configuration
     def validate_platform_config(id, cfg)
       %i[type base_path].each do |req|
-        raise "Platform '#{id}' missing required field: #{req}" unless cfg[req]
+        raise Rulepack::ConfigError, "Platform '#{id}' missing required field: #{req}" unless cfg[req]
       end
 
       case cfg[:type]
       when 'directory'
         unless cfg[:rules_dir] || cfg[:rules_file]
-          raise "Platform '#{id}' (directory) missing :rules_dir or :rules_file"
+          raise Rulepack::ConfigError, "Platform '#{id}' (directory) missing :rules_dir or :rules_file"
         end
       when 'import'
-        raise "Platform '#{id}' (import) missing :config_file" unless cfg[:config_file]
+        raise Rulepack::ConfigError, "Platform '#{id}' (import) missing :config_file" unless cfg[:config_file]
       when 'skill'
-        raise "Platform '#{id}' (skill) missing :skill_file" unless cfg[:skill_file]
+        raise Rulepack::ConfigError, "Platform '#{id}' (skill) missing :skill_file" unless cfg[:skill_file]
       else
-        raise "Platform '#{id}' has unknown type: #{cfg[:type]}"
+        raise Rulepack::ConfigError, "Platform '#{id}' has unknown type: #{cfg[:type]}"
       end
     end
 
@@ -149,7 +149,7 @@ module Rulepack
     def platform_config(name, registry)
       key = name.to_sym
       cfg = registry[key] || registry[name.to_s]
-      raise "Unknown platform: #{name}" unless cfg
+      raise Rulepack::ConfigError, "Unknown platform: #{name}" unless cfg
 
       cfg
     end
@@ -253,7 +253,7 @@ module Rulepack
         when 'skill'
           resolve_skill_path(platform_cfg, base)
         else
-          raise "Unknown platform type: #{platform_cfg[:type]}"
+          raise Rulepack::ConfigError, "Unknown platform type: #{platform_cfg[:type]}"
         end
         end # agent format check
       end
@@ -261,7 +261,7 @@ module Rulepack
     # Safe relative path (no escaping parent)
     def safe_relative(path, base)
       relative = Pathname.new(path).relative_path_from(base).to_s
-      raise "Path escapes base: #{path} relative to #{base}" if relative.start_with?('..')
+      raise Rulepack::SecurityError, "Path escapes base: #{path} relative to #{base}" if relative.start_with?('..')
 
       relative
     end
@@ -278,7 +278,7 @@ module Rulepack
       return unless scope == 'project'
 
       unless project_arg
-        raise StandardError, "Platform '#{platform_cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>."
+        raise Rulepack::ConfigError, "Platform '#{platform_cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>."
       end
 
       Pathname.new(project_arg).expand_path

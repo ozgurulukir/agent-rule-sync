@@ -129,7 +129,7 @@ module Rulepack
       unless vendor_path.exist?
         Rulepack::Common.log_error "Vendor skill missing: #{vendor_path}"
         puts "  ❌ Vendor skill missing: #{vendor_path}"
-        raise 'Vendor skill missing'
+        raise Rulepack::StateError, 'Vendor skill missing'
       end
       Rulepack::Common.log "  ✓ Vendor skill present: #{vendor_path}"
       puts '  ✅ Vendor skill present and readable'

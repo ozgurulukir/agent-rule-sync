@@ -63,32 +63,32 @@ class TestValidatePlatformConfig < Minitest::Test
   end
 
   def test_raises_on_missing_type
-    error = assert_raises(RuntimeError) { Rulepack::Common.validate_platform_config(:test, { base_path: '/tmp' }) }
+    error = assert_raises(Rulepack::ConfigError) { Rulepack::Common.validate_platform_config(:test, { base_path: '/tmp' }) }
     assert_match(/missing required field.*type/, error.message)
   end
 
   def test_raises_on_missing_base_path
-    error = assert_raises(RuntimeError) { Rulepack::Common.validate_platform_config(:test, { type: 'directory' }) }
+    error = assert_raises(Rulepack::ConfigError) { Rulepack::Common.validate_platform_config(:test, { type: 'directory' }) }
     assert_match(/missing required field.*base_path/, error.message)
   end
 
   def test_raises_on_directory_missing_rules_dir
-    error = assert_raises(RuntimeError) { Rulepack::Common.validate_platform_config(:test, { type: 'directory', base_path: '/tmp' }) }
+    error = assert_raises(Rulepack::ConfigError) { Rulepack::Common.validate_platform_config(:test, { type: 'directory', base_path: '/tmp' }) }
     assert_match(/missing :rules_dir/, error.message)
   end
 
   def test_raises_on_import_missing_config_file
-    error = assert_raises(RuntimeError) { Rulepack::Common.validate_platform_config(:test, { type: 'import', base_path: '/tmp' }) }
+    error = assert_raises(Rulepack::ConfigError) { Rulepack::Common.validate_platform_config(:test, { type: 'import', base_path: '/tmp' }) }
     assert_match(/missing :config_file/, error.message)
   end
 
   def test_raises_on_skill_missing_skill_file
-    error = assert_raises(RuntimeError) { Rulepack::Common.validate_platform_config(:test, { type: 'skill', base_path: '/tmp' }) }
+    error = assert_raises(Rulepack::ConfigError) { Rulepack::Common.validate_platform_config(:test, { type: 'skill', base_path: '/tmp' }) }
     assert_match(/missing :skill_file/, error.message)
   end
 
   def test_raises_on_unknown_type
-    error = assert_raises(RuntimeError) { Rulepack::Common.validate_platform_config(:test, { type: 'unknown', base_path: '/tmp' }) }
+    error = assert_raises(Rulepack::ConfigError) { Rulepack::Common.validate_platform_config(:test, { type: 'unknown', base_path: '/tmp' }) }
     assert_match(/unknown type/, error.message)
   end
 end
@@ -120,13 +120,13 @@ class TestPlatformConfig < Minitest::Test
   end
 
   def test_raises_on_unknown_platform_string
-    assert_raises(RuntimeError, /Unknown platform/) do
+    assert_raises(Rulepack::ConfigError, /Unknown platform/) do
       Rulepack::Common.platform_config('nonexistent', @registry)
     end
   end
 
   def test_raises_on_unknown_platform_symbol
-    assert_raises(RuntimeError, /Unknown platform/) do
+    assert_raises(Rulepack::ConfigError, /Unknown platform/) do
       Rulepack::Common.platform_config(:nonexistent, @registry)
     end
   end
@@ -208,7 +208,7 @@ class TestSafeRelative < Minitest::Test
   def test_raises_on_path_escaping_parent
     base = Pathname.new('/home/user/project')
     outside = Pathname.new('/home/user/other/file.md')
-    assert_raises(RuntimeError, /escapes base/) do
+    assert_raises(Rulepack::SecurityError, /escapes base/) do
       Rulepack::Common.safe_relative(outside, base)
     end
   end

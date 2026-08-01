@@ -7,6 +7,8 @@
 
 require 'pathname'
 require_relative 'common'
+require_relative 'emitter'
+require_relative 'security'
 require_relative 'schema_engine'
 require_relative 'build_pipeline'
 require_relative 'build_loader'
@@ -57,8 +59,7 @@ module Rulepack
 
         run_pkgver_func(pkg, pkgname, pkg_index, source_dir) || return
 
-        Rulepack::Common.log "  ✓ Source directory verified: #{source_dir}"
-        puts "  ✓ Source directory verified: #{source_dir}"
+        Rulepack::Emitter.emit(:progress, message: "  ✓ Source directory verified: #{source_dir}")
       when 'git'
         git_url = src_cfg[:url]
         git_ref = src_cfg[:ref] || 'main'
@@ -73,8 +74,7 @@ module Rulepack
         FileUtils.cp_r(cached_dir, persistent_dir)
         pkg_index[:source_dir] = persistent_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT).to_s
         pkg_index[:source_sha256] = commit_hash
-        Rulepack::Common.log "  ✓ Git source cached/build dir (#{commit_hash[0..7]})"
-        puts "  ✓ Git source cached/build dir (#{commit_hash[0..7]})"
+        Rulepack::Emitter.emit(:progress, message: "  ✓ Git source cached/build dir (#{commit_hash[0..7]})")
 
         run_pkgver_func(pkg, pkgname, pkg_index, persistent_dir) || return
       else
@@ -126,8 +126,7 @@ module Rulepack
       end
 
       pkg_index[:checksums][:source] = source_sha256
-      Rulepack::Common.log "  ✓ Fetched source (#{source_sha256[0..7]})"
-      puts "  ✓ Fetched source (#{source_sha256[0..7]})"
+      Rulepack::Emitter.emit(:progress, message: "  ✓ Fetched source (#{source_sha256[0..7]})")
 
       [source_content, source_sha256]
     end
@@ -173,8 +172,7 @@ module Rulepack
         return false
       end
 
-      Rulepack::Common.log "  → Recorded for #{platform_id} (skill-bundle: #{pkgname}, lazy)"
-      puts "  → Recorded for #{platform_id} (skill-bundle: #{pkgname}, lazy)"
+      Rulepack::Emitter.emit(:progress, message: "  → Recorded for #{platform_id} (skill-bundle: #{pkgname}, lazy)")
 
       # Record in package index — install will use these to materialize on demand.
       pkg_index[:available_targets] << platform_id unless pkg_index[:available_targets].include?(platform_id)
@@ -216,11 +214,9 @@ module Rulepack
       transformed = nil
       if transform_cache.key?(union_key)
         transformed, cached_plat = transform_cache[union_key]
-        Rulepack::Common.log "  → Building for #{platform_id} (#{output}) [Union cached from #{cached_plat}]"
-        puts "  → Building for #{platform_id} (#{output}) [Union cached from #{cached_plat}]"
+        Rulepack::Emitter.emit(:progress, message: "  → Building for #{platform_id} (#{output}) [Union cached from #{cached_plat}]")
       else
-        Rulepack::Common.log "  → Building for #{platform_id} (#{output})"
-        puts "  → Building for #{platform_id} (#{output})"
+        Rulepack::Emitter.emit(:progress, message: "  → Building for #{platform_id} (#{output})")
 
         # Run the build pipeline
         begin
@@ -271,8 +267,7 @@ module Rulepack
         return false
       end
 
-      Rulepack::Common.log "    ✓ Built #{output} (#{transformed_sha256[0..7]})"
-      puts "    ✓ Built #{output} (#{transformed_sha256[0..7]})"
+      Rulepack::Emitter.emit(:progress, message: "    ✓ Built #{output} (#{transformed_sha256[0..7]})")
 
       # Record in package index
       pkg_index[:available_targets] << platform_id unless pkg_index[:available_targets].include?(platform_id)
@@ -314,23 +309,9 @@ module Rulepack
     end
 
     # Security: recursively remove all symlinks (files and dirs) under a tree.
-    # Used after cp_r to ensure untrusted git/url sources cannot plant symlinks
-    # that later File.write / File.read calls would follow out of the build dir.
-    #
-    # Kept in BuildPerPkg because test_symlink_hardening.rb calls
-    # Rulepack::BuildPerPkg.strip_symlinks_in_tree directly. The SkillBundleLazy
-    # materializer uses its own copy internally to avoid cross-module coupling.
+    # Delegates to the single implementation in Rulepack::Security.
     def strip_symlinks_in_tree(root)
-      return unless Dir.exist?(root)
-
-      Dir.glob(File.join(root, '**', '*'), File::FNM_DOTMATCH).each do |entry|
-        next if entry == root
-
-        if File.symlink?(entry)
-          File.unlink(entry)
-          Rulepack::Common.log "    ⚠ Removed untrusted symlink from build tree: #{entry}"
-        end
-      end
+      Rulepack::Security.strip_symlinks_in_tree(root, log_prefix: '⚠')
     end
   end
 end

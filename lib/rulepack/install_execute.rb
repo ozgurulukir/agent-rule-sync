@@ -9,6 +9,7 @@ require 'English'
 require 'digest'
 require 'json'
 require_relative 'common'
+require_relative 'security'
 require_relative 'install_plan'
 require_relative 'lib/transaction'
 require_relative 'lib/install_handlers'
@@ -65,7 +66,7 @@ module Rulepack
 
       unless Rulepack::Common.index_yaml_path.exist?
         Rulepack::Common.log_error 'index.yaml not found. Run build first.'
-        raise 'index.yaml not found'
+        raise Rulepack::IndexNotFound, 'index.yaml not found'
       end
 
       index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
@@ -304,12 +305,12 @@ module Rulepack
       if errors.empty?
         Rulepack::Common.log '✅ All installed packages are valid'
         puts "\n✅ All installed packages are valid"
-        exit 0
+        Rulepack::Result.new(status: :success, data: { errors_count: 0 })
       else
         Rulepack::Common.log_error "#{errors.size} error(s) found"
         puts "\n❌ #{errors.size} error(s) found:"
         errors.each { |e| puts "  • #{e}" }
-        exit 1
+        Rulepack::Result.new(status: :failure, data: { errors_count: errors.size }, errors: errors)
       end
     end
 
@@ -359,7 +360,7 @@ module Rulepack
             else # stop
               Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
               puts "  ❌ Collision: #{install_path} exists. Use --on-collision to proceed."
-              raise "Collision at #{install_path}"
+              raise Rulepack::StateError, "Collision at #{install_path}"
             end
           else
             Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
@@ -376,17 +377,9 @@ module Rulepack
     end
 
     # Security: recursively remove all symlinks (files and dirs) under a tree.
-    # Used after cp_r to ensure untrusted build sources cannot plant symlinks
-    # that downstream agent tooling might follow out of the install path.
+    # Delegates to the single implementation in Rulepack::Security.
     def strip_symlinks_in_tree(root)
-      return unless Dir.exist?(root)
-      Dir.glob(File.join(root, '**', '*'), File::FNM_DOTMATCH).each do |entry|
-        next if entry == root
-        if File.symlink?(entry)
-          File.unlink(entry)
-          Rulepack::Common.log "    ⚠ Removed untrusted symlink from install tree: #{entry}"
-        end
-      end
+      Rulepack::Security.strip_symlinks_in_tree(root, log_prefix: '⚠')
     end
   end
 end

@@ -10,9 +10,29 @@ ROOT = Pathname.new(__dir__).parent.expand_path
 $LOAD_PATH.unshift(ROOT.to_s)
 
 require "lib/rulepack/encoding_defaults"
+require "lib/rulepack/errors"
+require "lib/rulepack/models/package"
+require "lib/rulepack/models/platform"
+require "lib/rulepack/models/target"
 require "lib/rulepack/common"
 require "lib/rulepack/query"
 require "lib/rulepack/audit"
+require "lib/rulepack/build"
+require "lib/rulepack/aggregate"
+require "lib/rulepack/installer"
+require "lib/rulepack/uninstaller"
+require "lib/rulepack/verify"
+require "lib/rulepack/fix"
+require "lib/rulepack/outdated"
+require "lib/rulepack/bump"
+require "lib/rulepack/reporter"
+require "lib/rulepack/emitter"
+require "lib/rulepack/reporter/console_renderer"
+require "lib/rulepack/catalog/remote_catalog"
+require "lib/rulepack/lockfile"
+
+# Wire the default console renderer so emit() calls produce stdout output.
+Rulepack::Reporter::ConsoleRenderer.new
 
 # Handle SIGINT gracefully
 trap('INT') do
@@ -21,10 +41,8 @@ trap('INT') do
 end
 
 module Rulepack
-  class Error < StandardError; end
-
   module CLI
-    VALID_COMMANDS = %w[install uninstall query fix build bump list show search status audit check verify outdated catalog platforms init-hooks help].freeze
+    VALID_COMMANDS = %w[install uninstall query fix build bump list show search status audit check verify outdated catalog platforms init-hooks remote lock help].freeze
 
     def self.run(argv)
       if argv.include?('--timing')
@@ -64,15 +82,16 @@ module Rulepack
 
       case command
       when "build"
-        r = invoke("lib/rulepack/build.rb", full_argv)
+        r = dispatch_build(full_argv)
         return r if r != 0
-        invoke("lib/rulepack/aggregate.rb", full_argv)
+        dispatch_aggregate(full_argv)
       when "install"
-        invoke("lib/rulepack/install.rb", full_argv)
+        dispatch_install(full_argv)
       when "uninstall"
-        invoke("lib/rulepack/uninstall.rb", full_argv)
+        dispatch_uninstall(full_argv)
       when "audit"
-        Rulepack::Audit.run(argv)
+        result = Rulepack::Audit.run(argv)
+        result.failure? ? 1 : 0
       when "query"
         Rulepack::Query.run(options[:positional] || argv, format: format)
       when "list"
@@ -85,13 +104,13 @@ module Rulepack
         print_status
         0
       when "check"
-        invoke("lib/rulepack/install.rb", ["--check", "--target", options[:target].to_s].compact + (options[:positional] || []))
+        dispatch_install(["--check", "--target", options[:target].to_s].compact + (options[:positional] || []))
       when "verify"
-        invoke("lib/rulepack/verify.rb", full_argv)
+        dispatch_verify(full_argv)
       when "fix"
-        invoke("lib/rulepack/fix.rb", full_argv)
+        dispatch_fix(full_argv)
       when "outdated"
-        invoke("lib/rulepack/outdated.rb", full_argv)
+        dispatch_outdated(full_argv)
       when "catalog"
         catalog_path = ROOT.join("build", "catalog.json")
         unless catalog_path.exist?
@@ -103,9 +122,13 @@ module Rulepack
       when "platforms"
         Rulepack::Query.run(["list-platforms"], format: format)
       when "bump"
-        invoke("lib/rulepack/bump.rb", full_argv)
+        dispatch_bump(full_argv)
       when "init-hooks"
         Rulepack::CLI.init_hooks
+      when "remote"
+        dispatch_remote(argv)
+      when "lock"
+        dispatch_lock(argv)
       when "help"
         print_help
         0
@@ -123,15 +146,168 @@ module Rulepack
       1
     end
 
-    def self.invoke(script, script_argv)
-      old_argv = ARGV.dup
-      ARGV.replace(script_argv)
-      load ROOT.join(script).to_s
+    # Direct backend dispatch — no load/eval, no $rulepack_exit_code side channel.
+    # Each method: parse → call backend → render → return exit code.
+
+    def self.dispatch_build(argv)
+      opts = Rulepack::CliParser.parse(argv)
+      result = Rulepack::Build.run(opts)
+      Rulepack::Reporter.print(result, format: opts[:format] || :text)
+      result.failure? ? 1 : 0
+    rescue StandardError => e
+      $stderr.puts "❌ Error: #{e.message}"
+      1
+    end
+
+    def self.dispatch_aggregate(argv)
+      opts = Rulepack::CliParser.parse(argv)
+      Rulepack::Aggregate.run(opts)
       0
-    rescue SystemExit => e
-      e.status
-    ensure
-      ARGV.replace(old_argv)
+    rescue StandardError => e
+      $stderr.puts "❌ Error: #{e.message}"
+      1
+    end
+
+    def self.dispatch_install(argv)
+      opts = Rulepack::CliParser.parse(argv)
+      if opts[:positional]&.size.to_i > 1
+        warn "❌ Error: Too many positional arguments. Usage: rulepack install [package] --target <platform|all>"
+        return 1
+      end
+      result = Rulepack::Install.dispatch(opts)
+      render_result(result, opts)
+    rescue StandardError => e
+      warn "❌ Error: #{e.message}"
+      1
+    end
+
+    def self.dispatch_uninstall(argv)
+      opts = Rulepack::CliParser.parse(argv)
+      if opts[:positional]&.size.to_i > 1
+        warn "❌ Error: Too many positional arguments. Usage: rulepack uninstall [package] --target <platform|all>"
+        return 1
+      end
+      result = Rulepack::Uninstaller.dispatch(opts)
+      render_result(result, opts)
+    rescue StandardError => e
+      warn "❌ Error: #{e.message}"
+      1
+    end
+
+    def self.dispatch_verify(argv)
+      opts = Rulepack::CliParser.parse(argv)
+      result = Rulepack::Verify.run(opts.merge(exit_on_failure: false))
+      result.failure? ? 1 : 0
+    rescue StandardError => e
+      $stderr.puts "❌ Error: #{e.message}"
+      1
+    end
+
+    def self.dispatch_fix(argv)
+      opts = Rulepack::CliParser.parse(argv)
+      result = Rulepack::Fix.run(opts)
+      render_result(result, opts)
+    rescue StandardError => e
+      $stderr.puts "❌ Error: #{e.message}"
+      1
+    end
+
+    def self.dispatch_outdated(argv)
+      opts = Rulepack::CliParser.parse(argv)
+      result = Rulepack::Outdated.run(opts)
+      if result.failure?
+        render_failure(result, opts)
+        1
+      else
+        Rulepack::Reporter.print(result, format: opts[:format] || :text)
+        result.partial? ? 1 : 0
+      end
+    rescue StandardError => e
+      $stderr.puts "❌ Error: #{e.message}"
+      1
+    end
+
+    def self.dispatch_bump(argv)
+      Rulepack::Bump.run(argv)
+      0
+    rescue StandardError => e
+      $stderr.puts "❌ Error: #{e.message}"
+      1
+    end
+
+    def self.dispatch_remote(argv)
+      subcommand = argv.shift
+      index_url = ENV['RULEPACK_REMOTE_INDEX'] || 'https://packages.rulepack.dev/index.json'
+
+      case subcommand
+      when 'search'
+        term = argv.shift
+        unless term
+          warn "Usage: rulepack remote search <term>"
+          return 1
+        end
+        catalog = Rulepack::Catalog::RemoteCatalog.new(index_url)
+        results = catalog.search(term)
+        if results.empty?
+          puts "No packages found for '#{term}'."
+        else
+          results.each do |pkg|
+            puts "  #{pkg[:name]} (#{pkg[:version]}) — #{pkg[:description]}"
+          end
+        end
+        0
+      when 'list'
+        catalog = Rulepack::Catalog::RemoteCatalog.new(index_url)
+        catalog.list.each do |pkg|
+          puts "  #{pkg[:name]} (#{pkg[:version]})"
+        end
+        0
+      else
+        warn "Usage: rulepack remote <search|list> [args]"
+        warn "  Set RULEPACK_REMOTE_INDEX to override the index URL."
+        1
+      end
+    rescue StandardError => e
+      $stderr.puts "❌ Error: #{e.message}"
+      1
+    end
+
+    def self.dispatch_lock(argv)
+      lockfile = Rulepack::Lockfile.new
+      entries = lockfile.entries
+      if entries.empty?
+        puts "No lockfile entries. Run `rulepack lock --add <pkg> --version <ver>` to pin a package."
+      else
+        puts "Lockfile entries (#{entries.size}):"
+        entries.each do |name, entry|
+          puts "  #{name} @ #{entry['version']}"
+        end
+      end
+      0
+    rescue StandardError => e
+      $stderr.puts "❌ Error: #{e.message}"
+      1
+    end
+
+    # Shared rendering helpers
+
+    def self.render_result(result, opts)
+      if result.failure?
+        render_failure(result, opts)
+        1
+      else
+        Rulepack::Reporter.print(result, format: opts[:format] || :text)
+        0
+      end
+    end
+
+    def self.render_failure(result, opts)
+      if (opts[:format] || :text).to_sym == :text
+        result.messages.each { |m| warn m }
+        result.errors.each { |e| warn "Error: #{e}" }
+      else
+        Rulepack::Reporter.print(result, format: opts[:format])
+      end
     end
 
     def self.print_help
@@ -161,6 +337,9 @@ module Rulepack
           outdated [platform]          Show installed packages older than the build
           catalog                      Show package catalog (JSON)
           platforms                    List all platforms
+          remote search <term>         Search remote package index
+          remote list                  List remote packages
+          lock                         Show lockfile status
           init-hooks                   Install git pre-commit hook
 
         Global Flags:

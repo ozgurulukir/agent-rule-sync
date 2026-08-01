@@ -20,7 +20,7 @@ module Rulepack
 
       unless Rulepack::Common::BUILD_INDEX_PATH.exist?
         msg = "Build index not found: #{Rulepack::Common::BUILD_INDEX_PATH}. Run build first."
-        raise msg
+        raise Rulepack::BuildIndexNotFound, msg
       end
 
       # Load build index (package metadata) with symbol keys
@@ -147,12 +147,15 @@ module Rulepack
 end
 
 # CLI runner block
-if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI) || caller.any? { |c| c.include?('capture_script_run') }
+if __FILE__ == $PROGRAM_NAME
   begin
     opts = Rulepack::CliParser.parse(ARGV)
     Rulepack::Aggregate.run(opts)
+    exit_code = 0
   rescue StandardError => e
     $stderr.puts "❌ Error: #{e.message}"
-    exit 1
+    exit_code = 1
   end
+  $rulepack_exit_code = exit_code
+  exit exit_code if __FILE__ == $PROGRAM_NAME
 end

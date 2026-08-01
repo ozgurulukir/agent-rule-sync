@@ -15,6 +15,7 @@ require 'digest'
 require 'json'
 require 'set'
 require_relative 'common'
+require_relative 'emitter'
 require_relative 'lib/transaction'
 require_relative 'install_plan'
 require_relative 'install_execute'
@@ -310,11 +311,9 @@ module Rulepack
       failed = []
       targets_to_install.each do |pkg_platform|
         if target_package
-          Rulepack::Common.log "\u{1f4e6} Installing #{target_package} \u{2192} #{pkg_platform}"
-          puts "\u{1f4e6} Installing #{target_package} \u{2192} #{pkg_platform}"
+          Rulepack::Emitter.emit(:progress, message: "\u{1f4e6} Installing #{target_package} \u{2192} #{pkg_platform}")
         else
-          Rulepack::Common.log "\u{1f4e6} Installing all packages \u{2192} #{pkg_platform}"
-          puts "\u{1f4e6} Installing all packages \u{2192} #{pkg_platform}"
+          Rulepack::Emitter.emit(:progress, message: "\u{1f4e6} Installing all packages \u{2192} #{pkg_platform}")
         end
         result = run(pkg_platform,
                      dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
@@ -361,8 +360,8 @@ module Rulepack
 
       targets.each do |p|
         cfg = registry[p.to_sym] || registry[p.to_s]
-        raise "Unknown target platform '#{p}'." unless cfg
-        raise "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>." if cfg[:scope] == 'project' && !project_arg
+        raise Rulepack::UnknownPlatform, "Unknown target platform '#{p}'." unless cfg
+        raise Rulepack::ConfigError, "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>." if cfg[:scope] == 'project' && !project_arg
       end
       targets
     end
@@ -372,15 +371,15 @@ module Rulepack
       targets = pkg_data[:targets] || []
       available = pkg_data[:available_targets] || []
 
-      puts "\u{1f4e6} #{target_package} (#{Rulepack::Common.format_version(pkg_data[:epoch] || 0, pkg_data[:pkgver], pkg_data[:pkgrel] || 1)})"
-      puts ''
-      puts "Targets (#{targets.size}):"
+      Rulepack::Emitter.emit(:info, message: "\u{1f4e6} #{target_package} (#{Rulepack::Common.format_version(pkg_data[:epoch] || 0, pkg_data[:pkgver], pkg_data[:pkgrel] || 1)})")
+      Rulepack::Emitter.emit(:info, message: '')
+      Rulepack::Emitter.emit(:info, message: "Targets (#{targets.size}):")
       targets.each do |t|
         status = available.include?(t[:platform]) ? '\u{2713} built' : '\u{2717} not built'
-        puts "  \u{2022} #{t[:platform]} (#{t[:format]}, #{t[:output]}) [#{status}]"
+        Rulepack::Emitter.emit(:info, message: "  \u{2022} #{t[:platform]} (#{t[:format]}, #{t[:output]}) [#{status}]")
       end
-      puts ''
-      puts 'Installed on:'
+      Rulepack::Emitter.emit(:info, message: '')
+      Rulepack::Emitter.emit(:info, message: 'Installed on:')
       index = if Rulepack::Common.index_yaml_path.exist?
                 Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
               else
@@ -389,10 +388,10 @@ module Rulepack
       pkg_idx = index[:packages]&.[](target_package.to_sym) || index[:packages]&.[](target_package.to_s) || {}
       installed = pkg_idx[:installed] || []
       if installed.empty?
-        puts '  (none)'
+        Rulepack::Emitter.emit(:info, message: '  (none)')
       else
         installed.each do |rec|
-          puts "  \u{2022} #{rec[:platform]} (#{Rulepack::Common.format_version(rec[:epoch] || 0, rec[:version], rec[:pkgrel] || 1)}) \u{2014} #{rec[:output]}"
+          Rulepack::Emitter.emit(:info, message: "  \u{2022} #{rec[:platform]} (#{Rulepack::Common.format_version(rec[:epoch] || 0, rec[:version], rec[:pkgrel] || 1)}) \u{2014} #{rec[:output]}")
         end
       end
     end

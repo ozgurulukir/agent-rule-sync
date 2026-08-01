@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'common'
+require_relative 'emitter'
 require_relative 'schema_engine'
 
 module Rulepack
@@ -26,12 +27,12 @@ module Rulepack
     def advance(target_stage)
       expected_index = STAGES.index(target_stage)
       unless expected_index
-        raise "Unknown build pipeline stage: #{target_stage}"
+        raise Rulepack::StateError, "Unknown build pipeline stage: #{target_stage}"
       end
 
       current_index = STAGES.index(@current_stage)
       if expected_index != current_index + 1
-        raise "Invalid pipeline stage transition: #{@current_stage} -> #{target_stage}. Stages must run sequentially: #{STAGES.join(' -> ')}"
+        raise Rulepack::StateError, "Invalid pipeline stage transition: #{@current_stage} -> #{target_stage}. Stages must run sequentially: #{STAGES.join(' -> ')}"
       end
 
       @current_stage = target_stage
@@ -45,11 +46,9 @@ module Rulepack
       advance(:translate) do
         translator_cfg = Rulepack::SchemaEngine.resolve_translator(@explicit_translate, @platform_id, @target_format, platform_cfg)
         if translator_cfg
-          Rulepack::Common.log "  → Translating for #{@platform_id} (#{translator_cfg})"
-          puts "  → Translating for #{@platform_id} (#{translator_cfg})"
+          Rulepack::Emitter.emit(:progress, message: "  → Translating for #{@platform_id} (#{translator_cfg})")
           @content = Rulepack::Common.apply_translator(translator_cfg, @content, pkgname: @pkgname)
-          Rulepack::Common.log "    ✓ Translated (#{translator_cfg})"
-          puts "    ✓ Translated (#{translator_cfg})"
+          Rulepack::Emitter.emit(:progress, message: "    ✓ Translated (#{translator_cfg})")
         end
       end
 
@@ -62,11 +61,9 @@ module Rulepack
       advance(:transform) do
         transformer_cfg = Rulepack::SchemaEngine.resolve_transformer(@transformer, @platform_id, @target_format, platform_cfg)
         if transformer_cfg && transformer_cfg != 'copy'
-          Rulepack::Common.log "  → Transforming for #{@platform_id} (#{transformer_cfg})"
-          puts "  → Transforming for #{@platform_id} (#{transformer_cfg})"
+          Rulepack::Emitter.emit(:progress, message: "  → Transforming for #{@platform_id} (#{transformer_cfg})")
           @content = Rulepack::Common.apply_transformer(transformer_cfg, @content, pkgname: @pkgname)
-          Rulepack::Common.log "    ✓ Transformed (#{transformer_cfg})"
-          puts "    ✓ Transformed (#{transformer_cfg})"
+          Rulepack::Emitter.emit(:progress, message: "    ✓ Transformed (#{transformer_cfg})")
         end
       end
 

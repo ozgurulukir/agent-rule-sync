@@ -51,13 +51,13 @@ module Rulepack
 
     def validate_inside_repo(custom_path, kind)
       unless custom_path.exist?
-        raise "#{kind_label(kind)} not found: #{custom_path}. Verify the path in your PKGBUILD."
+        raise Rulepack::ConfigError, "#{kind_label(kind)} not found: #{custom_path}. Verify the path in your PKGBUILD."
       end
 
       real_path = custom_path.realpath
       root = Rulepack::Common::RULEPACK_ROOT.realpath
       unless real_path.to_s.start_with?(root.to_s + File::SEPARATOR) || real_path == root
-        raise "#{kind_label(kind)} path outside repo (symlink attack?): #{custom_path}"
+        raise Rulepack::SecurityError, "#{kind_label(kind)} path outside repo (symlink attack?): #{custom_path}"
       end
       real_path
     end
@@ -82,7 +82,7 @@ module Rulepack
         return mod
       end
 
-      raise "#{kind_label(kind)} #{abs_path} must define one of: #{candidates.join(', ')} " \
+      raise Rulepack::ConfigError, "#{kind_label(kind)} #{abs_path} must define one of: #{candidates.join(', ')} " \
             "with a .#{method_name} class/module method"
     end
 

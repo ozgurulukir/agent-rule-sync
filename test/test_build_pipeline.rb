@@ -51,7 +51,7 @@ class TestBuildPipeline < Minitest::Test
     )
 
     # Cannot jump to transform before translate and schema_engine
-    assert_raises(RuntimeError) do
+    assert_raises(Rulepack::StateError) do
       pipeline.advance(:transform) do
         # Should not get here
       end
@@ -67,7 +67,7 @@ class TestBuildPipeline < Minitest::Test
       format_profile: {}
     )
 
-    assert_raises(RuntimeError) do
+    assert_raises(Rulepack::StateError) do
       pipeline.advance(:nonexistent_stage) do
         # Should not get here
       end

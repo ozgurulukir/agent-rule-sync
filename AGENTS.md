@@ -70,10 +70,20 @@ graph TD
 
 ## Modular Architecture
 
-The implementation is split across ~42 Ruby files under `lib/rulepack/`. Key modules:
+The implementation is split across ~48 Ruby files under `lib/rulepack/`. Key modules:
 
 - `common.rb` — facade re-exporting submodule APIs for backward compatibility.
 - `encoding_defaults.rb` — sets `Encoding.default_external = UTF-8` early for all entry points and tests.
+- `errors.rb` — typed error hierarchy (`Rulepack::Error` + 12 subclasses: `MissingOptionValue`, `InvalidOptionValue`, `InvalidPkgbuild`, `PkgbuildNotFound`, `StateError`, `ConfigError`, `SecurityError`, `UnknownPlatform`, `BuildIndexNotFound`, `IndexNotFound`, `PathTraversalError`).
+- `emitter.rb` — lightweight event emitter with subscribe/emit/unsubscribe; supports multiple subscribers per event type.
+- `security.rb` — `Rulepack::Security.strip_symlinks_in_tree` as the single source of truth for symlink stripping across build, install, and lazy materialization.
+- `lockfile.rb` — `Rulepack::Lockfile` pins `(pkgname, version, source_sha256)` tuples for reproducible installs; supports `enforce!` for `install --locked`.
+- `models/package.rb`, `models/platform.rb`, `models/target.rb` — immutable `Data.define` value objects replacing hash-passing; constructed via `.from_hash`, serialized via `#to_h`.
+- `catalog/source_repository.rb` — interface (`#fetch`, `#directory`) separating "where a package comes from" from "how it is built".
+- `catalog/local_catalog.rb` — wraps existing Source/Cache primitives; default implementation.
+- `catalog/remote_catalog.rb` — reads a remote package index over HTTP; supports `search`, `list`, `fetch_package`.
+- `reporter/console_renderer.rb` — subscribes to Emitter and reproduces console output.
+- `reporter/jsonl_renderer.rb` — emits one JSON object per event (`--format jsonl`).
 - `build_loader.rb`, `build_per_pkg.rb`, `build_writer.rb`, `build_pipeline.rb` — build orchestration.
 - `schema_engine.rb` — normalizes frontmatter, emoji, headings, and bullets per platform schema.
 - `schema_migration.rb` — migrates legacy `data/index.yaml` schemas.
@@ -91,7 +101,7 @@ The implementation is split across ~42 Ruby files under `lib/rulepack/`. Key mod
 - `reporter.rb` — renders results as text, JSON, or YAML.
 - `platform_scanner.rb` — discovers rulepack-managed and manually installed items on disk.
 
-Procedural entry points (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`, etc.) are namespaced with caller-aware runner hooks, usable programmatically or as CLI scripts. Note that several still call `exit N` on failure paths, which can terminate the host process when used as a library; wrap them or run in a subprocess for programmatic reuse.
+Procedural entry points (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`, etc.) are namespaced with caller-aware runner hooks, usable programmatically or as CLI scripts. The CLI (`bin/rulepack`) calls backend modules directly — no `load`/`eval`, no `$rulepack_exit_code` side channel. Runner blocks in library files only execute when the file is run directly (`__FILE__ == $PROGRAM_NAME`).
 
 ---
 
@@ -159,6 +169,11 @@ bin/rulepack search <tag>
 
 # Git hook
 bin/rulepack init-hooks                              # installs pre-commit audit hook
+
+# Remote registry
+bin/rulepack remote search <term>                    # Search remote package index
+bin/rulepack remote list                             # List remote packages
+bin/rulepack lock                                    # Show lockfile status
 ```
 
 ---
@@ -355,7 +370,7 @@ data/packages/
 - **Subprocess elimination**: avoid spawning shells where possible; a small number of legacy subprocess calls (`git`, `tar`, `pkgver_func`) remain and are being phased out.
 - **Immutable strings**: every file must declare `# frozen_string_literal: true`.
 - **Pathname API**: use `Pathname` instead of string concatenation for paths.
-- **Tests**: run `bundle exec rake test`. The suite has 394 tests and 1216 assertions; network-dependent E2E tests are gated behind `NETWORK_E2E`. The `test_source_centric_build.rb` file covers the four source-centric acceptance criteria (build does not materialize, install materializes lazily, store dedup, e2e contract).
+- **Tests**: run `bundle exec rake test`. Run `bundle exec rake summary` for a dynamic test count (scans test files for `def test_` and `assert` calls). Network-dependent E2E tests are gated behind `NETWORK_E2E`. The `test_source_centric_build.rb` file covers the four source-centric acceptance criteria (build does not materialize, install materializes lazily, store dedup, e2e contract).
 
 ---
 
@@ -389,6 +404,10 @@ data/packages/
 - **Schema Profile Union**: `BuildPerPkg` computes SHA256 transform signatures (`union_key`) and caches pipeline outputs in memory. Targets sharing identical translators, schema rulesets, and transformers reuse transformed content without re-running passes.
 - **Target-scoped builds**: `bin/rulepack build -t <plat>` filters target platforms, building artifacts exclusively for active platform(s).
 - **Transactional fix**: `bin/rulepack fix` backs up the original index and commits the cleared state only after all reinstalls succeed; on failure it rolls back.
+- **Event substrate (2026-08-01)**: `Rulepack::Emitter` provides a lightweight subscribe/emit/unsubscribe pattern replacing hardcoded `puts`+`log` pairs. Two renderers ship: `ConsoleRenderer` (default, reproduces current stdout) and `JsonlRenderer` (`--format jsonl`, one JSON object per event). See `lib/rulepack/emitter.rb` and `lib/rulepack/reporter/`.
+- **Immutable domain models (2026-08-01)**: `Rulepack::Package`, `Rulepack::Platform`, and `Rulepack::Target` are frozen `Data.define` value objects replacing hash-passing. Constructed via `.from_hash`, serialized via `#to_h`. See `lib/rulepack/models/`.
+- **Catalog abstraction (2026-08-01)**: `Rulepack::Catalog::SourceRepository` interface with `LocalCatalog` (wrapping existing primitives) and `RemoteCatalog` (HTTP-based remote index with `search`, `list`, `fetch_package`). See `lib/rulepack/catalog/`.
+- **Lockfile (2026-08-01)**: `Rulepack::Lockfile` pins `(pkgname, version, source_sha256)` tuples for reproducible installs. Supports `enforce!` for `install --locked`. See `lib/rulepack/lockfile.rb`.
 
 For detailed improvement notes, see [`docs/improvement-plan/OPEN-ITEMS.md`](docs/improvement-plan/OPEN-ITEMS.md). For the source-centric refactor decision and rationale (including the deferred cross-package union cache), see [`ADR-2026-07-29-build-pipeline-refactor.md`](docs/improvement-plan/ADR-2026-07-29-build-pipeline-refactor.md).
 
@@ -396,8 +415,7 @@ For detailed improvement notes, see [`docs/improvement-plan/OPEN-ITEMS.md`](docs
 
 ## Known Issues
 
-- **Library modules terminate via `exit N`**: seventeen hard `exit 0` / `exit 1` calls are scattered across `lib/rulepack/{build,verify,fix,install,uninstall,aggregate,audit,outdated,translate,install_execute}.rb`. These files are documented as usable both as CLI scripts and programmatically (caller-aware runner hooks), so calling `exit` inside business logic couples library code to process termination and complicates unit testing and reuse. Prefer returning `Rulepack::Result` failures and letting `bin/rulepack` decide the exit code.
-- **`CliParser` raises bare `String` errors**: missing or invalid options raise plain strings (`raise 'Missing value for --target'` / `raise "Invalid collision strategy: ..."`). This forces callers to rescue `RuntimeError` and parse message text instead of dispatching on typed exception classes. Introduce a small `Rulepack::CliError` hierarchy if you extend option validation.
+- **`$rulepack_exit_code` global variable (legacy)**: runner blocks in `lib/rulepack/{build,verify,fix,install,uninstall,aggregate,outdated,audit,translate,install_execute}.rb` set `$rulepack_exit_code` and call `exit exit_code if __FILE__ == $PROGRAM_NAME`. This is a legacy pattern — `bin/rulepack` now calls backend modules directly, so the global variable is only relevant when running library files as standalone scripts (`ruby lib/rulepack/build.rb`). If you add a new procedural module, follow the same dual pattern for backward compatibility.
 
 ---
 
@@ -408,5 +426,8 @@ For detailed improvement notes, see [`docs/improvement-plan/OPEN-ITEMS.md`](docs
 - **Platform registry is memoized**: `Rulepack::Common.load_platform_registry` caches via `@_platform_registry`. Tests that mutate `data/registry/platforms.yaml` or layer overrides must call `Rulepack::Common.clear_platform_registry_cache!` (or equivalent) before re-reading, or stale registry state leaks across tests.
 - **Cross-package union cache deferred (YAGNI)**: empirical inspection shows distinct `source_sha256` per package, so a content-addressed union cache across packages has no hits in the current dataset. The per-package `union_key` cache in `build_per_pkg.rb` already collapses the 14 platforms per package into 1 store file (52 files, ~272 KB). Re-open only if future packages share source content (e.g. monorepo forks).
 - **Build dir is now near-empty for skill-bundles**: post-refactor, `build/<plat>/<pkg>/` is created **only at install time** for skill-bundles. If you see a skill-bundle with no `build/<plat>/<pkg>/` directory, that is expected — running `bin/rulepack install <pkg> -t <plat>` will populate it. `bin/rulepack verify` also triggers materialization.
-- **Hard `exit N` calls remain in procedural modules**: `build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`, `outdated.rb`, `install_execute.rb`, `install.rb`, `uninstall.rb`, `audit.rb`, and `translate.rb` all call `exit N` on failure paths. This limits clean programmatic reuse despite the caller-aware runner design; when driving Rulepack from another Ruby process, spawn a subprocess or wrap the call.
+- **`$rulepack_exit_code` communicates exit codes from `load`-ed scripts**: Ruby's `load` always returns `true` (not the last expression value), so a global variable is the only reliable way to pass exit codes from `load`-ed runner blocks back to `bin/rulepack`. The dual pattern (`$rulepack_exit_code = N; exit N if __FILE__ == $PROGRAM_NAME`) preserves `system()` subprocess exit codes for E2E tests while also supporting the `load` path. **Note:** `bin/rulepack` no longer uses `load` — it calls backend modules directly. The `$rulepack_exit_code` pattern is only relevant when running library files as standalone scripts (`ruby lib/rulepack/build.rb`).
+- **`encoding_defaults.rb` must be loaded before any other `lib/rulepack/` file**: it sets `Encoding.default_external = Encoding::UTF_8` early. If it is accidentally dropped from an entry point (e.g. `bin/rulepack`), markdown files with non-ASCII characters will raise `Encoding::UndefinedConversionError`. Always verify it is required before `require "lib/rulepack"`.
+- **`Rulepack::Security.strip_symlinks_in_tree` is the single source of truth**: three files (`build_per_pkg.rb`, `skill_bundle_lazy.rb`, `install_execute.rb`) previously had inline symlink-stripping logic. All now delegate to `lib/rulepack/security.rb`. Any new code that needs to strip symlinks from a directory tree must call this method, not reimplement it.
+- **`lib/rulepack.rb` is the library entry point**: `require "lib/rulepack"` loads the typed error hierarchy, encoding defaults, and all submodules. `bin/rulepack` and tests should use this entry point rather than requiring individual files. The `require_relative 'errors'` in `common.rb` ensures errors are available even when `common.rb` is loaded directly.
 - **Minimal inline technical debt**: only two `NOTE:` comments remain in `lib/rulepack/` (`build_per_pkg.rb` noting that source `PKGBUILD`s are never rewritten, and `common.rb` noting that `methods(false)` is captured at load time). Most improvement work is tracked externally in `docs/improvement-plan/OPEN-ITEMS.md`.

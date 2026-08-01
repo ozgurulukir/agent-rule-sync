@@ -14,6 +14,9 @@ require 'pathname'
 require 'fileutils'
 require 'digest'
 require 'open3'
+require_relative 'models/package'
+require_relative 'models/platform'
+require_relative 'models/target'
 require_relative 'common'
 require_relative 'schema_engine'
 require_relative 'build_pipeline'
@@ -146,14 +149,16 @@ module Rulepack
 end
 
 # CLI runner block
-if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI) || caller.any? { |c| c.include?('capture_script_run') }
+if __FILE__ == $PROGRAM_NAME
   begin
     opts = Rulepack::CliParser.parse(ARGV)
     result = Rulepack::Build.run(opts)
     Rulepack::Reporter.print(result, format: opts[:format] || :text)
-    exit(result.failure? ? 1 : 0)
+    exit_code = result.failure? ? 1 : 0
   rescue StandardError => e
     $stderr.puts "❌ Error: #{e.message}"
-    exit 1
+    exit_code = 1
   end
+  $rulepack_exit_code = exit_code
+  exit exit_code if __FILE__ == $PROGRAM_NAME
 end

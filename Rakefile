@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# encoding: utf-8
+
 # Rakefile for Rulepack test suite
 # Usage: rake test, rake test_unit, rake test_integration, rake test_cache, rake test_pkgbuild, rake test_platform, rake test_uninstall
 
@@ -97,41 +99,43 @@ Rake::TestTask.new(:test_e2e) do |t|
   t.warning = false
 end
 
-desc 'Print test summary'
+desc 'Print test summary (dynamic counts)'
 task :summary do
-  puts "\n📊 Test Suite — 390 tests, 1191 assertions"
-  puts "  test_common.rb               — 56 unit tests"
-  puts "  test_integration.rb          — 29 integration tests"
-  puts "  test_cache.rb                — 27 unit tests"
-  puts "  test_pkgbuild_validation.rb  — 31 unit tests"
-  puts "  test_platform.rb             — 34 unit tests"
-  puts "  test_uninstall.rb            —  7 unit tests"
-  puts "  test_query.rb                — 12 unit tests"
-  puts "  test_translate.rb            —  4 unit tests"
-  puts "  test_aggregate.rb            —  4 unit tests"
-  puts "  test_end_to_end.rb           — 15 end-to-end tests"
-  puts "  test_result.rb               —  5 unit tests"
-  puts "  test_reporter.rb             —  4 unit tests"
-  puts "  test_query_installed.rb      —  3 unit tests"
-  puts "  test_verify_check.rb         —  2 unit tests"
-  puts "  test_fix.rb                  — 16 unit tests"
-  puts "  test_outdated.rb             —  7 unit tests"
-  puts "  test_bump.rb                 — 19 unit tests"
-  puts "  test_build_pipeline.rb       — 10 unit tests"
-  puts "  test_atomic_write.rb         — 11 unit tests"
-  puts "  test_cache_eviction.rb       —  2 unit tests"
-  puts "  test_cli_syntax.rb           — 20 unit tests"
-  puts "  test_drift_cms.rb            —  4 unit tests"
-  puts "  test_install_handlers.rb     —  2 unit tests"
-  puts "  test_io.rb                   —  9 unit tests"
-  puts "  test_network_failures.rb     —  9 unit tests"
-  puts "  test_package_resolver.rb     —  8 unit tests"
-  puts "  test_processor_loader.rb     —  5 unit tests"
-  puts "  test_schema_engine.rb        —  8 unit tests"
-  puts "  test_source_extract_tar_gz.rb —  9 unit tests"
-  puts "  test_symlink_hardening.rb    —  6 unit tests"
-  puts "  test_transaction_rollback.rb —  7 unit tests"
-  puts "  test_tui_selector.rb         —  5 unit tests"
+  test_files = FileList['test/**/*_test.rb', 'test/**/test_*.rb']
+  total_runs = 0
+  total_assertions = 0
+  file_counts = {}
+
+  test_files.each do |file|
+    content = File.read(file, encoding: 'UTF-8')
+    test_count = content.scan(/def test_/).size
+    assert_count = content.scan(/\bassert(?:_\w+)?\b/).size
+    file_counts[file] = { tests: test_count, assertions: assert_count }
+    total_runs += test_count
+    total_assertions += assert_count
+  end
+
+  puts "\n📊 Test Suite — #{total_runs} tests, #{total_assertions} assertions (dynamic)"
+  file_counts.sort_by { |f, _| f }.each do |file, counts|
+    name = File.basename(file)
+    puts "  #{name.ljust(35)} — #{counts[:tests]} tests, #{counts[:assertions]} assertions"
+  end
   puts ""
   puts "Run: rake test"
+end
+
+desc 'Check that docs are up to date with disk state'
+task :'docs:check' do
+  test_files = FileList['test/**/*_test.rb', 'test/**/test_*.rb']
+  total_runs = 0
+  total_assertions = 0
+
+  test_files.each do |file|
+    content = File.read(file, encoding: 'UTF-8')
+    total_runs += content.scan(/def test_/).size
+    total_assertions += content.scan(/\bassert(?:_\w+)?\b/).size
+  end
+
+  puts "✓ Dynamic test count: #{total_runs} tests, #{total_assertions} assertions"
+  puts "  (AGENTS.md hardcoded counts may be stale — run `rake summary` for authoritative numbers)"
 end

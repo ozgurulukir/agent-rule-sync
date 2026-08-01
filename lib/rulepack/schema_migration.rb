@@ -19,7 +19,7 @@ module Rulepack
         case v
         when 1.0 then migrate_1_to_2!(index); v = 2.0
         when 2.0 then migrate_2_to_3!(index); v = 3.0
-        else raise "Unknown schema version: #{v}"
+        else raise Rulepack::StateError, "Unknown schema version: #{v}"
         end
       end
       index[:version] = CURRENT_VERSION

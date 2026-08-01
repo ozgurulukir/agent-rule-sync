@@ -83,7 +83,7 @@ module Rulepack
     }.freeze
 
     def resolve_format(pkg_type, platform_type)
-      FORMAT_MAP[[pkg_type, platform_type]] || raise("Unknown format for pkg_type=#{pkg_type}, platform_type=#{platform_type}")
+      FORMAT_MAP[[pkg_type, platform_type]] || raise(Rulepack::ConfigError, "Unknown format for pkg_type=#{pkg_type}, platform_type=#{platform_type}")
     end
 
     def resolve_default_install(platform_cfg, format_type, pkg_type, pkgname)
