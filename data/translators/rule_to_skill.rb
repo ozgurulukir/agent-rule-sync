@@ -150,10 +150,9 @@ module RulepackTranslator
     end
 
     def self.extract_bullet_items(text)
-      items = []
-      # Faster than each_line with regex match
-      text.scan(/^[-*+]\s+.*$/) { |match| items << match.rstrip }
-      items
+      # ⚡ Bolt: Optimize bullet extraction by replacing block iteration with array scan and map!
+      # This avoids block overhead, array append operations, and full string allocations
+      text.scan(/^[-*+]\s+.*$/).map!(&:rstrip)
     end
 
     def self.titleize(pkgname)
