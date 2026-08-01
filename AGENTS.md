@@ -77,18 +77,21 @@ The implementation is split across ~42 Ruby files under `lib/rulepack/`. Key mod
 - `build_loader.rb`, `build_per_pkg.rb`, `build_writer.rb`, `build_pipeline.rb` — build orchestration.
 - `schema_engine.rb` — normalizes frontmatter, emoji, headings, and bullets per platform schema.
 - `schema_migration.rb` — migrates legacy `data/index.yaml` schemas.
+- `validation.rb` — PKGBUILD structure and field validation (pkgname, versions, sources, targets, transformers, install types, path-traversal guards).
 - `install_handlers.rb`, `install_execute.rb`, `transaction.rb` — install logic, marker splicing, backups.
 - `skill_bundle.rb` — resolves directory-based skill bundles; install-time lazy materialization for source-centric builds.
 - `skill_bundle_lazy.rb` — lazy materialization helpers (`ensure_materialized!`, `materialization_up_to_date?`, `apply_schema_engine_to_directory`); invoked by `skill_bundle.rb#install_skill_bundle` when `build/<plat>/<pkg>/` is missing.
 - `cache.rb` — content-addressed source cache with optional size limit.
 - `bump.rb` — checks upstream git repos for new commits and optionally auto-updates PKGBUILD versions.
-- `cli_parser.rb`, `query.rb` — unified command-line parsing and query dispatch.
+- `outdated.rb` — compares installed versions in `data/index.yaml` against `build/index.yaml` and reports outdated or available-but-not-installed packages.
+- `cli_parser.rb` — unified ARGV parser handling pacman-style aliases (`-S`, `-R`, `-Qk`, `-F`, `-Q`) and flags such as `--target`, `--project`, `--on-collision`, `--select`, `--format`, and `--rules-to`.
+- `query.rb` — query dispatch for installed packages and manual/orphan items.
 - `io.rb` — shared file utilities (`read_text` / `read_binary`).
 - `result.rb` — structured `Rulepack::Result` object returned by backend operations.
 - `reporter.rb` — renders results as text, JSON, or YAML.
 - `platform_scanner.rb` — discovers rulepack-managed and manually installed items on disk.
 
-Procedural entry points (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`) are namespaced with caller-aware runner hooks, usable programmatically or as CLI scripts.
+Procedural entry points (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`, etc.) are namespaced with caller-aware runner hooks, usable programmatically or as CLI scripts. Note that several still call `exit N` on failure paths, which can terminate the host process when used as a library; wrap them or run in a subprocess for programmatic reuse.
 
 ---
 
@@ -391,6 +394,13 @@ For detailed improvement notes, see [`docs/improvement-plan/OPEN-ITEMS.md`](docs
 
 ---
 
+## Known Issues
+
+- **Library modules terminate via `exit N`**: seventeen hard `exit 0` / `exit 1` calls are scattered across `lib/rulepack/{build,verify,fix,install,uninstall,aggregate,audit,outdated,translate,install_execute}.rb`. These files are documented as usable both as CLI scripts and programmatically (caller-aware runner hooks), so calling `exit` inside business logic couples library code to process termination and complicates unit testing and reuse. Prefer returning `Rulepack::Result` failures and letting `bin/rulepack` decide the exit code.
+- **`CliParser` raises bare `String` errors**: missing or invalid options raise plain strings (`raise 'Missing value for --target'` / `raise "Invalid collision strategy: ..."`). This forces callers to rescue `RuntimeError` and parse message text instead of dispatching on typed exception classes. Introduce a small `Rulepack::CliError` hierarchy if you extend option validation.
+
+---
+
 ## Notes & Gotchas
 
 - **Local-source skill-bundles have `nil` `source_sha256`**: `data/packages/local/<pkg>/PKGBUILD` without a `pkgver_func` (e.g. `line-repetition-control`) sets `pkg_index[:source_sha256] = nil`. `install_skill_bundle` falls back to `compute_local_source_sha(pkgdata[:source_dir])` (SHA256 over the local source tree) so lazy materialization still has a truthy `source_sha` to gate re-materialization. Don't add a guard that rejects `nil` here without a fallback.
@@ -398,3 +408,5 @@ For detailed improvement notes, see [`docs/improvement-plan/OPEN-ITEMS.md`](docs
 - **Platform registry is memoized**: `Rulepack::Common.load_platform_registry` caches via `@_platform_registry`. Tests that mutate `data/registry/platforms.yaml` or layer overrides must call `Rulepack::Common.clear_platform_registry_cache!` (or equivalent) before re-reading, or stale registry state leaks across tests.
 - **Cross-package union cache deferred (YAGNI)**: empirical inspection shows distinct `source_sha256` per package, so a content-addressed union cache across packages has no hits in the current dataset. The per-package `union_key` cache in `build_per_pkg.rb` already collapses the 14 platforms per package into 1 store file (52 files, ~272 KB). Re-open only if future packages share source content (e.g. monorepo forks).
 - **Build dir is now near-empty for skill-bundles**: post-refactor, `build/<plat>/<pkg>/` is created **only at install time** for skill-bundles. If you see a skill-bundle with no `build/<plat>/<pkg>/` directory, that is expected — running `bin/rulepack install <pkg> -t <plat>` will populate it. `bin/rulepack verify` also triggers materialization.
+- **Hard `exit N` calls remain in procedural modules**: `build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`, `outdated.rb`, `install_execute.rb`, `install.rb`, `uninstall.rb`, `audit.rb`, and `translate.rb` all call `exit N` on failure paths. This limits clean programmatic reuse despite the caller-aware runner design; when driving Rulepack from another Ruby process, spawn a subprocess or wrap the call.
+- **Minimal inline technical debt**: only two `NOTE:` comments remain in `lib/rulepack/` (`build_per_pkg.rb` noting that source `PKGBUILD`s are never rewritten, and `common.rb` noting that `methods(false)` is captured at load time). Most improvement work is tracked externally in `docs/improvement-plan/OPEN-ITEMS.md`.
