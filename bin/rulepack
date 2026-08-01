@@ -26,8 +26,6 @@ module Rulepack
   module CLI
     VALID_COMMANDS = %w[install uninstall query fix build bump list show search status audit check verify outdated catalog platforms init-hooks help].freeze
 
-    VALID_COMMANDS = %w[install uninstall query fix build bump list show search status audit check verify outdated catalog platforms init-hooks help].freeze
-
     def self.run(argv)
       if argv.include?('--timing')
         Rulepack::Logging.show_timing = true
