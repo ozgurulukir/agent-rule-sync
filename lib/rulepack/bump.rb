@@ -85,7 +85,9 @@ module Rulepack
     def check_upstream(packages)
       results = {}
       packages.each do |pkgname, info|
-        results[pkgname] = check_single(pkgname, info)
+        results[pkgname] = Rulepack::Common.spin("Checking upstream for #{pkgname}...") do
+          check_single(pkgname, info)
+        end
       end
       results
     end

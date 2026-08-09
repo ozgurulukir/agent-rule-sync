@@ -52,7 +52,10 @@ module Rulepack
         print "\n  \e[33m?\e[0m Collision detected: #{install_path} exists. Overwrite? [o(verwrite)/a(ppend)/i(gnore)/s(top)] "
 
         input = $stdin.gets
-        return 'stop' if input.nil? # Handle EOF (Ctrl+D)
+        if input.nil? # Handle EOF (Ctrl+D)
+          puts
+          return 'stop'
+        end
 
         response = input.chomp.downcase
 
