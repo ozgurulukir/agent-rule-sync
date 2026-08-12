@@ -56,7 +56,8 @@ module Rulepack
       end
 
       # Sort ascending: oldest mtime first
-      entries.sort_by!(&:first)
+      # ⚡ Bolt: Optimize cache eviction sorting overhead by avoiding sort_by intermediate object allocations
+      entries.sort! { |a, b| a.first <=> b.first }
 
       # OPTIMIZATION: Calculate initial cache total and sorted list once (O(N)),
       # then incrementally deduct removed directory sizes to avoid O(N^2) full rescans.
