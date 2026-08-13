@@ -2,8 +2,10 @@
 
 require 'fileutils'
 require 'json'
+require 'pathname'
 require_relative 'transaction'
 require_relative 'tui_selector'
+require_relative 'skill_bundle_lazy'
 
 module Rulepack
   module SkillBundle
@@ -22,9 +24,31 @@ module Rulepack
       Rulepack::Common.log "  ⤷ #{pkgname} (skill-bundle) → #{install_cfg[:target_dir]} [copy]" unless quiet
 
       build_src_dir = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s)
+
+      # ADR-2026-07-29: source-centric build. Build phase no longer creates
+      # build/<plat>/<pkg>/. Materialize lazily from pkgdata[:source_dir].
       unless build_src_dir.exist? && build_src_dir.directory?
-        Rulepack::Common.log_error "Skill-bundle build directory missing: #{build_src_dir}"
-        return false
+        if dry_run
+          # In dry-run we don't materialize; report what would happen.
+          Rulepack::Common.log "    [DRY-RUN] Would materialize #{pkgname} from source for #{platform_id}" unless quiet
+          return false
+        end
+
+        source_dir = pkgdata[:source_dir]
+        source_sha = pkgdata[:source_sha256] || compute_local_source_sha(pkgdata[:source_dir])
+        unless source_dir
+          Rulepack::Common.log_error "Skill-bundle build directory missing: #{build_src_dir} (no source_dir recorded)"
+          return false
+        end
+        # Fall back: if pkgdata lacks source_sha (e.g. legacy build index), recompute
+        # it from the source directory so staleness checks still work.
+
+        # pkg_index shim — SkillBundleLazy expects a hash with :source_dir,
+        # :source_sha256, :pkgdesc, :tags. pkgdata already has these.
+        platforms = Rulepack::Common.load_platform_registry
+        build_src_dir = Rulepack::SkillBundleLazy.ensure_materialized!(
+          pkgname, pkgdata, platform_id, target, platforms
+        )
       end
 
       manifest = load_skill_bundle_manifest(build_src_dir)
@@ -111,9 +135,13 @@ module Rulepack
     end
 
     def copy_sub_skills(build_src_dir, dest_dir, selected, pkgname, ctx, quiet: false)
-      strategy = ctx.collision_strategy || 'stop'
+      strategy = ctx.collision_strategy || 'interactive'
       if dest_dir.exist?
-        case strategy
+        effective_strategy = strategy
+        if effective_strategy == 'interactive'
+          effective_strategy = Rulepack::Common.interactive_collision_prompt(dest_dir)
+        end
+        case effective_strategy
         when 'overwrite', 'append' # append for directory bundle is treated as overwrite/merge
           backup_path = Rulepack::Common.backup_file(dest_dir)
           Rulepack::Transaction.record_journal(ctx, { action: :replace_dir, path: dest_dir, backup: backup_path })
@@ -124,7 +152,7 @@ module Rulepack
           return :ignored
         else # stop
           Rulepack::Common.log_error "Collision detected: #{dest_dir} exists. Use --on-collision to proceed."
-          raise "Collision at #{dest_dir}"
+          raise Rulepack::StateError, "Collision at #{dest_dir}"
         end
       else
         Rulepack::Transaction.record_journal(ctx, { action: :create_dir, path: dest_dir })
@@ -162,6 +190,21 @@ module Rulepack
         sub_skills: selected
       }
       dest_dir.join('manifest.json').write(JSON.pretty_generate(selected_manifest))
+    end
+
+    # Deterministic content hash for a local source directory: sort files by
+    # path, concatenate relative-path + content, hash. Mirrors the read_source
+    # logic in source.rb for directories. Used as a fallback when build_index
+    # lacks :source_sha256 (legacy entries, or local sources where pkgver_func
+    # isn't set so no commit hash is recorded).
+    def compute_local_source_sha(source_dir_str)
+      source_dir = Pathname.new(source_dir_str)
+      return nil unless source_dir.directory?
+
+      require 'digest'
+      sorted = source_dir.find.to_a.sort_by(&:to_s).select(&:file?)
+      content = sorted.map { |f| "#{f.relative_path_from(source_dir)}\0#{f.read}" }.join
+      Digest::SHA256.hexdigest(content)
     end
   end
 end

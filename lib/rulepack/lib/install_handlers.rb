@@ -54,7 +54,7 @@ module Rulepack
     end
 
     def do_symlink(built_path, install_path, pkgname, ctx)
-      strategy = ctx.collision_strategy
+      strategy = ctx.collision_strategy || 'interactive'
       if install_path.symlink?
         if install_path.readlink == built_path.relative_path_from(install_path.parent)
           Rulepack::Common.log '    ↺ Already symlinked'
@@ -63,7 +63,11 @@ module Rulepack
       end
 
       if install_path.exist? || install_path.symlink?
-        case strategy
+        effective_strategy = strategy
+        if effective_strategy == 'interactive'
+          effective_strategy = Rulepack::Common.interactive_collision_prompt(install_path)
+        end
+        case effective_strategy
         when 'overwrite', 'append' # append doesn't make sense for symlinks, treat as overwrite
           backup_path = Rulepack::Common.backup_file(install_path) if install_path.file? && !install_path.symlink?
           Rulepack::Transaction.record_journal(ctx, { action: :replace_file, path: install_path, backup: backup_path })
@@ -75,7 +79,7 @@ module Rulepack
           Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
         else # stop
           Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
-          raise "Collision at #{install_path}"
+          raise Rulepack::StateError, "Collision at #{install_path}"
         end
       else
         Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
@@ -89,11 +93,15 @@ module Rulepack
     end
 
     def do_copy(built_path, install_path, content_sha256, pkgname, ctx)
-      strategy = ctx.collision_strategy
+      strategy = ctx.collision_strategy || 'interactive'
       if install_path.exist?
         return Rulepack::Common.log '    ↺ Already up-to-date' if Rulepack::Common.verify_checksum(install_path, content_sha256, pkgname)
 
-        case strategy
+        effective_strategy = strategy
+        if effective_strategy == 'interactive'
+          effective_strategy = Rulepack::Common.interactive_collision_prompt(install_path)
+        end
+        case effective_strategy
         when 'append'
           backup_path = Rulepack::Common.backup_file(install_path)
           Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
@@ -108,7 +116,7 @@ module Rulepack
           Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
         else # stop
           Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
-          raise "Collision at #{install_path}"
+          raise Rulepack::StateError, "Collision at #{install_path}"
         end
       else
         Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
@@ -121,7 +129,7 @@ module Rulepack
     end
 
     def do_inject_append(install_path, content, install_type, platform_cfg, output, pkgname, ctx)
-      strategy = ctx.collision_strategy
+      strategy = ctx.collision_strategy || 'interactive'
       if install_type == 'append' || strategy == 'append'
         if content_already_present?(install_path, content)
           Rulepack::Common.log '    ↺ Already present (skipping duplicate append)'
@@ -144,7 +152,11 @@ module Rulepack
           if existing.start_with?(import_line)
             Rulepack::Common.log '    ↺ Already injected'
           else
-            case strategy
+            effective_strategy = strategy
+            if effective_strategy == 'interactive'
+              effective_strategy = Rulepack::Common.interactive_collision_prompt(install_path)
+            end
+            case effective_strategy
             when 'overwrite', 'append'
               backup_path = Rulepack::Common.backup_file(install_path)
               Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
@@ -154,7 +166,7 @@ module Rulepack
               Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
             else # stop
               Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
-              raise "Collision at #{install_path}"
+              raise Rulepack::StateError, "Collision at #{install_path}"
             end
           end
         else
@@ -178,7 +190,7 @@ module Rulepack
       new_data = begin
         JSON.parse(built_path.read)
       rescue StandardError => e
-        raise "Failed to parse built JSON for #{pkgname}: #{e.message}"
+        raise Rulepack::StateError, "Failed to parse built JSON for #{pkgname}: #{e.message}"
       end
 
       existing = if install_path.exist?
@@ -187,7 +199,7 @@ module Rulepack
                    begin
                      JSON.parse(install_path.read)
                    rescue StandardError => e
-                     raise "Failed to parse existing JSON at #{install_path}: #{e.message}"
+                      raise Rulepack::StateError, "Failed to parse existing JSON at #{install_path}: #{e.message}"
                    end
                  else
                    Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
@@ -206,7 +218,7 @@ module Rulepack
       new_data = begin
         YAML.safe_load(built_path.read, permitted_classes: [Symbol], symbolize_names: true) || {}
       rescue StandardError => e
-        raise "Failed to parse built YAML for #{pkgname}: #{e.message}"
+        raise Rulepack::StateError, "Failed to parse built YAML for #{pkgname}: #{e.message}"
       end
 
       existing = if install_path.exist?
@@ -215,7 +227,7 @@ module Rulepack
                    begin
                      YAML.safe_load(install_path.read, permitted_classes: [Symbol], symbolize_names: true) || {}
                    rescue StandardError => e
-                     raise "Failed to parse existing YAML at #{install_path}: #{e.message}"
+                      raise Rulepack::StateError, "Failed to parse existing YAML at #{install_path}: #{e.message}"
                    end
                  else
                    Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })

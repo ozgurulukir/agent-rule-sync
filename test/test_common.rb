@@ -201,27 +201,27 @@ class TestValidateOutputFilename < Minitest::Test
   end
 
   def test_rejects_path_traversal_parent_dir
-    assert_raises(RuntimeError) { Rulepack::Common.validate_output_filename('../etc/passwd', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('../etc/passwd', 'pkg') }
   end
 
   def test_rejects_absolute_path
-    assert_raises(RuntimeError) { Rulepack::Common.validate_output_filename('/etc/passwd', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('/etc/passwd', 'pkg') }
   end
 
   def test_rejects_directory_separator
-    assert_raises(RuntimeError) { Rulepack::Common.validate_output_filename('subdir/file.md', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('subdir/file.md', 'pkg') }
   end
 
   def test_rejects_empty_string
-    assert_raises(RuntimeError) { Rulepack::Common.validate_output_filename('', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('', 'pkg') }
   end
 
   def test_rejects_dotdot_only
-    assert_raises(RuntimeError) { Rulepack::Common.validate_output_filename('..', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('..', 'pkg') }
   end
 
   def test_rejects_double_slash
-    assert_raises(RuntimeError) { Rulepack::Common.validate_output_filename('a//b.md', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('a//b.md', 'pkg') }
   end
 end
 
@@ -241,15 +241,15 @@ class TestValidateTargetDir < Minitest::Test
   end
 
   def test_rejects_path_traversal_parent_dir
-    assert_raises(RuntimeError) { Rulepack::Common.validate_target_dir('../../../etc/', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_target_dir('../../../etc/', 'pkg') }
   end
 
   def test_rejects_absolute_path
-    assert_raises(RuntimeError) { Rulepack::Common.validate_target_dir('/absolute/path/', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_target_dir('/absolute/path/', 'pkg') }
   end
 
   def test_rejects_dotdot_only
-    assert_raises(RuntimeError) { Rulepack::Common.validate_target_dir('..', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_target_dir('..', 'pkg') }
   end
 end
 

@@ -25,7 +25,7 @@ if __FILE__ == $PROGRAM_NAME
     warn "  translator_spec: 'copy' | 'identity' | 'custom:<relative/path>'"
     warn '  input_file:  path (default: stdin)'
     warn '  output_file: path (default: stdout)'
-    exit 1
+    return 1
   end
 
   # Read input

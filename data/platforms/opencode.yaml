@@ -13,6 +13,10 @@ rules:
   link_style: markdown         # [text](url)
   emoji_policy: keep
   code_highlight: keep         # keep fenced code blocks as-is
+  file_name:
+    project: "AGENTS.md"       # project root
+    global: "~/.config/opencode/AGENTS.md"
+  note: "Primary: AGENTS.md/CLAUDE.md. Also supports ~/.config/opencode/rules/*.md via opencode.json instructions array"
 
 skills:
   format: single_file

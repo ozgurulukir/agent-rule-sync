@@ -23,7 +23,7 @@ skills:
     - "## Usage"
   bullet_style: dash
   code_block: fenced
-  note: "Skills go to .windsurf/skills/*/SKILL.md"
+  note: "Workspace: .windsurf/skills/*/SKILL.md, Global: ~/.codeium/windsurf/skills/*/SKILL.md"
 
 notes: |
   Windsurf reads .windsurf/rules/*.md and .windsurf/skills/*/SKILL.md.

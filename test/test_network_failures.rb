@@ -18,7 +18,7 @@ class TestNetworkFailureIntegration < Minitest::Test
     TCPServer.new('127.0.0.1', 0) do |srv|
       port = srv.addr[1]
       srv.close
-      error = assert_raises(RuntimeError) do
+      error = assert_raises(Rulepack::StateError, RuntimeError) do
         Rulepack::Common.cached_fetch_url("http://10.255.255.1:#{port}/test", nil)
       end
       assert_match(/Failed to fetch|timeout|refused|Network|not known/i, error.message)
@@ -26,13 +26,13 @@ class TestNetworkFailureIntegration < Minitest::Test
   end
 
   def test_fetch_url_with_invalid_hostname
-    assert_raises(RuntimeError, Socket::ResolutionError, Errno::ECONNREFUSED, 'Should raise on invalid hostname') do
+    assert_raises(Rulepack::StateError, Socket::ResolutionError, Errno::ECONNREFUSED, 'Should raise on invalid hostname') do
       Rulepack::Common.cached_fetch_url('http://this-hostname-definitely-does-not-exist-12345.invalid/test', nil)
     end
   end
 
   def test_fetch_url_with_malformed_url
-    assert_raises(URI::InvalidURIError, Errno::ECONNREFUSED, RuntimeError, 'Should raise on malformed URL') do
+    assert_raises(URI::InvalidURIError, Errno::ECONNREFUSED, Rulepack::StateError, 'Should raise on malformed URL') do
       Rulepack::Common.cached_fetch_url('not-a-valid-url', nil)
     end
   end
@@ -47,7 +47,7 @@ class TestNetworkFailureIntegration < Minitest::Test
         client.close
       end
 
-      error = assert_raises(RuntimeError) do
+      error = assert_raises(Rulepack::StateError) do
         Rulepack::Common.cached_fetch_url("http://127.0.0.1:#{port}/test", nil)
       end
       assert_match(/Failed to fetch.*404/i, error.message)
@@ -56,7 +56,7 @@ class TestNetworkFailureIntegration < Minitest::Test
   end
 
   def test_git_clone_with_invalid_url
-    assert_raises(RuntimeError, 'Should raise on invalid git URL') do
+    assert_raises(Rulepack::StateError, 'Should raise on invalid git URL') do
       Rulepack::Common.fetch_git_source(
         'https://invalid-git-url-that-does-not-exist.example.com/repo.git',
         'main',
@@ -73,7 +73,7 @@ class TestNetworkFailureIntegration < Minitest::Test
            out: File::NULL, err: File::NULL)
 
     dest = @test_root.join('git-dest').to_s
-    error = assert_raises(RuntimeError) do
+    error = assert_raises(Rulepack::StateError) do
       Rulepack::Common.fetch_git_source(
         "file://#{local_repo}",
         'nonexistent-branch-xyz-123',
@@ -109,7 +109,7 @@ class TestNetworkFailureIntegration < Minitest::Test
       port = srv.addr[1]
       srv.close
 
-      assert_raises(RuntimeError) do
+      assert_raises(Rulepack::StateError, RuntimeError) do
         Rulepack::Common.cached_fetch_url("http://127.0.0.1:#{port}/test", nil)
       end
     end

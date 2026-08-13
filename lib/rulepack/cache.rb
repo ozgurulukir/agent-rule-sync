@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'config'
+
 module Rulepack
   module Common
     module_function
@@ -9,9 +11,9 @@ module Rulepack
     # Build cache key from source entry
     def cache_key_for_source(source_entry, source_hash = nil)
       case source_entry[:type]
-      when 'url' then source_entry[:sha256] || source_hash || raise('No sha256 for URL source')
-      when 'git' then source_hash || raise('No commit hash for git source')
-      when 'local' then source_hash || raise('No source hash for local source')
+      when 'url' then source_entry[:sha256] || source_hash || raise(Rulepack::StateError, 'No sha256 for URL source')
+      when 'git' then source_hash || raise(Rulepack::StateError, 'No commit hash for git source')
+      when 'local' then source_hash || raise(Rulepack::StateError, 'No source hash for local source')
       end
     end
 
@@ -97,23 +99,24 @@ module Rulepack
         end
       when 'git_archive'
         extracted.mkpath
-        system('tar', '-xzf', Pathname.new(content_or_path).to_s, '-C', extracted.to_s)
+        success = system(*['tar', '-xzf', Pathname.new(content_or_path).to_s, '-C', extracted.to_s])
+        raise Rulepack::StateError, "tar extraction failed for #{content_or_path}" unless success
       end
       enforce_cache_limit!
     end
 
     def get_cached_source(key, output_filename = nil)
       extracted = cache_dir(key).join('extracted')
-      raise "Cache miss: #{key}" unless extracted.exist?
+      raise Rulepack::StateError, "Cache miss: #{key}" unless extracted.exist?
 
       if output_filename
         file = extracted.join(output_filename)
-        raise "Cached file not found: #{output_filename}" unless file.exist?
+        raise Rulepack::StateError, "Cached file not found: #{output_filename}" unless file.exist?
 
         file.read
       else
         files = extracted.children.select(&:file?)
-        raise "No files in cache: #{key}" if files.empty?
+        raise Rulepack::StateError, "No files in cache: #{key}" if files.empty?
 
         files.first.read
       end
@@ -135,7 +138,7 @@ module Rulepack
       actual_sha256 = Digest::SHA256.hexdigest(content)
 
       if expected_sha256 && actual_sha256 != expected_sha256
-        raise "SHA256 mismatch for #{url}: " \
+        raise Rulepack::StateError, "SHA256 mismatch for #{url}: " \
               "expected #{expected_sha256}, got #{actual_sha256}. " \
               "Update the sha256 field in your PKGBUILD to: #{actual_sha256}"
       end
@@ -154,10 +157,10 @@ module Rulepack
         commit_hash = fetch_git_source(url, ref, tmp, depth: depth)
         repo_base = Pathname.new(tmp).realpath
         source_in_repo = repo_base.join(git_path).cleanpath
-        raise "Path not found in git repo: #{git_path}" unless source_in_repo.exist?
+        raise Rulepack::StateError, "Path not found in git repo: #{git_path}" unless source_in_repo.exist?
         resolved_source = source_in_repo.realpath
         unless resolved_source.to_s.start_with?(repo_base.to_s + File::SEPARATOR) || resolved_source == repo_base
-          raise "Path traversal in git source path: #{git_path} escapes repository"
+          raise Rulepack::SecurityError, "Path traversal in git source path: #{git_path} escapes repository"
         end
 
         content = source_in_repo.read
@@ -179,10 +182,10 @@ module Rulepack
         commit_hash = fetch_git_source(url, ref, tmp, depth: depth)
         repo_base = Pathname.new(tmp).realpath
         source_in_repo = repo_base.join(git_path).cleanpath
-        raise "Path not found in git repo: #{git_path}" unless source_in_repo.exist?
+        raise Rulepack::StateError, "Path not found in git repo: #{git_path}" unless source_in_repo.exist?
         resolved_source = source_in_repo.realpath
         unless resolved_source.to_s.start_with?(repo_base.to_s + File::SEPARATOR) || resolved_source == repo_base
-          raise "Path traversal in git source path: #{git_path} escapes repository"
+          raise Rulepack::SecurityError, "Path traversal in git source path: #{git_path} escapes repository"
         end
 
         path_hash = Digest::SHA256.hexdigest(git_path.to_s)[0..7]
@@ -212,7 +215,7 @@ module Rulepack
       when 'local'
         read_source(src_cfg)
       else
-        raise "Unsupported source type for caching: #{src_cfg[:type]}"
+        raise Rulepack::ConfigError, "Unsupported source type for caching: #{src_cfg[:type]}"
       end
     end
   end

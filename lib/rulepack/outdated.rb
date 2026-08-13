@@ -48,7 +48,14 @@ module Rulepack
           record = installed_records.find { |r| r[:platform].to_s == platform_id.to_s }
           if record
             installed_ver = record[:version]
-            if installed_ver != build_ver
+            # Use full version comparison (epoch + pkgver + pkgrel) so that
+            # pkgrel bumps are also detected as outdated.
+            cmp = Rulepack::Common.compare_versions(
+              build_ver, installed_ver,
+              epoch1: pkgdata[:epoch] || 0, epoch2: record[:epoch] || 0,
+              pkgrel1: pkgdata[:pkgrel] || 1, pkgrel2: record[:pkgrel] || 1
+            )
+            if cmp.positive?
               outdated << {
                 pkgname: pkgname.to_s,
                 platform: platform_id.to_s,
@@ -120,7 +127,7 @@ module Rulepack
 end
 
 # CLI runner block
-if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI) || caller.any? { |c| c.include?('capture_script_run') }
+if __FILE__ == $PROGRAM_NAME
   begin
     opts = Rulepack::CliParser.parse(ARGV)
     result = Rulepack::Outdated.run(opts)
@@ -132,13 +139,15 @@ if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI) || caller.any? { |c| c.i
       else
         Rulepack::Reporter.print(result, format: opts[:format])
       end
-      exit 1
+      exit_code = 1
+    else
+      Rulepack::Reporter.print(result, format: opts[:format] || :text)
+      exit_code = result.partial? ? 1 : 0
     end
-
-    Rulepack::Reporter.print(result, format: opts[:format] || :text)
-    exit(result.partial? ? 1 : 0)
   rescue StandardError => e
     $stderr.puts "❌ Error: #{e.message}"
-    exit 1
+    exit_code = 1
   end
+  $rulepack_exit_code = exit_code
+  exit exit_code if __FILE__ == $PROGRAM_NAME
 end

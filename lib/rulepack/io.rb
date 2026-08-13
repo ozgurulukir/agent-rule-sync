@@ -66,7 +66,7 @@ module Rulepack
       path = Pathname.new(path)
       path.dirname.mkpath
 
-      File.open(path.to_s, 'a') { |f| f.write(content) }
+      File.open(path.to_s, File::WRONLY | File::CREAT | File::APPEND, 0600) { |f| f.write(content) }
     end
 
     # Update content wrapped in markers (idempotent)
@@ -87,7 +87,13 @@ module Rulepack
           :updated
         else
           # Append new block (with separation if file not empty)
-          sep = existing.empty? || existing.end_with?("\n\n") ? '' : (existing.end_with?("\n") ? "\n" : "\n\n")
+          sep = if existing.empty? || existing.end_with?("\n\n")
+                  ''
+                elsif existing.end_with?("\n")
+                  "\n"
+                else
+                  "\n\n"
+                end
           safe_append(path, sep + new_block)
           :appended
         end

@@ -18,13 +18,13 @@ class TestProcessorLoader < Minitest::Test
   end
 
   def test_load_custom_rejects_missing_file
-    assert_raises(RuntimeError) do
+    assert_raises(Rulepack::ConfigError) do
       Rulepack::ProcessorLoader.load_custom('custom:data/translators/nonexistent.rb', kind: :translator)
     end
   end
 
   def test_load_custom_rejects_path_outside_repo
-    assert_raises(RuntimeError) do
+    assert_raises(Rulepack::SecurityError) do
       Rulepack::ProcessorLoader.load_custom('custom:/etc/passwd', kind: :translator)
     end
   end

@@ -412,4 +412,4 @@ module Rulepack
 end
 
 # Run as script
-exit Rulepack::Query.run(ARGV) if __FILE__ == $PROGRAM_NAME
+Rulepack::Query.run(ARGV) if __FILE__ == $PROGRAM_NAME

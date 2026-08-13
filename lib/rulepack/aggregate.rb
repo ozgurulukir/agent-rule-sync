@@ -20,7 +20,7 @@ module Rulepack
 
       unless Rulepack::Common::BUILD_INDEX_PATH.exist?
         msg = "Build index not found: #{Rulepack::Common::BUILD_INDEX_PATH}. Run build first."
-        raise msg
+        raise Rulepack::BuildIndexNotFound, msg
       end
 
       # Load build index (package metadata) with symbol keys
@@ -28,7 +28,7 @@ module Rulepack
       platforms = Rulepack::Common.load_platform_registry
 
       # Identify skill-based agents
-      skill_agents = platforms.select { |_id, cfg| cfg[:type] == :skill || cfg[:type] == 'skill' }.keys
+      skill_agents = platforms.select { |_id, cfg| cfg[:type] == 'skill' }.keys
 
       if target_filter
         skill_agents = skill_agents.select { |agent_id| agent_id.to_s == target_filter.to_s }
@@ -147,12 +147,15 @@ module Rulepack
 end
 
 # CLI runner block
-if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI) || caller.any? { |c| c.include?('capture_script_run') }
+if __FILE__ == $PROGRAM_NAME
   begin
     opts = Rulepack::CliParser.parse(ARGV)
     Rulepack::Aggregate.run(opts)
+    exit_code = 0
   rescue StandardError => e
     $stderr.puts "❌ Error: #{e.message}"
-    exit 1
+    exit_code = 1
   end
+  $rulepack_exit_code = exit_code
+  exit exit_code if __FILE__ == $PROGRAM_NAME
 end

@@ -22,7 +22,7 @@ class TestCacheKeyForSource < Minitest::Test
 
   def test_url_raises_without_sha256
     source = { type: 'url', url: 'https://example.com/test' }
-    assert_raises(RuntimeError, /No sha256/) { Rulepack::Common.cache_key_for_source(source) }
+    assert_raises(Rulepack::StateError, /No sha256/) { Rulepack::Common.cache_key_for_source(source) }
   end
 
   def test_git_uses_commit_hash
@@ -33,7 +33,7 @@ class TestCacheKeyForSource < Minitest::Test
 
   def test_git_raises_without_commit_hash
     source = { type: 'git', url: 'https://github.com/owner/repo.git' }
-    assert_raises(RuntimeError, /No commit hash/) { Rulepack::Common.cache_key_for_source(source) }
+    assert_raises(Rulepack::StateError, /No commit hash/) { Rulepack::Common.cache_key_for_source(source) }
   end
 
   def test_local_uses_source_hash
@@ -44,7 +44,7 @@ class TestCacheKeyForSource < Minitest::Test
 
   def test_local_raises_without_hash
     source = { type: 'local', path: 'src/file.md' }
-    assert_raises(RuntimeError, /No source hash/) { Rulepack::Common.cache_key_for_source(source) }
+    assert_raises(Rulepack::StateError, /No source hash/) { Rulepack::Common.cache_key_for_source(source) }
   end
 
   def test_unknown_type_returns_nil
@@ -159,13 +159,13 @@ class TestGetCachedSource < Minitest::Test
   end
 
   def test_get_cached_source_raises_on_missing_file
-    assert_raises(RuntimeError, /Cached file not found/) do
+    assert_raises(Rulepack::StateError, /Cached file not found/) do
       Rulepack::Common.get_cached_source(@test_key, 'nonexistent.txt')
     end
   end
 
   def test_get_cached_source_raises_on_cache_miss
-    assert_raises(RuntimeError, /Cache miss/) { Rulepack::Common.get_cached_source('nonexistent-key') }
+    assert_raises(Rulepack::StateError, /Cache miss/) { Rulepack::Common.get_cached_source('nonexistent-key') }
   end
 end
 
@@ -226,14 +226,11 @@ class TestEnforceCacheLimit < Minitest::Test
     _write_cache_entry(@old_dir, 700_000)
     _write_cache_entry(@new_dir, 700_000)
 
-    # Temporarily set limit to 1 MB
+    # Temporarily set limit to 1 MB (cache_max_size_mb reads ENV on every call)
     orig = ENV['RULEPACK_CACHE_MAX_MB']
     ENV['RULEPACK_CACHE_MAX_MB'] = '1'
-    Rulepack::Config.send(:remove_method, :cache_max_size_mb) if Rulepack::Config.method_defined?(:cache_max_size_mb)
     Rulepack::Common.enforce_cache_limit!
     ENV['RULEPACK_CACHE_MAX_MB'] = orig if orig
-    # Reload config to pick up original value
-    load File.join(__dir__, '..', 'lib', 'rulepack', 'config.rb')
 
     # oldest entry should have been evicted
     refute @old_dir.exist?, 'oldest cache entry should have been evicted'
@@ -244,10 +241,8 @@ class TestEnforceCacheLimit < Minitest::Test
 
     orig = ENV['RULEPACK_CACHE_MAX_MB']
     ENV['RULEPACK_CACHE_MAX_MB'] = '10'
-    load File.join(__dir__, '..', 'lib', 'rulepack', 'config.rb')
     Rulepack::Common.enforce_cache_limit!
     ENV['RULEPACK_CACHE_MAX_MB'] = orig if orig
-    load File.join(__dir__, '..', 'lib', 'rulepack', 'config.rb')
 
     assert @new_dir.exist?, 'small cache entry should not be evicted'
   end
@@ -257,10 +252,8 @@ class TestEnforceCacheLimit < Minitest::Test
 
     orig = ENV['RULEPACK_CACHE_MAX_MB']
     ENV['RULEPACK_CACHE_MAX_MB'] = '0'
-    load File.join(__dir__, '..', 'lib', 'rulepack', 'config.rb')
     Rulepack::Common.enforce_cache_limit!
     ENV['RULEPACK_CACHE_MAX_MB'] = orig if orig
-    load File.join(__dir__, '..', 'lib', 'rulepack', 'config.rb')
 
     assert @new_dir.exist?, 'cache entry should not be evicted when limit is 0 (disabled)'
   end
@@ -268,7 +261,9 @@ end
 
 class TestCachedFetchUrlErrors < Minitest::Test
   def test_raises_on_sha256_mismatch
-    error = assert_raises(RuntimeError) do
+    skip 'NETWORK_E2E not set' unless ENV['NETWORK_E2E']
+
+    error = assert_raises(Rulepack::StateError) do
       # Base64-encoded "HTTPBIN is awesome" — wrong hash triggers mismatch
       Rulepack::Common.cached_fetch_url('https://httpbin.org/base64/SFRUUEJJTiBpcyBhd2Vzb21l', 'wrong' * 22)
     end

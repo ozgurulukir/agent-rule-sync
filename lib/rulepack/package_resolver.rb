@@ -66,7 +66,10 @@ module Rulepack
         by_name[name] ||= path
       end
 
-      by_name.sort_by { |name, _path| name }.map { |_name, path| path }
+      # ⚡ Bolt: Optimize package sorting
+      # Sorting keys directly and mapping avoids intermediate object allocations
+      # created by Hash#sort_by (which creates arrays of KV pairs), improving resolution performance.
+      by_name.keys.sort.map { |k| by_name[k] }
     end
 
     # Yield [path, namespace] for every discoverable PKGBUILD.

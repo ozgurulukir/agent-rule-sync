@@ -51,7 +51,7 @@ class TestBuildPipeline < Minitest::Test
     )
 
     # Cannot jump to transform before translate and schema_engine
-    assert_raises(RuntimeError) do
+    assert_raises(Rulepack::StateError) do
       pipeline.advance(:transform) do
         # Should not get here
       end
@@ -67,7 +67,7 @@ class TestBuildPipeline < Minitest::Test
       format_profile: {}
     )
 
-    assert_raises(RuntimeError) do
+    assert_raises(Rulepack::StateError) do
       pipeline.advance(:nonexistent_stage) do
         # Should not get here
       end
@@ -134,5 +134,29 @@ class TestBuildPipeline < Minitest::Test
     refute_match(/🚀✨🔥/, processed_content)
     # Stages should have advanced sequentially
     assert_equal %i[fetch translate schema_engine transform], pipeline.stage_log
+  end
+
+  def test_schema_profile_union_caching
+    pkg = { pkgname: 'union-test', pkg_type: 'rule', pkgver: '1.0.0', pkgrel: 1, epoch: 0 }
+    pkg_index = { source_sha256: 'dummy_hash', available_targets: [], checksums: { built: {} } }
+    platforms = {
+      'opencode' => { type: 'directory', format_profile: { rules: { frontmatter: 'strip' } } },
+      'cursor' => { type: 'directory', format_profile: { rules: { frontmatter: 'strip' } } }
+    }
+    targets = [
+      { platform: 'opencode', format: 'directory', output: 'rule.md' },
+      { platform: 'cursor', format: 'directory', output: 'rule.md' }
+    ]
+    pkg[:targets] = targets
+    transform_cache = {}
+
+    res1 = Rulepack::BuildPerPkg.build_single_file_target(pkg, 'union-test', pkg_index, targets[0], platforms, "# Rule", nil, 'copy', transform_cache)
+    assert res1
+    assert_equal 1, transform_cache.size
+
+    # Second build for equivalent platform should hit cache
+    res2 = Rulepack::BuildPerPkg.build_single_file_target(pkg, 'union-test', pkg_index, targets[1], platforms, "# Rule", nil, 'copy', transform_cache)
+    assert res2
+    assert_equal 1, transform_cache.size
   end
 end

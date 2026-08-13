@@ -3,8 +3,9 @@
 # NOT enforced by build system — informational for translator authoring.
 
 rules:
-  format: none                  # Crush has no separate rules — all content is skill
-  note: "Rules are embedded inside the single skill file"
+  format: file
+  file_name: "CRUSH.md"
+  note: "Rules go to ~/.config/crush/CRUSH.md (Crush-specific) or ~/.config/AGENTS.md (shared)"
 
 skills:
   format: single_file

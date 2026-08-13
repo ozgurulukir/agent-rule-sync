@@ -1,7 +1,7 @@
 # Improvement Plan — Post Phase 7
 
 **Goal**: Address structural debt identified during architecture review (2026-05-25).
-All items verified against the current HEAD (`37bd68b` — test baseline: 287 runs, 929 assertions, 0 failures, 0 errors, 6 skips).
+All items verified against the current HEAD (`bac38a9` — test baseline: 390 runs, 1191 assertions, 0 failures, 0 errors, 2 skips).
 
 ---
 
@@ -1661,6 +1661,7 @@ end
 | P-AN | 🟠 MEDIUM | Structured inject handler for config files | OPEN |
 | P-AO | 🟡 MEDIUM | Hybrid pkg_type support in FORMAT_MAP | OPEN |
 | P-AP | 🟡 MEDIUM | Platform format_profile validation on load | OPEN |
+| ADR-2026-07-29 | 🟠 HIGH | Source-centric build: lazy install-time skill-bundle materialization (build/ 1.3 GB → 46 MB, −96.5%) | ✅ PHASE 1 COMPLETED / PHASE 2 DEFERRED (YAGNI) |
 
 ---
 

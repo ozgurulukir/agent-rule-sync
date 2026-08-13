@@ -35,8 +35,8 @@ module Rulepack
       pkgrel1 <=> pkgrel2
     end
 
-    # VerCmp implementation: split into alphanumeric segments
-    # "1.2.3a" → [1, 2, "3a"]
+    # VerCmp implementation: split into segments (digits, letters, separators)
+    # "1.2.3a" → [1, ".", 2, ".", 3, "a"]  (separators preserved, "3a" split)
     # Returns -1, 0, 1
     def vercmp(a, b)
       # Split on non-alphanumeric boundaries, keep runs of digits vs letters

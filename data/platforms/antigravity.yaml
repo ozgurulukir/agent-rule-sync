@@ -4,7 +4,8 @@
 
 rules:
   format: file
-  note: "Rules go to GEMINI.md"
+  file_name: "GEMINI.md"
+  note: "Rules go to GEMINI.md (global ~/.gemini/GEMINI.md or workspace .gemini/GEMINI.md)"
 
 skills:
   format: directory_or_bundle  # single SKILL.md or skill-bundle directory
@@ -17,7 +18,7 @@ skills:
     - "## Usage"
   bullet_style: dash
   code_block: fenced
-  note: "Skills go to .agent/skills/*/"
+  note: "Workspace: .agents/skills/*/SKILL.md, Global: ~/.gemini/config/skills/*/SKILL.md"
 
 notes: |
   Antigravity reads .agent/skills/*/SKILL.md for skills,

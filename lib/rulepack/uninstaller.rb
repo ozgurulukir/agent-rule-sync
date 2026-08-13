@@ -68,8 +68,8 @@ module Rulepack
       unless dry_run || options[:force] || ENV['RULEPACK_TEST'] || !$stdin.isatty || !$stdout.isatty
         pkg_msg = target_package ? " '#{target_package}' from" : ""
         print "\n\e[33m?\e[0m Are you sure you want to uninstall#{pkg_msg} #{targets_to_uninstall.join(', ')}? [y/N] "
-        response = $stdin.gets&.chomp&.downcase
-        unless response == 'y' || response == 'yes'
+        input = $stdin.gets
+        if input.nil? || !(input.chomp.downcase == 'y' || input.chomp.downcase == 'yes')
           return Rulepack::Result.new(
             status: :success,
             data: { uninstalled: [], targets: [] },
@@ -143,8 +143,8 @@ module Rulepack
 
       targets.each do |p|
         cfg = registry[p.to_sym] || registry[p.to_s]
-        raise "Unknown target platform '#{p}'." unless cfg
-        raise "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>." if cfg[:scope] == 'project' && !project_arg
+        raise Rulepack::UnknownPlatform, "Unknown target platform '#{p}'." unless cfg
+        raise Rulepack::ConfigError, "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>." if cfg[:scope] == 'project' && !project_arg
       end
       targets
     end
@@ -308,9 +308,9 @@ module Rulepack
         skills_dir = platform_cfg[:skills_dir]
         unless skills_dir
           return if %w[skill import].include?(platform_cfg[:type].to_s)
-          raise "Platform #{platform_cfg[:display_name] || platform_cfg} has no skills_dir for skill-bundle"
+          raise Rulepack::ConfigError, "Platform #{platform_cfg[:display_name] || platform_cfg} has no skills_dir for skill-bundle"
         end
-        target_dir = install_cfg[:target_dir] || raise("Missing target_dir: #{pkgname}")
+        target_dir = install_cfg[:target_dir] || raise(Rulepack::ConfigError, "Missing target_dir: #{pkgname}")
         dest_dir = base_path.join(skills_dir).join(target_dir)
         remove_path(dest_dir, pkgname, ctx)
       else

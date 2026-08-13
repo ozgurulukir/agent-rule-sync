@@ -17,8 +17,9 @@ skills:
   content_type: markdown
   injection_method: "append"
   frontmatter: strip
+  note: "Skills are appended to copilot-instructions.md or installed as plugins"
 
 notes: |
   GitHub Copilot uses .github/copilot-instructions.md in the project root.
   SSoT appends skill/rule content to this file.
-  Project-scoped.
+  Project-scoped. Global instructions can be set in IDE settings.

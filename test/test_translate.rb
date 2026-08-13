@@ -37,7 +37,7 @@ class TestTranslateRuleToSkill < Minitest::Test
   end
 
   def test_custom_translator_missing_file
-    assert_raises(RuntimeError) do
+    assert_raises(Rulepack::ConfigError) do
       run_translator('custom:data/translators/nonexistent.rb', "test")
     end
   end

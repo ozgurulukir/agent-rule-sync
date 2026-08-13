@@ -65,8 +65,7 @@ module Rulepack
         orphans_removed.concat(pf[:orphans_removed] || [])
       end
 
-      status = failed.empty? ? (fixed.empty? && orphans_removed.empty? ? :success : :success) : :partial
-      status = :success if fixed.empty? && orphans_removed.empty? && failed.empty?
+      status = failed.empty? ? :success : :partial
 
       messages = []
       if fixed.any? || orphans_removed.any?
@@ -104,7 +103,15 @@ module Rulepack
       result = run_verify(platform_id, package_arg, project_arg)
       data = result.data || {}
       has_drift = data[:drift].to_i > 0
-      orphans = data[:orphans] || []
+      # Verify.check returns orphans as an integer count at the top level with
+      # the per-platform array inside data[:platforms].  Stubbed results (tests)
+      # may pass orphans as a direct array.  Handle both shapes.
+      orphans = if data[:orphans].is_a?(Array)
+                  data[:orphans]
+                else
+                  platform_data = (data[:platforms] || []).first || {}
+                  platform_data[:orphans] || []
+                end
 
       unless has_drift || orphans.any?
         puts '  ✓ No drift detected.'
@@ -151,6 +158,11 @@ module Rulepack
         puts "  Cleared index record for #{pkgname}"
       end
 
+      # Write cleared index to disk BEFORE reinstall so Install.run sees no
+      # existing record and performs a fresh install (instead of skipping
+      # same-version packages as "already installed").
+      Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
+
       puts "  Reinstalling #{broken.size} package(s) on #{platform_id}..."
 
       fixed = []
@@ -173,6 +185,9 @@ module Rulepack
       end
 
       if failed.empty?
+        # Reload index from disk to pick up records written by Install.run,
+        # avoiding overwrite with stale in-memory state.
+        index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
         index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
         Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
         puts '  ✓ Reinstall complete'
@@ -200,8 +215,8 @@ module Rulepack
         false
       else
         print "\n  \e[33m?\e[0m Remove #{orphans.size} orphan(s)? [y/N] "
-        response = $stdin.gets&.chomp&.downcase
-        response == 'y' || response == 'yes'
+        input = $stdin.gets
+        !input.nil? && (input.chomp.downcase == 'y' || input.chomp.downcase == 'yes')
       end
 
       if should_remove
@@ -280,7 +295,7 @@ module Rulepack
 end
 
 # CLI runner block
-if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI) || caller.any? { |c| c.include?('capture_script_run') }
+if __FILE__ == $PROGRAM_NAME
   begin
     opts = Rulepack::CliParser.parse(ARGV)
     result = Rulepack::Fix.run(opts)
@@ -292,13 +307,15 @@ if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI) || caller.any? { |c| c.i
       else
         Rulepack::Reporter.print(result, format: opts[:format])
       end
-      exit 1
+      exit_code = 1
+    else
+      Rulepack::Reporter.print(result, format: opts[:format] || :text)
+      exit_code = 0
     end
-
-    Rulepack::Reporter.print(result, format: opts[:format] || :text)
-    exit 0
   rescue StandardError => e
     $stderr.puts "❌ Error: #{e.message}"
-    exit 1
+    exit_code = 1
   end
+  $rulepack_exit_code = exit_code
+  exit exit_code if __FILE__ == $PROGRAM_NAME
 end

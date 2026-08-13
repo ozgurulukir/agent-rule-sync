@@ -358,7 +358,7 @@ class TestCacheIntegration < Minitest::Test
 
   def test_cache_key_for_url_raises_without_sha256
     source = { type: 'url', url: 'https://example.com/test' }
-    assert_raises(RuntimeError) { Rulepack::Common.cache_key_for_source(source) }
+    assert_raises(Rulepack::StateError) { Rulepack::Common.cache_key_for_source(source) }
   end
 
   def test_cache_key_for_git_is_commit_hash
@@ -369,7 +369,7 @@ class TestCacheIntegration < Minitest::Test
 
   def test_cache_key_for_git_raises_without_commit_hash
     source = { type: 'git', url: 'https://github.com/owner/repo.git' }
-    assert_raises(RuntimeError) { Rulepack::Common.cache_key_for_source(source) }
+    assert_raises(Rulepack::StateError) { Rulepack::Common.cache_key_for_source(source) }
   end
 
   def test_cache_dir_format

@@ -83,7 +83,7 @@ module Rulepack
     }.freeze
 
     def resolve_format(pkg_type, platform_type)
-      FORMAT_MAP[[pkg_type, platform_type]] || raise("Unknown format for pkg_type=#{pkg_type}, platform_type=#{platform_type}")
+      FORMAT_MAP[[pkg_type, platform_type]] || raise(Rulepack::ConfigError, "Unknown format for pkg_type=#{pkg_type}, platform_type=#{platform_type}")
     end
 
     def resolve_default_install(platform_cfg, format_type, pkg_type, pkgname)
@@ -133,6 +133,7 @@ module Rulepack
       source_basename = File.basename(source_path)
       source_is_dir = source_path.end_with?('/')
 
+      has_explicit_targets = pkg[:targets] && !pkg[:targets].empty?
       existing = {}
       (pkg[:targets] || []).each do |t|
         existing[t[:platform].to_s] = t

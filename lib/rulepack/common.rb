@@ -8,6 +8,7 @@ require 'digest'
 require 'json'
 
 module Rulepack
+  require_relative 'errors'
   require_relative 'config'
   require_relative 'logging'
   require_relative 'io'

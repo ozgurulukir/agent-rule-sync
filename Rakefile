@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# encoding: utf-8
+
 # Rakefile for Rulepack test suite
 # Usage: rake test, rake test_unit, rake test_integration, rake test_cache, rake test_pkgbuild, rake test_platform, rake test_uninstall
 
@@ -97,25 +99,43 @@ Rake::TestTask.new(:test_e2e) do |t|
   t.warning = false
 end
 
-desc 'Print test summary'
+desc 'Print test summary (dynamic counts)'
 task :summary do
-  puts "\n📊 Test Suite — 331 tests, 1017 assertions"
-  puts "  test_common.rb               — 48 unit tests"
-  puts "  test_integration.rb          — 29 integration tests"
-  puts "  test_cache.rb                — 24 unit tests"
-  puts "  test_pkgbuild_validation.rb  — 31 unit tests"
-  puts "  test_platform.rb             — 33 unit tests"
-  puts "  test_uninstall.rb            —  7 unit tests"
-  puts "  test_query.rb                — 16 unit tests"
-  puts "  test_translate.rb            —  4 unit tests"
-  puts "  test_aggregate.rb            —  4 unit tests"
-  puts "  test_end_to_end.rb           — 14 end-to-end tests"
-  puts "  test_result.rb               —  5 unit tests"
-  puts "  test_reporter.rb             —  4 unit tests"
-  puts "  test_query_installed.rb      —  3 unit tests"
-  puts "  test_verify_check.rb         —  2 unit tests"
-  puts "  test_fix.rb                  — 16 unit tests"
-  puts "  test_outdated.rb             —  7 unit tests"
+  test_files = FileList['test/**/*_test.rb', 'test/**/test_*.rb']
+  total_runs = 0
+  total_assertions = 0
+  file_counts = {}
+
+  test_files.each do |file|
+    content = File.read(file, encoding: 'UTF-8')
+    test_count = content.scan(/def test_/).size
+    assert_count = content.scan(/\bassert(?:_\w+)?\b/).size
+    file_counts[file] = { tests: test_count, assertions: assert_count }
+    total_runs += test_count
+    total_assertions += assert_count
+  end
+
+  puts "\n📊 Test Suite — #{total_runs} tests, #{total_assertions} assertions (dynamic)"
+  file_counts.sort_by { |f, _| f }.each do |file, counts|
+    name = File.basename(file)
+    puts "  #{name.ljust(35)} — #{counts[:tests]} tests, #{counts[:assertions]} assertions"
+  end
   puts ""
   puts "Run: rake test"
+end
+
+desc 'Check that docs are up to date with disk state'
+task :'docs:check' do
+  test_files = FileList['test/**/*_test.rb', 'test/**/test_*.rb']
+  total_runs = 0
+  total_assertions = 0
+
+  test_files.each do |file|
+    content = File.read(file, encoding: 'UTF-8')
+    total_runs += content.scan(/def test_/).size
+    total_assertions += content.scan(/\bassert(?:_\w+)?\b/).size
+  end
+
+  puts "✓ Dynamic test count: #{total_runs} tests, #{total_assertions} assertions"
+  puts "  (AGENTS.md hardcoded counts may be stale — run `rake summary` for authoritative numbers)"
 end

@@ -4,6 +4,13 @@ require_relative 'helper'
 require 'stringio'
 require 'json'
 require 'fileutils'
+require 'rulepack/models/package'
+require 'rulepack/models/platform'
+require 'rulepack/models/target'
+require 'rulepack/installer'
+require 'rulepack/uninstaller'
+require 'rulepack/verify'
+require 'rulepack/fix'
 
 class TestCliSyntax < Minitest::Test
    def setup
@@ -43,25 +50,43 @@ class TestCliSyntax < Minitest::Test
      end
    end
 
-  # Helper to capture exit code and standard out/err of a load command
+  # Helper to capture exit code and standard out/err of a backend command.
+  # Calls the backend module directly (no script loading, no $rulepack_exit_code).
   def capture_script_run(script_name, new_argv)
     ARGV.replace(new_argv)
-    
-    script_path = File.expand_path("../../lib/rulepack/#{script_name}.rb", __FILE__)
-    
+
     out_io = StringIO.new
     err_io = StringIO.new
-    
-    # Temporarily redirect stdout and stderr
+
     old_stdout = $stdout
     old_stderr = $stderr
     $stdout = out_io
     $stderr = err_io
-    
+
     exit_code = 0
     begin
-      # Use load instead of require so it executes every time
-      load script_path
+      opts = Rulepack::CliParser.parse(new_argv)
+
+      result = case script_name
+               when 'install'
+                 Rulepack::Install.dispatch(opts)
+               when 'uninstall'
+                 Rulepack::Uninstaller.dispatch(opts)
+               when 'verify'
+                 Rulepack::Verify.run(opts.merge(exit_on_failure: false))
+               when 'fix'
+                 Rulepack::Fix.run(opts)
+               else
+                 raise "Unknown script: #{script_name}"
+               end
+
+      exit_code = result.failure? ? 1 : 0
+
+      # Render errors to stderr for text format (matching old runner block behavior)
+      if result.failure? && (opts[:format] || :text).to_sym == :text
+        result.messages.each { |m| err_io.puts(m) }
+        result.errors.each { |e| err_io.puts("Error: #{e}") }
+      end
     rescue SystemExit => e
       exit_code = e.status
     rescue StandardError => e
@@ -71,7 +96,7 @@ class TestCliSyntax < Minitest::Test
       $stdout = old_stdout
       $stderr = old_stderr
     end
-    
+
     {
       exit_code: exit_code,
       stdout: out_io.string,
@@ -199,7 +224,8 @@ class TestCliSyntax < Minitest::Test
 
     exit_code = 0
     begin
-      exit_code = Rulepack::Audit.run(argv)
+      result = Rulepack::Audit.run(argv)
+      exit_code = result.is_a?(Rulepack::Result) ? (result.failure? ? 1 : 0) : 0
     rescue SystemExit => e
       exit_code = e.status
     rescue StandardError => e

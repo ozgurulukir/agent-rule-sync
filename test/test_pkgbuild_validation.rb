@@ -44,7 +44,7 @@ class TestLoadPkgbuild < Minitest::Test
   end
 
   def test_raises_when_pkgbuild_missing
-    assert_raises(RuntimeError, /PKGBUILD not found/) do
+    assert_raises(Rulepack::PkgbuildNotFound, /PKGBUILD not found/) do
       Rulepack::Common.load_pkgbuild(@pkgdir)
     end
   end
@@ -59,7 +59,7 @@ class TestLoadPkgbuild < Minitest::Test
       targets: []
     YAML
 
-    assert_raises(RuntimeError, /missing required field.*pkgname/) do
+    assert_raises(Rulepack::InvalidPkgbuild, /missing required field.*pkgname/) do
       Rulepack::Common.load_pkgbuild(@pkgdir)
     end
   end
@@ -74,7 +74,7 @@ class TestLoadPkgbuild < Minitest::Test
       targets: []
     YAML
 
-    assert_raises(RuntimeError, /missing required field.*pkgver/) do
+    assert_raises(Rulepack::InvalidPkgbuild, /missing required field.*pkgver/) do
       Rulepack::Common.load_pkgbuild(@pkgdir)
     end
   end
@@ -87,7 +87,7 @@ class TestLoadPkgbuild < Minitest::Test
       targets: []
     YAML
 
-    assert_raises(RuntimeError, /missing required field.*source/) do
+    assert_raises(Rulepack::InvalidPkgbuild, /missing required field.*source/) do
       Rulepack::Common.load_pkgbuild(@pkgdir)
     end
   end
@@ -115,7 +115,7 @@ class TestLoadPkgbuild < Minitest::Test
       targets: []
     YAML
 
-    assert_raises(RuntimeError, /at least one source/) do
+    assert_raises(Rulepack::InvalidPkgbuild, /at least one source/) do
       Rulepack::Common.load_pkgbuild(@pkgdir)
     end
   end
@@ -131,7 +131,7 @@ class TestLoadPkgbuild < Minitest::Test
       targets: []
     YAML
 
-    assert_raises(RuntimeError, /at least one target/) do
+    assert_raises(Rulepack::InvalidPkgbuild, /at least one target/) do
       Rulepack::Common.load_pkgbuild(@pkgdir)
     end
   end
@@ -150,7 +150,7 @@ class TestLoadPkgbuild < Minitest::Test
           output: file.md
     YAML
 
-    assert_raises(RuntimeError, /Invalid format/) do
+    assert_raises(Rulepack::InvalidPkgbuild, /Invalid format/) do
       Rulepack::Common.load_pkgbuild(@pkgdir)
     end
   end
@@ -173,7 +173,7 @@ class TestLoadPkgbuild < Minitest::Test
             target_dir: bundle/
     YAML
 
-    assert_raises(RuntimeError, /skill-bundle output must be '.'/) do
+    assert_raises(Rulepack::InvalidPkgbuild, /skill-bundle output must be '.'/) do
       Rulepack::Common.load_pkgbuild(@pkgdir)
     end
   end
@@ -193,7 +193,7 @@ class TestLoadPkgbuild < Minitest::Test
           transformer: copy
     YAML
 
-    assert_raises(RuntimeError, /skill-bundle requires install.target_dir/) do
+    assert_raises(Rulepack::InvalidPkgbuild, /skill-bundle requires install.target_dir/) do
       Rulepack::Common.load_pkgbuild(@pkgdir)
     end
   end

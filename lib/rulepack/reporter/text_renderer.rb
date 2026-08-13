@@ -25,7 +25,9 @@ module Rulepack
           render_platform_items(data, out: out)
         elsif data.key?(:packages)
           render_packages(data, out: out)
-        elsif data.key?(:platforms) && data[:platforms].is_a?(Array)
+        elsif data.key?(:fixed) && data.key?(:failed)
+          render_fix(data, out: out)
+        elsif data.key?(:platforms) && data[:platforms].is_a?(Array) && data[:platforms].first.is_a?(Hash)
           render_verify_platforms(data, out: out)
         elsif data.key?(:platforms)
           render_platform_registry(data, out: out)
@@ -97,6 +99,20 @@ module Rulepack
           p[:items].each { |item| item[:messages].each { |m| out.puts(m) } }
           p[:orphans].each { |o| out.puts("  ? ORPHAN: #{o[:path]}") }
         end
+      end
+
+      def render_fix(data, out:)
+        platforms = Array(data[:platforms])
+        fixed = Array(data[:fixed])
+        failed = Array(data[:failed])
+        orphans_removed = Array(data[:orphans_removed])
+        dry_run = data[:dry_run]
+
+        out.puts("\nPlatforms: #{platforms.join(', ')}") unless platforms.empty?
+        out.puts("  Fixed: #{fixed.join(', ')}") unless fixed.empty?
+        out.puts("  Failed: #{failed.join(', ')}") unless failed.empty?
+        out.puts("  Orphans removed: #{orphans_removed.size}") unless orphans_removed.empty?
+        out.puts('  (dry-run)') if dry_run
       end
 
       def render_package(data, out:)

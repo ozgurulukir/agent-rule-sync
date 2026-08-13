@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative 'errors'
 
 require 'open3'
 require 'zlib'
@@ -9,7 +10,7 @@ require 'fileutils'
 module Rulepack
   module Common
     # Raised when a tarball entry attempts path traversal outside the extraction directory.
-    class PathTraversalError < StandardError; end
+    class PathTraversalError < Rulepack::Error; end
 
     module_function
 
@@ -169,7 +170,7 @@ module Rulepack
       Rulepack::Common.log_warn "Git command unavailable or clone failed. Initiating HTTP fallback for #{url}..."
       tarball_url = translate_git_to_tarball(url, ref)
       unless tarball_url
-        raise "Git command unavailable and cannot auto-translate #{url} to a tarball URL."
+        raise Rulepack::StateError, "Git command unavailable and cannot auto-translate #{url} to a tarball URL."
       end
 
       Rulepack::Common.log "  → Downloading tarball from #{tarball_url}"
@@ -180,12 +181,12 @@ module Rulepack
         Rulepack::Common.log "  ✓ HTTP fallback successful. Generated stable cache hash: #{commit_hash[0..7]}"
         commit_hash
       rescue StandardError => e
-        raise "Git clone and HTTP fallback both failed for #{url}: #{e.message}"
+        raise Rulepack::StateError, "Git clone and HTTP fallback both failed for #{url}: #{e.message}"
       end
     end
 
     def fetch_with_redirects(url, limit = Rulepack::Config.max_redirects)
-      raise "HTTP Redirect Loop: too many redirects for #{url}" if limit <= 0
+      raise Rulepack::StateError, "HTTP Redirect Loop: too many redirects for #{url}" if limit <= 0
 
       uri = URI.parse(url)
       raise URI::InvalidURIError, "Invalid URL (no host): #{url}" unless uri.host
@@ -207,7 +208,7 @@ module Rulepack
         end
         fetch_with_redirects(redirect_url, limit - 1)
       else
-        response.body
+        raise Rulepack::StateError, "HTTP #{response.code} for #{url}: #{response.message}"
       end
     end
 
@@ -221,7 +222,7 @@ module Rulepack
                else
                  Pathname.new(expand_user_path(path_str))
                end
-        raise "Local source not found: #{path}. Check that the path in PKGBUILD source is correct." unless path.exist?
+        raise Rulepack::StateError, "Local source not found: #{path}. Check that the path in PKGBUILD source is correct." unless path.exist?
 
         if path.directory?
           # Deterministic content hash: sort files by path, concatenate content, hash
@@ -240,14 +241,14 @@ module Rulepack
         actual_sha256 = Digest::SHA256.hexdigest(content)
 
         if expected_sha256 && actual_sha256 != expected_sha256
-          raise "SHA256 mismatch for #{url}: " \
+          raise Rulepack::StateError, "SHA256 mismatch for #{url}: " \
                 "expected #{expected_sha256}, got #{actual_sha256}. " \
                 "Update the sha256 field in your PKGBUILD to: #{actual_sha256}"
         end
 
         [content, actual_sha256]
       else
-        raise "Unknown source type: #{source_entry[:type]}"
+        raise Rulepack::ConfigError, "Unknown source type: #{source_entry[:type]}"
       end
     end
   end

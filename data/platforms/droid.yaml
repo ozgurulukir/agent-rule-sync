@@ -3,23 +3,19 @@
 # NOT enforced by build system — informational for translator authoring.
 
 rules:
-  format: none                   # Droid has no separate rules
-  note: "All content is embedded in the single droid.md skill file"
+  format: file
+  file_name: "AGENTS.md"
+  note: "Rules go to AGENTS.md (project root or ~/.factory/AGENTS.md personal override)"
 
 skills:
-  format: single_file
+  format: directory
   content_type: markdown
-  file_name: "droid.md"
   frontmatter: strip
   bullet_style: dash
   code_block: fenced
+  note: "Workspace: .factory/skills/*/SKILL.md, Personal: ~/.factory/skills/*/SKILL.md"
 
-aggregation: |
-  Droid uses a single droid.md. Rulepack vendor aggregation (lib/rulepack/aggregate.rb)
-  writes all skill/rule fragments into this file via "---\n\n" separator.
-
-notes: |
 notes: |
   Droid reads AGENTS.md hierarchy: project root → parent dirs → ~/.factory/AGENTS.md.
-  Rulepack copies aggregated vendor skill to ~/.factory/AGENTS.md.
-  Droid-specific config at ~/.factory/droid.md (not managed by rulepack).
+  Skills are directory-based SKILL.md files, not a single droid.md.
+  Custom Droids (subagents) live in .factory/droids/*.md.
