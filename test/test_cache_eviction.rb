@@ -65,20 +65,21 @@ class TestCacheEviction < Minitest::Test
     end
   end
 
-  def create_entry(name, size, time_offset = 0)
+  def create_entry(name, size, mtime)
     dir = @root.join(name)
     dir.mkpath
     File.write(dir.join('data.bin'), "x" * size)
-    File.utime(Time.now - time_offset, Time.now - time_offset, dir.to_s)
+    File.utime(mtime, mtime, dir.to_s)
     dir
   end
 
   def test_eviction_removes_oldest
     # Limit is 1MB = 1048576 bytes
     # Create 3 files of 500KB. Total 1.5MB. One should be evicted (the oldest).
-    create_entry('entry1', 512000, 10) # oldest
-    create_entry('entry2', 512000, 5)
-    create_entry('entry3', 512000, 0) # newest
+    now = Time.now
+    create_entry('entry1', 512000, now - 10) # oldest
+    create_entry('entry2', 512000, now - 5)
+    create_entry('entry3', 512000, now) # newest
 
     assert_equal 1536000, Rulepack::Common.cache_total_bytes
 
@@ -96,9 +97,10 @@ class TestCacheEviction < Minitest::Test
   def test_eviction_handles_race_condition
     # To simulate race condition, we need to mock directory_size to delete the directory midway or mock oldest_dir.find to raise ENOENT.
     # A simple way is to override directory_size for this test
-    create_entry('entry1', 512000, 10) # oldest
-    create_entry('entry2', 512000, 5)
-    create_entry('entry3', 512000, 0) # newest
+    now = Time.now
+    create_entry('entry1', 512000, now - 10) # oldest
+    create_entry('entry2', 512000, now - 5)
+    create_entry('entry3', 512000, now) # newest
 
     # Mock directory_size to raise ENOENT on the first call
     original_method = Rulepack::Common.method(:directory_size)
@@ -123,5 +125,23 @@ class TestCacheEviction < Minitest::Test
     ensure
       Rulepack::Common.define_singleton_method(:directory_size, &original_method)
     end
+  end
+
+  def test_eviction_sorts_correctly_including_ties
+    now = Time.now
+    create_entry('entryA', 512000, now - 10)
+    create_entry('entryB', 512000, now)
+    create_entry('entryC', 512000, now - 10)
+
+    entries = @root.children.select(&:directory?).map do |d|
+      [d.mtime, d]
+    end
+
+    # Test the specific array sorting behavior using the comparator block
+    entries.sort! { |a, b| a.first <=> b.first }
+
+    # Oldest (largest offset, so smallest time) should come first
+    assert_equal entries[0].first, entries[1].first
+    assert entries[2].first > entries[0].first
   end
 end

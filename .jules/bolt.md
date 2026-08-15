@@ -13,3 +13,6 @@
 ## 2026-07-31 - Optimize Bullet Item Extraction in Translators
 **Learning:** Using block iteration (`scan { |match| array << match.rstrip }`) is slower and creates unnecessary block overhead compared to returning an array directly from `scan`. Additionally, replacing substrings on the whole text (`gsub`) to avoid `.rstrip` is slow because it forces Ruby to allocate a completely new copy of the string in memory.
 **Action:** For text transformation tasks in this Ruby codebase, prefer returning matched arrays from `scan` directly and manipulating them (`scan(/^.../).map!(&:rstrip)`) to avoid block overhead, array append operations, and full string allocations.
+## 2026-08-07 - Optimize Array sorting overhead on multidimensional arrays
+**Learning:** Using `Array#sort_by!` on an array of arrays (e.g., `[[mtime, obj], [mtime, obj]]`) creates a redundant intermediate array of arrays under the hood during mapping before sorting.
+**Action:** When sorting an array of arrays, prefer `Array#sort! { |a, b| a.first <=> b.first }` over `Array#sort_by!(&:first)` to completely avoid the unnecessary intermediate array allocations, saving memory and time.
