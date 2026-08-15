@@ -26,7 +26,13 @@ class TestNetworkFailureIntegration < Minitest::Test
   end
 
   def test_fetch_url_with_invalid_hostname
-    assert_raises(Rulepack::StateError, Socket::ResolutionError, Errno::ECONNREFUSED, 'Should raise on invalid hostname') do
+    # SocketError handles the pre-3.2 cross-platform resolution failure,
+    # and Socket::ResolutionError (added in 3.2+) is optionally caught
+    # to support both newer and older rubies gracefully without NameError.
+    expected_errors = [Rulepack::StateError, SocketError, Errno::ECONNREFUSED]
+    expected_errors << Socket::ResolutionError if Socket.const_defined?(:ResolutionError)
+
+    assert_raises(*expected_errors, 'Should raise on invalid hostname') do
       Rulepack::Common.cached_fetch_url('http://this-hostname-definitely-does-not-exist-12345.invalid/test', nil)
     end
   end

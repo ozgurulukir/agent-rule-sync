@@ -13,3 +13,6 @@
 ## 2026-07-24 - Handle EOF in Interactive Fallbacks
 **Learning:** Adding an interactive fallback prompt requires handling EOF correctly (e.g. when `gets` returns `nil` due to a `Ctrl+D` signal). Failing to do so in a `loop` reading `$stdin` leads to an infinite loop, maxing out CPU and breaking CI/TTY functionality.
 **Action:** Whenever using `gets` in an interactive prompt loop, explicitly check for `input.nil?` and exit gracefully or provide a default fallback strategy instead of letting `.chomp.downcase` fail or loop endlessly.
+## 2026-08-09 - Handle EOF smoothly in terminal prompts
+**Learning:** Terminal inputs abruptly returning `nil` on `EOF` (`Ctrl+D`) can cause shell prompts or cancel messages to be appended to the current line instead of starting fresh, creating a jarring visual glitch.
+**Action:** Always check `if input.nil?` and issue an immediate `puts` to drop to the next line before exiting or continuing when writing CLI prompts.
