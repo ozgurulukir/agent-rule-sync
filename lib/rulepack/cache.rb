@@ -24,7 +24,10 @@ module Rulepack
     # Calculates the total size of a directory in bytes
     def directory_size(path)
       sum = 0
-      path.find { |entry| sum += entry.size if entry.file? }
+      # ⚡ Bolt: Optimize cache tree traversal overhead by avoiding Pathname wrapper object instantiations
+      Dir.glob(File.join(path, '**', '*'), File::FNM_DOTMATCH).each do |f|
+        sum += File.size(f) if File.file?(f)
+      end
       sum
     end
 
