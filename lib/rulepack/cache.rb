@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'find'
 require_relative 'config'
 
 module Rulepack
@@ -24,9 +25,14 @@ module Rulepack
     # Calculates the total size of a directory in bytes
     def directory_size(path)
       sum = 0
-      # ⚡ Bolt: Optimize cache tree traversal overhead by avoiding Pathname wrapper object instantiations
-      Dir.glob(File.join(path, '**', '*'), File::FNM_DOTMATCH).each do |f|
-        sum += File.size(f) if File.file?(f)
+      # ⚡ Bolt: avoid Pathname wrapper allocations; stream via Find with a single stat per entry
+      Find.find(path.to_s) do |f|
+        begin
+          stat = File.stat(f)
+          sum += stat.size if stat.file?
+        rescue Errno::ENOENT, Errno::ENOTDIR
+          next
+        end
       end
       sum
     end
