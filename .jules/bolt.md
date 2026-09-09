@@ -16,3 +16,6 @@
 ## 2026-08-07 - Optimize Array sorting overhead on multidimensional arrays
 **Learning:** Using `Array#sort_by!` on an array of arrays (e.g., `[[mtime, obj], [mtime, obj]]`) creates a redundant intermediate array of arrays under the hood during mapping before sorting.
 **Action:** When sorting an array of arrays, prefer `Array#sort! { |a, b| a.first <=> b.first }` over `Array#sort_by!(&:first)` to completely avoid the unnecessary intermediate array allocations, saving memory and time.
+## 2026-08-11 - Optimize cache tree traversal overhead
+**Learning:** `Pathname#find` with a block inherently instantiates a `Pathname` wrapper object for every traversed entry in the tree, causing heavy GC pressure and CPU overhead for large directory trees.
+**Action:** When calculating sizes or doing basic operations over large directory trees, prefer `Dir.glob` with `File::FNM_DOTMATCH` and `File` class methods (like `File.file?` and `File.size`) over `Pathname#find`.
