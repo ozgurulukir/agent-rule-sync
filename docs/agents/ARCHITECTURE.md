@@ -58,9 +58,7 @@ your-project/
 │       ├── build_pipeline.rb        # 4-stage build pipeline orchestrator
 │       ├── validation.rb            # PKGBUILD schema validation
 │       ├── platform.rb              # Platform registry + path resolution
-│       ├── install.rb               # Install dispatch
 │       ├── installer.rb             # Installation engine (symlink/copy/inject/append)
-│       ├── uninstall.rb             # Uninstall dispatch
 │       ├── uninstaller.rb           # Uninstallation engine
 │       ├── build.rb                 # Build orchestrator
 │       ├── aggregate.rb             # Vendor skill aggregation

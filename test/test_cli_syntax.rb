@@ -27,10 +27,9 @@ class TestCliSyntax < Minitest::Test
      end
 
      # ── build/index.yaml (build index) ───────────────────────────────────────────
-     # fix.rb / install.rb / verify.rb / uninstall.rb all check BUILD_INDEX_PATH
-     # before processing any command.  Without this file the scripts exit early
-     # with "Build index not found" — poisoning every CLI-syntax test that calls
-     # those scripts via capture_script_run.
+     # The install/uninstall/verify/fix backends all check BUILD_INDEX_PATH
+     # before processing any command. Without this file they fail early with
+     # "Build index not found" — poisoning every CLI-syntax test.
      @build_index_path = Rulepack::Common::BUILD_INDEX_PATH
      @created_dummy_build_index = false
      unless @build_index_path.exist?
@@ -51,7 +50,7 @@ class TestCliSyntax < Minitest::Test
    end
 
   # Helper to capture exit code and standard out/err of a backend command.
-  # Calls the backend module directly (no script loading, no $rulepack_exit_code).
+  # Calls the backend module directly.
   def capture_script_run(script_name, new_argv)
     ARGV.replace(new_argv)
 
@@ -182,12 +181,6 @@ class TestCliSyntax < Minitest::Test
     res = capture_script_run('fix', ['--target', 'cursor'])
     assert_equal 1, res[:exit_code]
     assert_match(/build index not found|project-scoped/i, res[:stderr])
-  end
-
-  def test_fix_pacman_flag_shift
-    res = capture_script_run('fix', ['-F', 'nonexistentpkg', '--target', 'opencode'])
-    assert_equal 1, res[:exit_code]
-    assert_match(/build index not found|not registered as installed/i, res[:stderr])
   end
 
   # ─── Audit CLI Tests ──────────────────────────────────────────────────────────
