@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-# Unit tests for aggregate.rb
+# Unit tests for Aggregate.run
 # Covers: skill agent detection, header inclusion, rule fragment collection,
 #         common/agent-specific skill inclusion, vendor skill output
 
 require_relative 'helper'
+require 'stringio'
 
 class TestAggregateSkills < Minitest::Test
-  # Minimal build index written once in setup so aggregate.rb (called as a
-  # backtick subprocess) always finds a valid build/index.yaml regardless of
-  # whether a real build has been run in the project root.
+  # Minimal build index written once in setup so Aggregate.run always finds a
+  # valid build/index.yaml regardless of whether a real build has been run.
   BUILD_INDEX = ROOT.join('build', 'index.yaml')
 
   def setup
@@ -24,52 +24,39 @@ class TestAggregateSkills < Minitest::Test
     BUILD_INDEX.delete if BUILD_INDEX.exist? && BUILD_INDEX.read == "---\nversion: 3.0\npackages: {}\n"
   end
 
-  def test_aggregate_runs_without_error
-    # Change to repo root so aggregate.rb finds paths correctly
-    Dir.chdir(ROOT) do
-      output = `ruby lib/rulepack/aggregate.rb 2>&1`
-      assert_equal 0, $?.exitstatus, "aggregate.rb failed: #{output}"
-      # Should mention at least one skill agent (crush, goose, droid, codex)
-      assert_match(/Aggregating vendor skills|No skill-based agents|Vendor skill aggregation complete/, output)
+  def run_aggregate
+    capturing_stdout = StringIO.new
+    original_stdout = $stdout
+    $stdout = capturing_stdout
+    begin
+      result = Rulepack::Aggregate.run({})
+      [result, capturing_stdout.string]
+    ensure
+      $stdout = original_stdout
     end
+  end
+
+  def test_aggregate_runs_without_error
+    result, output = run_aggregate
+    assert result, "Aggregate.run failed: #{output}"
+    # Should mention at least one skill agent (crush, goose, droid, codex)
+    assert_match(/Aggregating vendor skills|No skill-based agents|Vendor skill aggregation complete/, output)
   end
 
   def test_aggregate_detects_skill_agents
-    Dir.chdir(ROOT) do
-      output = `ruby lib/rulepack/aggregate.rb 2>&1`
-      # Registry has 4 skill-type agents: crush, goose, droid, codex
-      assert_match(/crush|goose|droid|codex/, output)
-    end
+    _result, output = run_aggregate
+    # Registry has 4 skill-type agents: crush, goose, droid, codex
+    assert_match(/crush|goose|droid|codex/, output)
   end
 
   def test_aggregate_creates_vendor_files
-    Dir.chdir(ROOT) do
-      `ruby lib/rulepack/aggregate.rb 2>&1`
+    run_aggregate
 
-      # Check if vendor skill files were created for skill agents
-      %w[crush goose droid codex].each do |agent|
-        vendor_file = ROOT.join('build', agent, 'skills', 'vendor', "#{agent}.md")
-        # File may exist but be empty if no packages target this agent
-        # Just verify aggregation ran without crashing
-      end
-    end
-  end
-
-  def test_aggregate_no_skill_agents
-    # Test with a registry that has no skill agents (by using a temp dir)
-    Dir.mktmpdir do |tmpdir|
-      tmp_root = Pathname.new(tmpdir)
-      # Create minimal registry with no skill agents
-      registry = {
-        opencode: { type: 'directory', display_name: 'OpenCode', base_path: '~/.config/opencode/' }
-      }
-      registry_path = tmp_root.join('registry.yaml')
-      registry_path.write(registry.to_yaml)
-
-      # Should exit gracefully with no skill agents message
-      output = `cd #{tmpdir} && ruby #{ROOT}/lib/rulepack/aggregate.rb 2>&1`
-      # Note: aggregate.rb hardcodes paths, so it won't find our temp registry
-      # This test mainly verifies it doesn't crash when no skill agents exist
+    # Check if vendor skill files were created for skill agents
+    %w[crush goose droid codex].each do |agent|
+      vendor_file = ROOT.join('build', agent, 'skills', 'vendor', "#{agent}.md")
+      # File may exist but be empty if no packages target this agent
+      # Just verify aggregation ran without crashing
     end
   end
 end

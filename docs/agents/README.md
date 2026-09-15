@@ -45,6 +45,6 @@ This repository maintains a **single source of truth** for agent behavior defini
 - **`--rules-to`** flag to redirect rule installation to a single file (e.g., `AGENTS.md`)
 - **Pacman-style shortcuts**: `-S` (install), `-R` (uninstall), `-Qk` (verify), `-F` (fix), `-Q` (query)
 
-**Core scripts**: `lib/rulepack/build.rb` → `lib/rulepack/aggregate.rb` → `lib/rulepack/install.rb` / `lib/rulepack/uninstaller.rb` / `lib/rulepack/query.rb`
+**Core modules**: `build.rb` → `aggregate.rb` → `installer.rb` / `uninstaller.rb` / `query.rb` — all driven by the single CLI entry point `bin/rulepack`
 
 See [Architecture](ARCHITECTURE.md) for the full design.

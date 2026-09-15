@@ -21,7 +21,6 @@ module Rulepack
 
     def run(argv = ARGV, format: :text)
       argv = argv.dup
-      argv.shift if argv.first == '-Q'
       command = argv.shift || 'help'
 
       result = dispatch(command, argv)
@@ -411,5 +410,3 @@ module Rulepack
   end
 end
 
-# Run as script
-Rulepack::Query.run(ARGV) if __FILE__ == $PROGRAM_NAME

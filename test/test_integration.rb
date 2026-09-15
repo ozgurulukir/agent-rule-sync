@@ -13,6 +13,7 @@ class TestBuildIntegration < Minitest::Test
   def setup
     @tmpdir = Dir.mktmpdir('rulepack-build-test-')
     @build_root = Pathname.new(@tmpdir)
+    FileUtils.cp_r(ROOT.join('bin').to_s, @build_root.join('bin').to_s, preserve: false)
     FileUtils.cp_r(ROOT.join('lib').to_s, @build_root.join('lib').to_s, preserve: false)
     FileUtils.cp_r(ROOT.join('data').to_s, @build_root.join('data').to_s, preserve: false)
 
@@ -28,8 +29,8 @@ class TestBuildIntegration < Minitest::Test
   end
 
   def test_build_creates_index
-    build_script = @build_root.join('lib/rulepack/build.rb')
-    result = system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), build_script.to_s, chdir: @build_root.to_s)
+    result = system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), @build_root.join('bin/rulepack').to_s, 'build',
+                    chdir: @build_root.to_s)
     assert result, 'Build script should exit successfully'
 
     index_path = @build_dir.join('index.yaml')
@@ -54,8 +55,8 @@ class TestBuildIntegration < Minitest::Test
   end
 
   def test_build_creates_platform_directories
-    build_script = @build_root.join('lib/rulepack/build.rb')
-    result = system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), build_script.to_s, chdir: @build_root.to_s)
+    result = system(File.join(RbConfig::CONFIG['bindir'], 'ruby'), @build_root.join('bin/rulepack').to_s, 'build',
+                    chdir: @build_root.to_s)
     assert result, 'Build script should exit successfully'
 
     assert(Dir.glob("#{@build_dir}/*").any?, 'At least one platform build directory should exist after build')

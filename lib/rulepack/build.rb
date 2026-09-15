@@ -20,7 +20,6 @@ require_relative 'models/target'
 require_relative 'common'
 require_relative 'schema_engine'
 require_relative 'build_pipeline'
-require_relative 'cli_parser'
 require_relative 'build_loader'
 require_relative 'build_per_pkg'
 require_relative 'build_writer'
@@ -130,7 +129,7 @@ module Rulepack
       BuildWriter.generate_catalog
 
       status = failed.empty? ? :success : :partial
-      messages = ['✅ Build complete. Run `ruby lib/rulepack/install.rb <platform>` to install packages.']
+      messages = ['✅ Build complete. Run `rulepack install <platform>` to install packages.']
       messages << "⚠ #{failed.size} package(s) failed: #{failed.join(', ')}" if failed.any?
 
       Rulepack::Result.new(
@@ -148,17 +147,3 @@ module Rulepack
   end
 end
 
-# CLI runner block
-if __FILE__ == $PROGRAM_NAME
-  begin
-    opts = Rulepack::CliParser.parse(ARGV)
-    result = Rulepack::Build.run(opts)
-    Rulepack::Reporter.print(result, format: opts[:format] || :text)
-    exit_code = result.failure? ? 1 : 0
-  rescue StandardError => e
-    $stderr.puts "❌ Error: #{e.message}"
-    exit_code = 1
-  end
-  $rulepack_exit_code = exit_code
-  exit exit_code if __FILE__ == $PROGRAM_NAME
-end

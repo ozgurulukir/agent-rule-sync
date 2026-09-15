@@ -2,9 +2,9 @@
 
 # Regression tests for symlink traversal hardening (CVE companion to PR #5).
 # Covers three layers that operate on untrusted git/url sources:
-#   1. BuildPerPkg.strip_symlinks_in_tree — removes symlinks after source cp_r
+#   1. Security.strip_symlinks_in_tree — removes symlinks after source cp_r
 #   2. Common.generate_skill_bundle_manifest — skips symlinks when hashing files
-#   3. InstallExecute.strip_symlinks_in_tree — removes symlinks after install cp_r
+#   3. Security.strip_symlinks_in_tree — removes symlinks after install cp_r
 #
 # Without these guards, a symlinked .md planted in a fetched git source would be
 # followed by File.write / path.read, allowing arbitrary file overwrite/read.
@@ -24,7 +24,7 @@ class TestSymlinkHardeningBuild < Minitest::Test
       # Plant a symlink pointing outside the tree.
       File.symlink('/etc/hostname', src / 'evil.md')
 
-      Rulepack::BuildPerPkg.strip_symlinks_in_tree(src)
+      Rulepack::Security.strip_symlinks_in_tree(src)
 
       assert (src / 'real.md').file?, 'regular file must remain'
       assert (subdir / 'note.md').file?, 'nested regular file must remain'
@@ -35,14 +35,14 @@ class TestSymlinkHardeningBuild < Minitest::Test
 
   def test_build_strip_handles_missing_dir
     # Should not raise on a non-existent path.
-    assert_nil Rulepack::BuildPerPkg.strip_symlinks_in_tree('/nonexistent-rulepack-test-xyz')
+    assert_nil Rulepack::Security.strip_symlinks_in_tree('/nonexistent-rulepack-test-xyz')
   end
 
   def test_build_strip_handles_dotfiles
     with_tmpdir do |src|
       (src / '.hidden').write('keep me')
       File.symlink('/etc/hostname', src / '.evil_link')
-      Rulepack::BuildPerPkg.strip_symlinks_in_tree(src)
+      Rulepack::Security.strip_symlinks_in_tree(src)
       assert (src / '.hidden').file?, 'dotfile must remain'
       refute (src / '.evil_link').symlink?, 'dotfile symlink must be removed'
     end
@@ -82,7 +82,7 @@ class TestSymlinkHardeningInstall < Minitest::Test
       (dest / 'agent.md').write('# agent')
       File.symlink('/etc/hostname', dest / 'payload.md')
 
-      Rulepack::InstallExecute.strip_symlinks_in_tree(dest)
+      Rulepack::Security.strip_symlinks_in_tree(dest)
 
       assert (dest / 'agent.md').file?, 'regular file must remain'
       refute (dest / 'payload.md').symlink?, 'symlink must be removed from install tree'
@@ -90,6 +90,6 @@ class TestSymlinkHardeningInstall < Minitest::Test
   end
 
   def test_install_strip_handles_missing_dir
-    assert_nil Rulepack::InstallExecute.strip_symlinks_in_tree('/nonexistent-rulepack-install-xyz')
+    assert_nil Rulepack::Security.strip_symlinks_in_tree('/nonexistent-rulepack-install-xyz')
   end
 end

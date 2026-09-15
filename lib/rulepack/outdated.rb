@@ -126,28 +126,3 @@ module Rulepack
   end
 end
 
-# CLI runner block
-if __FILE__ == $PROGRAM_NAME
-  begin
-    opts = Rulepack::CliParser.parse(ARGV)
-    result = Rulepack::Outdated.run(opts)
-
-    if result.failure?
-      if (opts[:format] || :text).to_sym == :text
-        result.messages.each { |m| warn m }
-        result.errors.each { |e| warn "Error: #{e}" }
-      else
-        Rulepack::Reporter.print(result, format: opts[:format])
-      end
-      exit_code = 1
-    else
-      Rulepack::Reporter.print(result, format: opts[:format] || :text)
-      exit_code = result.partial? ? 1 : 0
-    end
-  rescue StandardError => e
-    $stderr.puts "❌ Error: #{e.message}"
-    exit_code = 1
-  end
-  $rulepack_exit_code = exit_code
-  exit exit_code if __FILE__ == $PROGRAM_NAME
-end

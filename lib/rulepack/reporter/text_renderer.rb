@@ -56,7 +56,7 @@ module Rulepack
 
         return out.puts("📥 No packages installed on #{platform_id}.") if items.empty?
 
-        out.puts("📥 Installed items on #{platform_id}:") unless already_printed_header?(data)
+        out.puts("📥 Installed items on #{platform_id}:")
         items.each do |item|
           source_tag = item[:source] == :manual ? ' [manual]' : ''
           icon = status_icon(item[:status])
@@ -196,10 +196,6 @@ module Rulepack
         end
       end
 
-      # Avoid duplicate header when the message already printed it.
-      def already_printed_header?(_data)
-        false
-      end
     end
   end
 end

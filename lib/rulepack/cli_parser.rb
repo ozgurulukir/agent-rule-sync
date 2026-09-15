@@ -12,9 +12,6 @@ module Rulepack
     def parse(argv_array)
       args = argv_array.dup
 
-      # Pacman flags shifting
-      args.shift if %w[-S -R -Qk -F -Q].include?(args.first)
-
       options = {
         package_name: nil,
         target: nil,

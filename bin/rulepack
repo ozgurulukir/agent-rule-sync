@@ -15,6 +15,7 @@ require "lib/rulepack/models/package"
 require "lib/rulepack/models/platform"
 require "lib/rulepack/models/target"
 require "lib/rulepack/common"
+require "lib/rulepack/cli_parser"
 require "lib/rulepack/query"
 require "lib/rulepack/audit"
 require "lib/rulepack/build"
@@ -52,24 +53,11 @@ module Rulepack
 
       command = argv.shift || "help"
 
-      # Map pacman-style flags to their respective standard commands
-      case command
-      when '-S'
-        command = 'install'
-        argv.unshift('-S')
-      when '-R'
-        command = 'uninstall'
-        argv.unshift('-R')
-      when '-Qk'
-        command = 'verify'
-        argv.unshift('-Qk')
-      when '-F'
-        command = 'fix'
-        argv.unshift('-F')
-      when '-Q'
-        command = 'query'
-        argv.unshift('-Q')
-      end
+      # Map pacman-style flags to their respective standard commands.
+      # The flags are consumed here, wherever they appear; backends never see them.
+      command = { '-S' => 'install', '-R' => 'uninstall', '-Qk' => 'verify',
+                  '-F' => 'fix', '-Q' => 'query' }.fetch(command, command)
+      argv.reject! { |a| %w[-S -R -Qk -F -Q].include?(a) }
 
       if ['-h', '--help', 'help'].include?(command)
         print_help
@@ -146,8 +134,7 @@ module Rulepack
       1
     end
 
-    # Direct backend dispatch — no load/eval, no $rulepack_exit_code side channel.
-    # Each method: parse → call backend → render → return exit code.
+    # Direct backend dispatch. Each method: parse → call backend → render → exit code.
 
     def self.dispatch_build(argv)
       opts = Rulepack::CliParser.parse(argv)

@@ -206,7 +206,7 @@ Configuration stored in the project repository, version-controlled alongside cod
    - Append agent-specific extras (`data/skills/agent-specific/<agent>/*.md`)
    - Write concatenated vendor skill to `build/<agent>/skills/vendor/<agent>.md`
 
-**Install** (`lib/rulepack/install.rb`):
+**Install** (`lib/rulepack/installer.rb`):
 1. Load `build/index.yaml` and platform registry
 2. For project-level platforms, resolve `--project` dir (default: `Dir.pwd`)
 3. For each package with target matching platform:

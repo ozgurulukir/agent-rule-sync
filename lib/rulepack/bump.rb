@@ -311,6 +311,3 @@ module Rulepack
   end
 end
 
-if __FILE__ == $PROGRAM_NAME || defined?(Rulepack::CLI)
-  Rulepack::Bump.run(ARGV)
-end

@@ -124,13 +124,6 @@ class TestCliSyntax < Minitest::Test
     assert_match(/is project-scoped. You must explicitly specify the project path/, res[:stderr])
   end
 
-  def test_install_pacman_flag_shift
-    # Shift -S flag should work and parse exactly the same
-    res = capture_script_run('install', ['-S', 'nonexistentpkg', '--target', 'opencode'])
-    assert_equal 1, res[:exit_code]
-    assert_match(/Package 'nonexistentpkg' not found in build index/, res[:stderr])
-  end
-
   # ─── Uninstall CLI Tests ──────────────────────────────────────────────────────
 
   def test_uninstall_without_target_fails
@@ -151,12 +144,6 @@ class TestCliSyntax < Minitest::Test
     assert_match(/is project-scoped. You must explicitly specify the project path/, res[:stderr])
   end
 
-  def test_uninstall_pacman_flag_shift
-    res = capture_script_run('uninstall', ['-R', 'nonexistentpkg', '--target', 'opencode'])
-    assert_equal 1, res[:exit_code]
-    assert_match(/Package 'nonexistentpkg' is not registered as installed/, res[:stderr])
-  end
-
   # ─── Verify CLI Tests ─────────────────────────────────────────────────────────
 
   def test_verify_without_target_fails
@@ -175,12 +162,6 @@ class TestCliSyntax < Minitest::Test
     res = capture_script_run('verify', ['--target', 'cursor'])
     assert_equal 1, res[:exit_code]
     assert_match(/is project-scoped. You must explicitly specify the project path/, res[:stderr])
-  end
-
-  def test_verify_pacman_flag_shift
-    res = capture_script_run('verify', ['-Qk', 'nonexistentpkg', '--target', 'opencode'])
-    assert_equal 1, res[:exit_code]
-    assert_match(/Package 'nonexistentpkg' is not registered as installed/, res[:stderr])
   end
 
   # ─── Fix CLI Tests ────────────────────────────────────────────────────────────
@@ -295,6 +276,18 @@ class TestCliSyntax < Minitest::Test
   def test_audit_unknown_target_exits
     res = capture_audit_run(['--target', 'nonexistent-platform'])
     assert_equal 1, res[:exit_code]
+  end
+
+  # ─── Pacman alias remap ───────────────────────────────────────────────────────
+
+  def test_pacman_aliases_are_remapped_in_bin_entry_point
+    # Alias handling lives solely in bin/rulepack; CliParser and backends
+    # never see the raw flags. Assert the remap table stays declared there.
+    bin_src = File.read(ROOT.join('bin', 'rulepack'))
+    %w[-S install -R uninstall -Qk verify -F fix -Q query].each_slice(2) do |flag, command|
+      assert_includes bin_src, "'#{flag}' => '#{command}'",
+                      "bin/rulepack must remap #{flag} to #{command}"
+    end
   end
 end
 

@@ -9,7 +9,6 @@ require 'yaml'
 require 'pathname'
 require 'fileutils'
 require_relative 'common'
-require_relative 'cli_parser'
 
 module Rulepack
   module Aggregate
@@ -146,16 +145,3 @@ module Rulepack
   end
 end
 
-# CLI runner block
-if __FILE__ == $PROGRAM_NAME
-  begin
-    opts = Rulepack::CliParser.parse(ARGV)
-    Rulepack::Aggregate.run(opts)
-    exit_code = 0
-  rescue StandardError => e
-    $stderr.puts "❌ Error: #{e.message}"
-    exit_code = 1
-  end
-  $rulepack_exit_code = exit_code
-  exit exit_code if __FILE__ == $PROGRAM_NAME
-end

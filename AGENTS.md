@@ -101,7 +101,7 @@ The implementation is split across ~48 Ruby files under `lib/rulepack/`. Key mod
 - `reporter.rb` — renders results as text, JSON, or YAML.
 - `platform_scanner.rb` — discovers rulepack-managed and manually installed items on disk.
 
-Procedural entry points (`build.rb`, `verify.rb`, `fix.rb`, `aggregate.rb`, etc.) are namespaced with caller-aware runner hooks, usable programmatically or as CLI scripts. The CLI (`bin/rulepack`) calls backend modules directly — no `load`/`eval`, no `$rulepack_exit_code` side channel. Runner blocks in library files only execute when the file is run directly (`__FILE__ == $PROGRAM_NAME`).
+Library files under `lib/rulepack/` are pure modules — no CLI runner blocks, no `$rulepack_exit_code` global. The CLI (`bin/rulepack`) is the single entry point; it calls backend modules directly — no `load`/`eval`. Test sandboxes drive the CLI via `bin/rulepack` subprocesses.
 
 ---
 
@@ -415,7 +415,6 @@ For detailed improvement notes, see [`docs/improvement-plan/OPEN-ITEMS.md`](docs
 
 ## Known Issues
 
-- **`$rulepack_exit_code` global variable (legacy)**: runner blocks in `lib/rulepack/{build,verify,fix,install,uninstall,aggregate,outdated,audit,translate,install_execute}.rb` set `$rulepack_exit_code` and call `exit exit_code if __FILE__ == $PROGRAM_NAME`. This is a legacy pattern — `bin/rulepack` now calls backend modules directly, so the global variable is only relevant when running library files as standalone scripts (`ruby lib/rulepack/build.rb`). If you add a new procedural module, follow the same dual pattern for backward compatibility.
 
 ---
 
@@ -426,7 +425,7 @@ For detailed improvement notes, see [`docs/improvement-plan/OPEN-ITEMS.md`](docs
 - **Platform registry is memoized**: `Rulepack::Common.load_platform_registry` caches via `@_platform_registry`. Tests that mutate `data/registry/platforms.yaml` or layer overrides must call `Rulepack::Common.clear_platform_registry_cache!` (or equivalent) before re-reading, or stale registry state leaks across tests.
 - **Cross-package union cache deferred (YAGNI)**: empirical inspection shows distinct `source_sha256` per package, so a content-addressed union cache across packages has no hits in the current dataset. The per-package `union_key` cache in `build_per_pkg.rb` already collapses the 14 platforms per package into 1 store file (52 files, ~272 KB). Re-open only if future packages share source content (e.g. monorepo forks).
 - **Build dir is now near-empty for skill-bundles**: post-refactor, `build/<plat>/<pkg>/` is created **only at install time** for skill-bundles. If you see a skill-bundle with no `build/<plat>/<pkg>/` directory, that is expected — running `bin/rulepack install <pkg> -t <plat>` will populate it. `bin/rulepack verify` also triggers materialization.
-- **`$rulepack_exit_code` communicates exit codes from `load`-ed scripts**: Ruby's `load` always returns `true` (not the last expression value), so a global variable is the only reliable way to pass exit codes from `load`-ed runner blocks back to `bin/rulepack`. The dual pattern (`$rulepack_exit_code = N; exit N if __FILE__ == $PROGRAM_NAME`) preserves `system()` subprocess exit codes for E2E tests while also supporting the `load` path. **Note:** `bin/rulepack` no longer uses `load` — it calls backend modules directly. The `$rulepack_exit_code` pattern is only relevant when running library files as standalone scripts (`ruby lib/rulepack/build.rb`).
+- **Standalone script entry points were removed (2026-09-15)**: `lib/rulepack/*.rb` files cannot be run as CLI scripts anymore (`ruby lib/rulepack/build.rb` fails). Use `bin/rulepack` (or `ruby bin/rulepack` on Windows). Pacman aliases (`-S`, `-R`, `-Qk`, `-F`, `-Q`) are handled exclusively in `bin/rulepack`; `CliParser` and `Query.run` never see them. E2E/integration tests copy `bin/` plus `lib/` and `data/` into sandboxes and drive `bin/rulepack` subprocesses.
 - **`encoding_defaults.rb` must be loaded before any other `lib/rulepack/` file**: it sets `Encoding.default_external = Encoding::UTF_8` early. If it is accidentally dropped from an entry point (e.g. `bin/rulepack`), markdown files with non-ASCII characters will raise `Encoding::UndefinedConversionError`. Always verify it is required before `require "lib/rulepack"`.
 - **`Rulepack::Security.strip_symlinks_in_tree` is the single source of truth**: three files (`build_per_pkg.rb`, `skill_bundle_lazy.rb`, `install_execute.rb`) previously had inline symlink-stripping logic. All now delegate to `lib/rulepack/security.rb`. Any new code that needs to strip symlinks from a directory tree must call this method, not reimplement it.
 - **`lib/rulepack.rb` is the library entry point**: `require "lib/rulepack"` loads the typed error hierarchy, encoding defaults, and all submodules. `bin/rulepack` and tests should use this entry point rather than requiring individual files. The `require_relative 'errors'` in `common.rb` ensures errors are available even when `common.rb` is loaded directly.

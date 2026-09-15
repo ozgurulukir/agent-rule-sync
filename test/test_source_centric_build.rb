@@ -30,6 +30,7 @@ class TestSourceCentricBuild < Minitest::Test
     @tmpdir = Dir.mktmpdir('rulepack-source-centric-')
     @rulepack_root = Pathname.new(@tmpdir).join('rulepack')
     @rulepack_root.mkpath
+    FileUtils.cp_r(ROOT.join('bin').to_s, @rulepack_root.join('bin').to_s, preserve: false)
     FileUtils.cp_r(ROOT.join('lib').to_s, @rulepack_root.join('lib').to_s, preserve: false)
     FileUtils.cp_r(ROOT.join('data').to_s, @rulepack_root.join('data').to_s, preserve: false)
     index_yaml = @rulepack_root.join('data', 'index.yaml')
@@ -50,15 +51,18 @@ class TestSourceCentricBuild < Minitest::Test
     FileUtils.rm_rf(@tmpdir)
   end
 
-  def run_build
-    system(@ruby, @rulepack_root.join('lib/rulepack/build.rb').to_s,
+  # Drive the real CLI entry point (bin/rulepack) rather than library files.
+  def run_rulepack(*args)
+    system(@env, @ruby, @rulepack_root.join('bin/rulepack').to_s, *args,
            chdir: @rulepack_root.to_s)
   end
 
+  def run_build
+    run_rulepack('build')
+  end
+
   def run_install(platform, *args)
-    cmd_args = ['--target', platform] + args
-    system(@env, @ruby, @rulepack_root.join('lib/rulepack/install.rb').to_s, *cmd_args,
-           chdir: @rulepack_root.to_s)
+    run_rulepack('install', '--target', platform, *args)
   end
 
   # ─── AC1: build does not copy skill-bundles to build/<plat>/<pkg>/ ────────
@@ -165,17 +169,11 @@ class TestSourceCentricBuild < Minitest::Test
            'Sub-skill mcp-builder should be installed'
 
     # Verify passes
-    check_status = system(@env, @ruby,
-                          @rulepack_root.join('lib/rulepack/install.rb').to_s,
-                          '--check', '--target', 'opencode',
-                          chdir: @rulepack_root.to_s)
+    check_status = run_rulepack('check', '--target', 'opencode')
     assert check_status, 'Check should pass after skill-bundle install'
 
     # Uninstall
-    uninstall_status = system(@env, @ruby,
-                              @rulepack_root.join('lib/rulepack/uninstall.rb').to_s,
-                              '--target', 'opencode',
-                              chdir: @rulepack_root.to_s)
+    uninstall_status = run_rulepack('uninstall', '--target', 'opencode')
     assert uninstall_status, 'Uninstall should succeed'
 
     refute bundle_dir.exist?, 'Skill-bundle should be removed after uninstall'

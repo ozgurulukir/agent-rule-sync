@@ -20,6 +20,7 @@ class TestEndToEndPipeline < Minitest::Test
     @home_dir.mkpath
     @rulepack_root = Pathname.new(@tmpdir).join('rulepack')
     @rulepack_root.mkpath
+    FileUtils.cp_r(ROOT.join('bin').to_s, @rulepack_root.join('bin').to_s, preserve: false)
     FileUtils.cp_r(ROOT.join('lib').to_s, @rulepack_root.join('lib').to_s, preserve: false)
     FileUtils.cp_r(ROOT.join('data').to_s, @rulepack_root.join('data').to_s, preserve: false)
     # data/index.yaml is a generated file (gitignored); never copy it into the sandbox
@@ -42,30 +43,29 @@ class TestEndToEndPipeline < Minitest::Test
 
   # ─── Build helpers ──────────────────────────────────────────────────────────────
 
+  # Drive the real CLI entry point (bin/rulepack) rather than library files.
+  def run_rulepack(*args, env: nil)
+    system(env || @env, @ruby, @rulepack_root.join('bin/rulepack').to_s, *args,
+           chdir: @rulepack_root.to_s)
+  end
+
   def run_build(expected_success: true)
-    result = system(@ruby, @rulepack_root.join('lib/rulepack/build.rb').to_s, chdir: @rulepack_root.to_s)
+    result = run_rulepack('build')
     assert_equal expected_success, result, "Build #{expected_success ? 'should' : 'should not'} succeed"
     result
   end
 
   def run_install(platform, *args)
-    cmd_args = ["--target", platform] + args
-    result = system(@env, @ruby, @rulepack_root.join('lib/rulepack/install.rb').to_s, *cmd_args,
-                    chdir: @rulepack_root.to_s)
-    result
+    run_rulepack('install', '--target', platform, *args)
   end
 
   def run_check(platform)
-    system(@env, @ruby, @rulepack_root.join('lib/rulepack/install.rb').to_s, '--check', '--target', platform,
-           chdir: @rulepack_root.to_s)
+    run_rulepack('check', '--target', platform)
     $?.exitstatus
   end
 
   def run_uninstall(platform, *args)
-    cmd_args = ["--target", platform] + args
-    result = system(@env, @ruby, @rulepack_root.join('lib/rulepack/uninstall.rb').to_s, *cmd_args,
-                    chdir: @rulepack_root.to_s)
-    result
+    run_rulepack('uninstall', '--target', platform, *args)
   end
 
   def load_index

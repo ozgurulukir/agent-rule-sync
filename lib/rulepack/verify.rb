@@ -7,7 +7,6 @@ require 'fileutils'
 require 'digest'
 require_relative 'common'
 require_relative 'installer'
-require_relative 'cli_parser'
 
 module Rulepack
   module Verify
@@ -375,16 +374,3 @@ module Rulepack
   end
 end
 
-# CLI runner block
-if __FILE__ == $PROGRAM_NAME
-  begin
-    opts = Rulepack::CliParser.parse(ARGV)
-    result = Rulepack::Verify.run(opts.merge(exit_on_failure: false))
-    exit_code = result.failure? ? 1 : 0
-  rescue StandardError => e
-    $stderr.puts "❌ Error: #{e.message}"
-    exit_code = 1
-  end
-  $rulepack_exit_code = exit_code
-  exit exit_code if __FILE__ == $PROGRAM_NAME
-end

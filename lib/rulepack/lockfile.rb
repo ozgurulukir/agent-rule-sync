@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'yaml'
+require_relative 'io'
 
 # Lockfile — pins (pkgname, version, source_sha256) tuples for reproducible installs.
 #
@@ -65,8 +66,7 @@ module Rulepack
     end
 
     def write!
-      @path.dirname.mkpath
-      @path.write(YAML.dump({
+      Rulepack::IO.atomic_write(@path, YAML.dump({
         'version' => 1,
         'generated' => Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
         'packages' => @entries

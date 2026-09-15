@@ -209,4 +209,3 @@ module Rulepack
   end
 end
 
-Rulepack::Audit.run(ARGV) if __FILE__ == $PROGRAM_NAME

@@ -8,7 +8,6 @@ require 'stringio'
 require_relative 'common'
 require_relative 'installer'
 require_relative 'verify'
-require_relative 'cli_parser'
 
 module Rulepack
   module Fix
@@ -89,18 +88,10 @@ module Rulepack
 
     # Execution Helpers
 
-    def run_verify(platform_id, package_arg, project_arg)
-      Rulepack::Verify.check(
-        target: platform_id,
-        package_name: package_arg,
-        project_path: project_arg
-      )
-    end
-
     def fix_platform(platform_id, package_arg, project_arg, dry_run, auto_mode, index)
       puts "\n── #{platform_id} ──"
 
-      result = run_verify(platform_id, package_arg, project_arg)
+      result = Rulepack::Verify.check(target: platform_id, package_name: package_arg, project_path: project_arg)
       data = result.data || {}
       has_drift = data[:drift].to_i > 0
       # Verify.check returns orphans as an integer count at the top level with
@@ -299,28 +290,3 @@ module Rulepack
   end
 end
 
-# CLI runner block
-if __FILE__ == $PROGRAM_NAME
-  begin
-    opts = Rulepack::CliParser.parse(ARGV)
-    result = Rulepack::Fix.run(opts)
-
-    if result.failure?
-      if (opts[:format] || :text).to_sym == :text
-        result.messages.each { |m| warn m }
-        result.errors.each { |e| warn "Error: #{e}" }
-      else
-        Rulepack::Reporter.print(result, format: opts[:format])
-      end
-      exit_code = 1
-    else
-      Rulepack::Reporter.print(result, format: opts[:format] || :text)
-      exit_code = 0
-    end
-  rescue StandardError => e
-    $stderr.puts "❌ Error: #{e.message}"
-    exit_code = 1
-  end
-  $rulepack_exit_code = exit_code
-  exit exit_code if __FILE__ == $PROGRAM_NAME
-end

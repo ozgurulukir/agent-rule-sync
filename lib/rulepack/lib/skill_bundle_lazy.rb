@@ -78,7 +78,7 @@ module Rulepack
       FileUtils.cp_r("#{source_dir}/.", build_pkg_dir, preserve: false)
 
       # Security: strip symlinks planted by untrusted sources.
-      strip_symlinks_in_tree(build_pkg_dir)
+      Rulepack::Security.strip_symlinks_in_tree(build_pkg_dir)
 
       # Apply agent translator to .md files (matches old build_skill_bundle_target).
       if tgt[:format] == 'agent' && tgt[:translate]
@@ -159,10 +159,6 @@ module Rulepack
 
       Rulepack::Common.log "    ✓ Schema Engine applied to #{applied} file(s) in directory build" if applied > 0
       puts "    ✓ Schema Engine applied to #{applied} file(s) in directory build" if applied > 0
-    end
-
-    def strip_symlinks_in_tree(root)
-      Rulepack::Security.strip_symlinks_in_tree(root)
     end
   end
 end

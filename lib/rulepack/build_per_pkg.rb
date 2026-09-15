@@ -298,20 +298,5 @@ module Rulepack
       pkg_index[:pkgver] = new_pkgver
       true
     end
-
-    def apply_schema_engine_to_directory(build_pkg_dir, tgt, platforms, format)
-      # DEPRECATED — moved to Rulepack::SkillBundleLazy.
-      # Kept as a thin shim so external code that might reference
-      # BuildPerPkg.apply_schema_engine_to_directory still resolves. New
-      # callers should use Rulepack::SkillBundleLazy.apply_schema_engine_to_directory
-      # directly. The shim preserves the prior public signature and delegates.
-      Rulepack::SkillBundleLazy.apply_schema_engine_to_directory(build_pkg_dir, tgt, platforms, format)
-    end
-
-    # Security: recursively remove all symlinks (files and dirs) under a tree.
-    # Delegates to the single implementation in Rulepack::Security.
-    def strip_symlinks_in_tree(root)
-      Rulepack::Security.strip_symlinks_in_tree(root, log_prefix: '⚠')
-    end
   end
 end

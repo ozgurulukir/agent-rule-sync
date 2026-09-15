@@ -107,7 +107,7 @@ class TestFix < Minitest::Test
 
     # Mock verify to report orphan
     verify_result = Rulepack::Result.new(status: :partial, data: { drift: 0, orphans: [orphan_file.to_s], ok: 0 })
-    Rulepack::Fix.stub(:run_verify, verify_result) do
+    Rulepack::Verify.stub(:check, verify_result) do
       result = Rulepack::Fix.run(
         target: 'opencode',
         dry_run: true
@@ -124,7 +124,7 @@ class TestFix < Minitest::Test
     assert orphan_file.exist?, 'orphan file should exist before fix'
 
     verify_result = Rulepack::Result.new(status: :partial, data: { drift: 0, orphans: [orphan_file.to_s], ok: 0 })
-    Rulepack::Fix.stub(:run_verify, verify_result) do
+    Rulepack::Verify.stub(:check, verify_result) do
       Rulepack::Fix.stub(:fix_drift, { fixed: [], failed: [] }) do
         result = Rulepack::Fix.run(
           target: 'opencode',
@@ -144,7 +144,7 @@ class TestFix < Minitest::Test
     assert orphan_file.exist?, 'orphan file should exist'
 
     verify_result = Rulepack::Result.new(status: :partial, data: { drift: 0, orphans: [orphan_file.to_s], ok: 0 })
-    Rulepack::Fix.stub(:run_verify, verify_result) do
+    Rulepack::Verify.stub(:check, verify_result) do
       Rulepack::Fix.stub(:fix_drift, { fixed: [], failed: [] }) do
         result = Rulepack::Fix.run(
           target: 'opencode',
@@ -167,7 +167,7 @@ class TestFix < Minitest::Test
     (@install_dir / 'index.yaml').write(index.to_yaml)
 
     verify_result = Rulepack::Result.new(status: :partial, data: { drift: 1, orphans: [], ok: 0 })
-    Rulepack::Fix.stub(:run_verify, verify_result) do
+    Rulepack::Verify.stub(:check, verify_result) do
       result = Rulepack::Fix.run(
         target: 'opencode',
         dry_run: true
@@ -274,7 +274,7 @@ class TestFix < Minitest::Test
     (@install_dir / 'index.yaml').write(index.to_yaml)
 
     verify_result = Rulepack::Result.new(status: :success, data: { drift: 0, orphans: [], ok: 0 })
-    Rulepack::Fix.stub(:run_verify, verify_result) do
+    Rulepack::Verify.stub(:check, verify_result) do
       result = Rulepack::Fix.run(target: 'opencode')
 
       assert result.success?
