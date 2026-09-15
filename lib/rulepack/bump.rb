@@ -10,7 +10,15 @@ module Rulepack
   module Bump
     module_function
 
-    def run(argv)
+    def run(argv, paths: nil)
+      if paths
+        Rulepack::Common.with_paths(paths) { run_unscoped(argv) }
+      else
+        run_unscoped(argv)
+      end
+    end
+
+    def run_unscoped(argv)
       options = parse_args(argv)
       packages = discover_git_packages
 
@@ -302,7 +310,7 @@ module Rulepack
     end
 
     def invoke_build
-      build_index = Rulepack::Common::BUILD_INDEX_PATH
+      build_index = Rulepack::Common.build_index_path
       FileUtils.rm_f(build_index) if build_index.exist?
 
       Rulepack::Build.run

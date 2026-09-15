@@ -36,7 +36,10 @@ Rulepack is organized into modular components under `lib/rulepack/`:
 | `schema_engine.rb` | Centralized Dynamic Schema Engine | `SchemaEngine.apply` (frontmatter, emoji, bullets, headings) |
 | `build_pipeline.rb` | 4-stage build pipeline | `BuildPipeline.run` (fetch → translate → schema → transform) |
 | `validation.rb` | PKGBUILD validation | `validate_pkgbuild`, `validate_target` |
-| `platform.rb` | Platform registry | `load_platform_registry`, `platform_cfg_for` |
+| `platform.rb` | Platform path resolution | `resolve_install_path`, `platform_config` |
+| `platforms.rb` | Platform registry (per-root memoized) | `Rulepack::Platforms.load(root)`, `clear_cache!` |
+| `paths.rb` | Runtime paths value object | `Rulepack::Paths.for_root(root)` |
+| `ui.rb` | Interactive terminal I/O | `Rulepack::UI#spin`, `#confirm`, `#collision_prompt` |
 | `installer.rb` | Installation engine | `Rulepack::Install`, `install_package` |
 | `uninstaller.rb` | Uninstallation logic | `uninstall_package_from_platform` |
 | `build.rb` | Build orchestrator | Main build loop, per-package processing |
@@ -312,17 +315,26 @@ end
 ### Loading Registry
 
 ```ruby
-def load_platform_registry
-  @platform_registry ||= begin
-    raw = Rulepack::Common.load_yaml(Rulepack::Common::REGISTRY_PATH)
-    raw.each { |id, cfg| validate_platform_config(id, cfg) }
-    raw
-  end
-end
+# Merge order: data/registry/platforms.yaml <- <root>/.rulepack.local.yaml
+#              <- ~/.config/rulepack/config.yaml
+registry = Rulepack::Platforms.load(root)   # memoized per root
+Rulepack::Platforms.clear_cache!            # drop one or all cached roots
 
-def clear_platform_registry_cache!
-  @platform_registry = nil
-end
+# Backwards-compatible delegators live on Common:
+registry = Rulepack::Common.load_platform_registry
+```
+
+### Scoped Paths / UI Contexts
+
+Backend entry points (`Fix.run`, `Outdated.run`, `Bump.run`) accept a
+`paths:` keyword (a `Rulepack::Paths`); interactive backends (`Fix.run`,
+`Installer.dispatch`, `Uninstaller.dispatch`) accept `ui:` (a `Rulepack::UI`).
+Internally they open a thread-scoped context so deep layers resolve paths and
+prompts through it:
+
+```ruby
+Rulepack::Common.with_paths(sandbox_paths) { Rulepack::Fix.run(target: 'opencode') }
+Rulepack::Common.with_ui(Rulepack::UI::Null.new) { Rulepack::Uninstaller.dispatch(opts) }
 ```
 
 ---

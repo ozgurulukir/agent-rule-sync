@@ -16,11 +16,13 @@ ROOT = Pathname.new(__dir__).parent.expand_path
 
 # Platform Registry Memoization Contract:
 # ========================================
-# The platform registry is cached after first load via Rulepack::Common.load_platform_registry
-# (see lib/rulepack/platform.rb:54-67). Tests that modify data/registry/platforms.yaml or
-# data/platforms/*.yaml MUST call Rulepack::Common.clear_platform_registry_cache! in their
-# setup/teardown to ensure changes are picked up. Otherwise, the cached registry will cause
-# false test passes or stale configuration bugs.
+# The platform registry is cached per root via Rulepack::Platforms.load(root)
+# (see lib/rulepack/platforms.rb). Tests that build a sandbox registry get
+# their own cache slot automatically. Tests that modify the REPO's
+# data/registry/platforms.yaml or data/platforms/*.yaml MUST call
+# Rulepack::Platforms.clear_cache! (or Rulepack::Common.clear_platform_registry_cache!)
+# in their setup/teardown to ensure changes are picked up. Otherwise, the cached
+# registry will cause false test passes or stale configuration bugs.
 #
 # Example:
 #   def setup
@@ -156,7 +158,8 @@ module TestHelpers
   end
 end
 
-# Set environment flag to disable interactive CLI TUI prompts during testing
-ENV['RULEPACK_TEST'] = '1'
+# Non-interactive UI for the whole test process: confirms decline, spinners
+# no-op, collisions stop. Replaces the old ENV['RULEPACK_TEST'] flag.
+Rulepack::UI.default = Rulepack::UI::Null.new
 
 Minitest::Test.include TestHelpers

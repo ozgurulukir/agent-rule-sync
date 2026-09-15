@@ -50,10 +50,9 @@ class TestBump < Minitest::Test
       }
       index_path.write(index_data.to_yaml)
 
-      old = Rulepack::Common.build_index_path
-      Rulepack::Common.build_index_path = index_path
-      commit = Rulepack::Bump.cached_commit_for(:'skill-pkg')
-      Rulepack::Common.build_index_path = old
+      commit = Rulepack::Common.with_paths(build_index_path: index_path) do
+        Rulepack::Bump.cached_commit_for(:'skill-pkg')
+      end
 
       assert_equal 'abc123def456', commit
     end
@@ -76,10 +75,9 @@ class TestBump < Minitest::Test
       }
       index_path.write(index_data.to_yaml)
 
-      old = Rulepack::Common.build_index_path
-      Rulepack::Common.build_index_path = index_path
-      commit = Rulepack::Bump.cached_commit_for(:'bundle-pkg')
-      Rulepack::Common.build_index_path = old
+      commit = Rulepack::Common.with_paths(build_index_path: index_path) do
+        Rulepack::Bump.cached_commit_for(:'bundle-pkg')
+      end
 
       assert_equal 'prefer_this', commit
     end

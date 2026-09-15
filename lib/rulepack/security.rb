@@ -22,7 +22,7 @@ module Rulepack
 
         File.unlink(entry)
         if log_prefix
-          Rulepack::Common.log "    #{log_prefix} Removed untrusted symlink from tree: #{entry}"
+          Rulepack::Logging.log "    #{log_prefix} Removed untrusted symlink from tree: #{entry}"
         end
       end
     end

@@ -32,7 +32,7 @@ module Rulepack
     # Interactive sub-skill selection menu (pacman-style premium TUI)
     # Returns array of selected sub-skills, or nil when the user cancels.
     def prompt_sub_skill_selection(sub_skills, pkgname)
-      return sub_skills unless $stdin.isatty && !ENV['RULEPACK_TEST']
+      return sub_skills unless Rulepack::Common.ui.interactive?
 
       # Selected indices (0-indexed). Default: all selected.
       selected_indices = Set.new((0...sub_skills.size).to_a)

@@ -15,12 +15,9 @@ class TestVerifyCheck < Minitest::Test
 
   def test_check_with_no_index
     # Temporarily override index path to a non-existent location
-    original = Rulepack::Common.index_yaml_path
-    Rulepack::Common.index_yaml_path = Pathname.new('/tmp/rulepack-no-index-xyz/index.yaml')
-    result = Rulepack::Verify.check(target: 'opencode')
+    paths = Rulepack::Paths.new(root: Pathname.new('/tmp/rulepack-no-index-xyz'))
+    result = Rulepack::Common.with_paths(paths) { Rulepack::Verify.check(target: 'opencode') }
     assert result.failure?
     assert_match(/Installed index not found/, result.errors.first)
-  ensure
-    Rulepack::Common.index_yaml_path = original
   end
 end

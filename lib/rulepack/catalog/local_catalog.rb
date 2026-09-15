@@ -9,6 +9,12 @@ require_relative 'source_repository'
 module Rulepack
   module Catalog
     class LocalCatalog < SourceRepository
+      # paths: inject a Rulepack::Paths to relocate the git-sources store
+      # (sandbox tests); defaults to the scoped/global paths.
+      def initialize(paths: nil)
+        @paths = paths
+      end
+
       def fetch(source_cfg, pkg_dir: nil)
         case source_cfg[:type]
         when 'local'
@@ -46,7 +52,9 @@ module Rulepack
           git_depth = source_cfg[:depth] || 1
           cached_dir, commit_hash = Rulepack::Common.cached_fetch_git_dir(git_url, git_ref, git_path,
                                                                          depth: git_depth)
-          persistent_dir = Rulepack::Common.build_dir.join('git-sources', File.basename(git_url).sub(/\.git$/, ''))
+          persistent_dir = (@paths || Rulepack::Common.paths).git_sources_dir(
+            File.basename(git_url).sub(/\.git$/, '')
+          )
           FileUtils.rm_rf(persistent_dir)
           FileUtils.mkpath(persistent_dir.parent)
           FileUtils.cp_r(cached_dir, persistent_dir)

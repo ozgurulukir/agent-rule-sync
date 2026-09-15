@@ -10,7 +10,15 @@ module Rulepack
 
     # Returns a Rulepack::Result listing installed packages that are older than
     # the current build, plus packages available in the build but not installed.
-    def run(options = {})
+    def run(options = {}, paths: nil)
+      if paths
+        Rulepack::Common.with_paths(paths) { run_unscoped(options) }
+      else
+        run_unscoped(options)
+      end
+    end
+
+    def run_unscoped(options = {})
       target_arg = options[:target] || 'all'
       project_arg = options[:project_path]
 

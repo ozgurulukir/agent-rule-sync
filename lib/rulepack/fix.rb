@@ -13,7 +13,17 @@ module Rulepack
   module Fix
     module_function
 
-    def run(options = {})
+    def run(options = {}, paths: nil, ui: nil)
+      if ui
+        Rulepack::Common.with_ui(ui) { run(options, paths: paths) }
+      elsif paths
+        Rulepack::Common.with_paths(paths) { run_unscoped(options) }
+      else
+        run_unscoped(options)
+      end
+    end
+
+    def run_unscoped(options = {})
       package_arg = options[:package_name]
       target_arg = options[:target]
       project_arg = options[:project_path]
@@ -202,17 +212,8 @@ module Rulepack
 
       should_remove = if auto_mode
         true
-      elsif ENV['RULEPACK_TEST'] || !$stdin.isatty || !$stdout.isatty
-        false
       else
-        print "\n  \e[33m?\e[0m Remove #{orphans.size} orphan(s)? [y/N] "
-        input = $stdin.gets
-        if input.nil?
-          puts
-          false
-        else
-          (input.chomp.downcase == 'y' || input.chomp.downcase == 'yes')
-        end
+        Rulepack::Common.ui.confirm("Remove #{orphans.size} orphan(s)?")
       end
 
       if should_remove

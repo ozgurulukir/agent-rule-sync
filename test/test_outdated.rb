@@ -14,8 +14,11 @@ class TestOutdated < Minitest::Test
     @build_dir.mkpath
     @install_dir.mkpath
 
-    Rulepack::Common.build_index_path = @build_dir.join('index.yaml')
-    Rulepack::Common.index_yaml_path = @install_dir.join('index.yaml')
+    @paths = Rulepack::Paths.new(
+      root: @root,
+      build_dir: @build_dir,
+      index_yaml_path: @install_dir.join('index.yaml')
+    )
 
     @build_index = {
       version: 3.0,
@@ -46,13 +49,11 @@ class TestOutdated < Minitest::Test
   end
 
   def teardown
-    Rulepack::Common.build_index_path = nil
-    Rulepack::Common.index_yaml_path = nil
     FileUtils.rm_rf(@tmpdir)
   end
 
   def test_detects_outdated_package
-    result = Rulepack::Outdated.run(target: 'opencode')
+    result = Rulepack::Outdated.run({ target: 'opencode' }, paths: @paths)
     assert result.partial?
     assert_equal 1, result.data[:outdated].size
     assert_equal 'old-version', result.data[:outdated].first[:pkgname]
@@ -61,7 +62,7 @@ class TestOutdated < Minitest::Test
   end
 
   def test_lists_available_packages
-    result = Rulepack::Outdated.run(target: 'opencode')
+    result = Rulepack::Outdated.run({ target: 'opencode' }, paths: @paths)
     assert result.partial?
     available = result.data[:available]
     assert available.any? { |a| a[:pkgname] == 'not-installed' }
@@ -69,7 +70,7 @@ class TestOutdated < Minitest::Test
   end
 
   def test_up_to_date_package_not_outdated
-    result = Rulepack::Outdated.run(target: 'opencode')
+    result = Rulepack::Outdated.run({ target: 'opencode' }, paths: @paths)
     refute result.data[:outdated].any? { |o| o[:pkgname] == 'up-to-date' }
   end
 
@@ -79,26 +80,26 @@ class TestOutdated < Minitest::Test
     index[:packages][:'old-version'][:installed][0][:version] = '2.0.0'
     (@install_dir / 'index.yaml').write(index.to_yaml)
 
-    result = Rulepack::Outdated.run(target: 'opencode')
+    result = Rulepack::Outdated.run({ target: 'opencode' }, paths: @paths)
     assert result.success?
     assert_empty result.data[:outdated]
   end
 
   def test_returns_failure_without_build_index
     (@build_dir / 'index.yaml').delete
-    result = Rulepack::Outdated.run(target: 'opencode')
+    result = Rulepack::Outdated.run({ target: 'opencode' }, paths: @paths)
     assert result.failure?
     assert_match(/Build index not found/, result.errors.first)
   end
 
   def test_text_output
-    out, _err = capture_io { Rulepack::Reporter.print(Rulepack::Outdated.run(target: 'opencode')) }
+    out, _err = capture_io { Rulepack::Reporter.print(Rulepack::Outdated.run({ target: 'opencode' }, paths: @paths)) }
     assert_match(/Outdated check/, out)
     assert_match(/old-version/, out)
   end
 
   def test_json_output
-    out, _err = capture_io { Rulepack::Reporter.print(Rulepack::Outdated.run(target: 'opencode'), format: :json) }
+    out, _err = capture_io { Rulepack::Reporter.print(Rulepack::Outdated.run({ target: 'opencode' }, paths: @paths), format: :json) }
     data = JSON.parse(out)
     assert_equal 'partial', data['status']
     assert data['data']['outdated'].any? { |o| o['pkgname'] == 'old-version' }

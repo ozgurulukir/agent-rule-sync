@@ -11,6 +11,11 @@ require 'rulepack/fix'
 
 
 class TestFix < Minitest::Test
+  # Runs Fix.run against the sandbox paths and a non-interactive UI.
+  def run_fix(**opts)
+    Rulepack::Fix.run({ **opts }, paths: @paths, ui: @ui)
+  end
+
   def setup
     @tmpdir = Dir.mktmpdir('rulepack-fix-test-')
     @root = Pathname.new(@tmpdir)
@@ -20,10 +25,13 @@ class TestFix < Minitest::Test
     @install_dir.mkpath
 
 
-    # Override common paths
-    Rulepack::Common.build_index_path = @build_dir.join('index.yaml')
-    Rulepack::Common.index_yaml_path = @install_dir.join('index.yaml')
-    Rulepack::Common.build_dir = @build_dir
+    # Sandbox paths: build tree and installed index live under the tmpdir
+    @paths = Rulepack::Paths.new(
+      root: @root,
+      build_dir: @build_dir,
+      index_yaml_path: @install_dir.join('index.yaml')
+    )
+    @ui = Rulepack::UI::Null.new
 
     # Write a minimal build index
     build_index = {
@@ -62,9 +70,6 @@ class TestFix < Minitest::Test
 
 
   def teardown
-    Rulepack::Common.build_index_path = nil
-    Rulepack::Common.index_yaml_path = nil
-    Rulepack::Common.build_dir = nil
     FileUtils.rm_rf(@tmpdir)
   end
 
@@ -73,7 +78,7 @@ class TestFix < Minitest::Test
   def test_run_returns_failure_when_build_index_missing
     (@build_dir / 'index.yaml').delete
 
-    result = Rulepack::Fix.run(target: 'opencode')
+    result = run_fix(target: 'opencode')
     assert result.failure?
     assert_match(/Build index not found/i, result.errors.first)
   end
@@ -81,19 +86,19 @@ class TestFix < Minitest::Test
   def test_run_returns_failure_when_installed_index_missing
     (@install_dir / 'index.yaml').delete
 
-    result = Rulepack::Fix.run(target: 'opencode')
+    result = run_fix(target: 'opencode')
     assert result.failure?
     assert_match(/Installed index not found/i, result.errors.first)
   end
 
   def test_run_returns_failure_for_unknown_package
-    result = Rulepack::Fix.run(package_name: 'nonexistent', target: 'opencode')
+    result = run_fix(package_name: 'nonexistent', target: 'opencode')
     assert result.failure?
     assert_match(/not registered as installed/i, result.errors.first)
   end
 
   def test_run_returns_failure_when_target_not_specified
-    result = Rulepack::Fix.run
+    result = run_fix
     assert result.failure?
     assert_match(/Please specify target platform/i, result.errors.first)
   end
@@ -108,7 +113,7 @@ class TestFix < Minitest::Test
     # Mock verify to report orphan
     verify_result = Rulepack::Result.new(status: :partial, data: { drift: 0, orphans: [orphan_file.to_s], ok: 0 })
     Rulepack::Verify.stub(:check, verify_result) do
-      result = Rulepack::Fix.run(
+      result = run_fix(
         target: 'opencode',
         dry_run: true
       )
@@ -126,7 +131,7 @@ class TestFix < Minitest::Test
     verify_result = Rulepack::Result.new(status: :partial, data: { drift: 0, orphans: [orphan_file.to_s], ok: 0 })
     Rulepack::Verify.stub(:check, verify_result) do
       Rulepack::Fix.stub(:fix_drift, { fixed: [], failed: [] }) do
-        result = Rulepack::Fix.run(
+        result = run_fix(
           target: 'opencode',
           auto: true
         )
@@ -146,7 +151,7 @@ class TestFix < Minitest::Test
     verify_result = Rulepack::Result.new(status: :partial, data: { drift: 0, orphans: [orphan_file.to_s], ok: 0 })
     Rulepack::Verify.stub(:check, verify_result) do
       Rulepack::Fix.stub(:fix_drift, { fixed: [], failed: [] }) do
-        result = Rulepack::Fix.run(
+        result = run_fix(
           target: 'opencode',
           auto: false
         )
@@ -168,7 +173,7 @@ class TestFix < Minitest::Test
 
     verify_result = Rulepack::Result.new(status: :partial, data: { drift: 1, orphans: [], ok: 0 })
     Rulepack::Verify.stub(:check, verify_result) do
-      result = Rulepack::Fix.run(
+      result = run_fix(
         target: 'opencode',
         dry_run: true
       )
@@ -275,7 +280,7 @@ class TestFix < Minitest::Test
 
     verify_result = Rulepack::Result.new(status: :success, data: { drift: 0, orphans: [], ok: 0 })
     Rulepack::Verify.stub(:check, verify_result) do
-      result = Rulepack::Fix.run(target: 'opencode')
+      result = run_fix(target: 'opencode')
 
       assert result.success?
       assert_empty result.data[:fixed]
@@ -360,7 +365,7 @@ class TestFix < Minitest::Test
     # Delete build index
     (@build_dir / 'index.yaml').delete
 
-    result = Rulepack::Fix.run(target: 'opencode')
+    result = run_fix(target: 'opencode')
     assert result.failure?
     assert_match(/Build index not found/i, result.errors.first)
   end

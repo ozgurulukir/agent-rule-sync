@@ -4,7 +4,8 @@ module Rulepack
   module Common
     module_function
 
-    def backup_index(index_path = RULEPACK_ROOT.join('data', 'index.yaml'))
+    def backup_index(index_path = nil)
+      index_path ||= Rulepack::Common.paths.index_yaml_path
       return nil unless index_path.exist?
 
       @_backup_mutex ||= Monitor.new
@@ -14,14 +15,16 @@ module Rulepack
       backup_path
     end
 
-    def restore_index(backup_path, index_path = RULEPACK_ROOT.join('data', 'index.yaml'))
+    def restore_index(backup_path, index_path = nil)
+      index_path ||= Rulepack::Common.paths.index_yaml_path
       return false unless backup_path&.exist?
 
       FileUtils.cp(backup_path, index_path)
       true
     end
 
-    def cleanup_backups(index_path = RULEPACK_ROOT.join('data', 'index.yaml'))
+    def cleanup_backups(index_path = nil)
+      index_path ||= Rulepack::Common.paths.index_yaml_path
       pattern = index_path.parent.join("#{index_path.basename}.bak.*")
       Pathname.glob(pattern.to_s).each(&:delete) rescue nil
       cleanup_old_backups

@@ -15,7 +15,6 @@ require 'rulepack/fix'
 class TestCliSyntax < Minitest::Test
    def setup
      @original_argv = ARGV.dup
-     ENV['RULEPACK_TEST'] = '1'
 
      # ── data/index.yaml (package database) ─────────────────────────────────────────
      @index_path = Rulepack::Common.index_yaml_path

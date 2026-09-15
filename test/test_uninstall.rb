@@ -57,12 +57,10 @@ class TestUninstallPackages < Minitest::Test
   end
 
   def with_build_index_override
-    # Temporarily override BUILD_INDEX_PATH to point to our test build dir
-    old_path = Rulepack::Common.build_index_path
-    Rulepack::Common.build_index_path = @build_dir.join('index.yaml')
-    yield
-  ensure
-    Rulepack::Common.build_index_path = old_path
+    # Temporarily scope the build index to our test build dir
+    Rulepack::Common.with_paths(build_index_path: @build_dir.join('index.yaml')) do
+      yield
+    end
   end
 
   # ─── Index Mutation ──────────────────────────────────────────────────────────
