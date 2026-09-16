@@ -167,7 +167,7 @@ class TestFix < Minitest::Test
 
   def test_fix_drift_with_dry_run_does_not_modify_index
     # Modify installed index to simulate drift
-    index = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
+    index = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
     index[:packages][:'test-pkg'][:installed][0][:checksum] = 'wrongchecksum'
     (@install_dir / 'index.yaml').write(index.to_yaml)
 
@@ -182,7 +182,7 @@ class TestFix < Minitest::Test
       assert_empty result.data[:fixed], 'dry-run should not apply fixes'
 
       # Index should remain unchanged
-      index_after = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
+      index_after = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
       assert_equal 'wrongchecksum', index_after[:packages][:'test-pkg'][:installed][0][:checksum]
     end
   end
@@ -192,7 +192,7 @@ class TestFix < Minitest::Test
     # (In real scenario, file would be in ~/.config/opencode/rules/test-rule.md)
     # We'll mock this by modifying the index to reference a non-existent path
 
-    index = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
+    index = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
 
     # Stub resolve_install_path to return non-existent path
     # (resolution now lives in InstalledState via Common.resolve_install_path)
@@ -210,7 +210,7 @@ class TestFix < Minitest::Test
   end
 
   def test_find_broken_packages_skips_when_no_installed_records
-    index = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
+    index = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
     index[:packages][:'test-pkg'][:installed] = []
     (@install_dir / 'index.yaml').write(index.to_yaml)
 
@@ -305,7 +305,7 @@ class TestFix < Minitest::Test
     installed_file = @install_dir.join('test-rule.md')
     installed_file.write('# Wrong drifted content')
 
-    index_before = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
+    index_before = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
 
     install_called = false
 
@@ -319,7 +319,7 @@ class TestFix < Minitest::Test
                    'one call for all broken packages, not one per package'
 
         # Fix must NOT have written a cleared index to disk before the call
-        disk_index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+        disk_index = Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
         refute_empty disk_index[:packages][:'test-pkg'][:installed],
                      'no cleared-index choreography: Install.run handles reinstall'
 
@@ -335,7 +335,7 @@ class TestFix < Minitest::Test
   end
 
   def test_fix_drift_reports_failure_and_rollback
-    index_before = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
+    index_before = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
 
     Rulepack::Install.stub(:run, lambda { |_platform_id, **_opts|
       Rulepack::Result.new(status: :failure, errors: ['install exploded'],

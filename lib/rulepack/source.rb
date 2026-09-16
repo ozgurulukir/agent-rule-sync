@@ -220,7 +220,7 @@ module Rulepack
         path = if base_dir && !Pathname.new(path_str).absolute?
                  Pathname.new(base_dir).join(path_str)
                else
-                 Pathname.new(expand_user_path(path_str))
+                 Pathname.new(Rulepack::Path.expand_user_path(path_str))
                end
         raise Rulepack::StateError, "Local source not found: #{path}. Check that the path in PKGBUILD source is correct." unless path.exist?
 

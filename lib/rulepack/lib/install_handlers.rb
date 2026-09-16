@@ -95,7 +95,7 @@ module Rulepack
     def do_copy(built_path, install_path, content_sha256, pkgname, ctx)
       strategy = ctx.collision_strategy || 'interactive'
       if install_path.exist?
-        return Rulepack::Common.log '    ↺ Already up-to-date' if Rulepack::Common.verify_checksum(install_path, content_sha256, pkgname)
+        return Rulepack::Common.log '    ↺ Already up-to-date' if Rulepack::Validation.verify_checksum(install_path, content_sha256, pkgname)
 
         effective_strategy = strategy
         if effective_strategy == 'interactive'
@@ -105,7 +105,7 @@ module Rulepack
         when 'append'
           backup_path = Rulepack::Common.backup_file(install_path)
           Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
-          result = Rulepack::Common.update_marked_content(install_path, pkgname, built_path.read)
+          result = Rulepack::IO.update_marked_content(install_path, pkgname, built_path.read)
           Rulepack::Common.log "    ✓ #{result.capitalize} (marker-based append with backup)"
         when 'overwrite'
           backup_path = Rulepack::Common.backup_file(install_path)
@@ -141,7 +141,7 @@ module Rulepack
           else
             Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
           end
-          result = Rulepack::Common.update_marked_content(install_path, pkgname, content)
+          result = Rulepack::IO.update_marked_content(install_path, pkgname, content)
           Rulepack::Common.log "    ✓ #{result.capitalize} (with backup)"
         end
       elsif install_type == 'inject'
@@ -160,7 +160,7 @@ module Rulepack
             when 'overwrite', 'append'
               backup_path = Rulepack::Common.backup_file(install_path)
               Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
-              Rulepack::Common.atomic_write(install_path, import_line + existing)
+              Rulepack::IO.atomic_write(install_path, import_line + existing)
               Rulepack::Common.log "    ✓ Injected (with backup, strategy: #{strategy})"
             when 'ignore'
               Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
@@ -171,7 +171,7 @@ module Rulepack
           end
         else
           Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
-          Rulepack::Common.atomic_write(install_path, import_line)
+          Rulepack::IO.atomic_write(install_path, import_line)
           Rulepack::Common.log '    ✓ Injected (created config)'
         end
       end
@@ -206,8 +206,8 @@ module Rulepack
                    {}
                  end
 
-      merged = Rulepack::Common.deep_merge(existing, new_data)
-      Rulepack::Common.atomic_write(install_path, JSON.pretty_generate(merged) + "\n")
+      merged = Rulepack::IO.deep_merge(existing, new_data)
+      Rulepack::IO.atomic_write(install_path, JSON.pretty_generate(merged) + "\n")
       Rulepack::Common.log '    ✓ JSON merged'
     rescue StandardError => e
       Rulepack::Common.log_error "JSON merge failed: #{e.message}"
@@ -234,8 +234,8 @@ module Rulepack
                    {}
                  end
 
-      merged = Rulepack::Common.deep_merge(existing, new_data)
-      Rulepack::Common.atomic_write(install_path, YAML.dump(merged).sub(/\A---\n/, ''))
+      merged = Rulepack::IO.deep_merge(existing, new_data)
+      Rulepack::IO.atomic_write(install_path, YAML.dump(merged).sub(/\A---\n/, ''))
       Rulepack::Common.log '    ✓ YAML merged'
     rescue StandardError => e
       Rulepack::Common.log_error "YAML merge failed: #{e.message}"
@@ -263,7 +263,7 @@ module Rulepack
         unless data[key.to_s].include?(entry_to_add)
           data[key.to_s] << entry_to_add
         end
-        Rulepack::Common.atomic_write(install_path, JSON.pretty_generate(data) + "\n")
+        Rulepack::IO.atomic_write(install_path, JSON.pretty_generate(data) + "\n")
       else
         data = install_path.exist? ? (YAML.safe_load(install_path.read, permitted_classes: [Symbol], symbolize_names: true) || {}) : {}
         data[key] ||= []
@@ -272,7 +272,7 @@ module Rulepack
           data_key_arr << entry_to_add
           data[key] = data_key_arr
         end
-        Rulepack::Common.atomic_write(install_path, YAML.dump(data).sub(/\A---\n/, ''))
+        Rulepack::IO.atomic_write(install_path, YAML.dump(data).sub(/\A---\n/, ''))
       end
       Rulepack::Common.log '    ✓ Structured inject complete'
     rescue StandardError => e

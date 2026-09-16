@@ -38,11 +38,11 @@ module Rulepack
         )
       end
 
-      index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+      index = Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
       packages = index[:packages] || {}
       registry = Rulepack::Common.load_platform_registry
 
-      targets_to_verify, target_package = Rulepack::Common.validate_targets_and_packages(
+      targets_to_verify, target_package = Rulepack::Validation.validate_targets_and_packages(
         target_arg, package_arg, packages, registry,
         exit_on_failure: false,
         project_arg: project_arg,
@@ -177,7 +177,7 @@ module Rulepack
 
     def resolve_base_path(platform_cfg, project_arg)
       project_root = Rulepack::Common.project_root_for(platform_cfg, project_arg)
-      project_root || Pathname.new(Rulepack::Common.expand_user_path(platform_cfg[:base_path]))
+      project_root || Pathname.new(Rulepack::Path.expand_user_path(platform_cfg[:base_path]))
     end
 
     # Legacy orphan scanner kept for backward compatibility.

@@ -189,39 +189,39 @@ end
 
 class TestValidateOutputFilename < Minitest::Test
   def test_valid_simple_filename
-    assert_silent { Rulepack::Common.validate_output_filename('memory.md', 'memory') }
+    assert_silent { Rulepack::Validation.validate_output_filename('memory.md', 'memory') }
   end
 
   def test_valid_with_hyphen_and_numbers
-    assert_silent { Rulepack::Common.validate_output_filename('00-memory.md', 'memory') }
+    assert_silent { Rulepack::Validation.validate_output_filename('00-memory.md', 'memory') }
   end
 
   def test_valid_underscore
-    assert_silent { Rulepack::Common.validate_output_filename('my_rule.md', 'memory') }
+    assert_silent { Rulepack::Validation.validate_output_filename('my_rule.md', 'memory') }
   end
 
   def test_rejects_path_traversal_parent_dir
-    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('../etc/passwd', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Validation.validate_output_filename('../etc/passwd', 'pkg') }
   end
 
   def test_rejects_absolute_path
-    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('/etc/passwd', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Validation.validate_output_filename('/etc/passwd', 'pkg') }
   end
 
   def test_rejects_directory_separator
-    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('subdir/file.md', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Validation.validate_output_filename('subdir/file.md', 'pkg') }
   end
 
   def test_rejects_empty_string
-    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Validation.validate_output_filename('', 'pkg') }
   end
 
   def test_rejects_dotdot_only
-    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('..', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Validation.validate_output_filename('..', 'pkg') }
   end
 
   def test_rejects_double_slash
-    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_output_filename('a//b.md', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Validation.validate_output_filename('a//b.md', 'pkg') }
   end
 end
 
@@ -229,27 +229,27 @@ end
 
 class TestValidateTargetDir < Minitest::Test
   def test_valid_trailing_slash
-    assert_silent { Rulepack::Common.validate_target_dir('golang-security-bundle/', 'pkg') }
+    assert_silent { Rulepack::Validation.validate_target_dir('golang-security-bundle/', 'pkg') }
   end
 
   def test_valid_no_trailing_slash
-    assert_silent { Rulepack::Common.validate_target_dir('golang-security-bundle', 'pkg') }
+    assert_silent { Rulepack::Validation.validate_target_dir('golang-security-bundle', 'pkg') }
   end
 
   def test_valid_nested_dir
-    assert_silent { Rulepack::Common.validate_target_dir('skills/my-bundle/', 'pkg') }
+    assert_silent { Rulepack::Validation.validate_target_dir('skills/my-bundle/', 'pkg') }
   end
 
   def test_rejects_path_traversal_parent_dir
-    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_target_dir('../../../etc/', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Validation.validate_target_dir('../../../etc/', 'pkg') }
   end
 
   def test_rejects_absolute_path
-    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_target_dir('/absolute/path/', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Validation.validate_target_dir('/absolute/path/', 'pkg') }
   end
 
   def test_rejects_dotdot_only
-    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Common.validate_target_dir('..', 'pkg') }
+    assert_raises(Rulepack::InvalidPkgbuild) { Rulepack::Validation.validate_target_dir('..', 'pkg') }
   end
 end
 
@@ -257,27 +257,27 @@ end
 
 class TestExpandUserPath < Minitest::Test
   def test_home_expansion
-    result = Rulepack::Common.expand_user_path('~/projects')
+    result = Rulepack::Path.expand_user_path('~/projects')
     assert_equal File.expand_path('~/projects'), result
     refute_match(/\A~/, result)
   end
 
   def test_absolute_path_passthrough
     path = '/absolute/path'
-    assert_equal path, Rulepack::Common.expand_user_path(path)
+    assert_equal path, Rulepack::Path.expand_user_path(path)
   end
 
   def test_relative_path_passthrough
     path = 'relative/path'
-    assert_equal path, Rulepack::Common.expand_user_path(path)
+    assert_equal path, Rulepack::Path.expand_user_path(path)
   end
 
   def test_empty_string
-    assert_equal '', Rulepack::Common.expand_user_path('')
+    assert_equal '', Rulepack::Path.expand_user_path('')
   end
 
   def test_dot_path
-    assert_equal '.', Rulepack::Common.expand_user_path('.')
+    assert_equal '.', Rulepack::Path.expand_user_path('.')
   end
 end
 
@@ -286,46 +286,46 @@ end
 class TestStripFrontmatter < Minitest::Test
   def test_strips_yaml_frontmatter
     content = "---\ntitle: Test\n---\nBody text"
-    result = Rulepack::Common.strip_frontmatter(content)
+    result = Rulepack::Path.strip_frontmatter(content)
     assert_equal "Body text", result
   end
 
   def test_returns_content_without_frontmatter
     content = "No frontmatter here"
-    assert_equal content, Rulepack::Common.strip_frontmatter(content)
+    assert_equal content, Rulepack::Path.strip_frontmatter(content)
   end
 
   def test_strips_frontmatter_with_blank_lines_after
     content = "---\ntitle: Test\n---\n\nBody text"
-    result = Rulepack::Common.strip_frontmatter(content)
+    result = Rulepack::Path.strip_frontmatter(content)
     assert_equal "Body text", result
   end
 
   def test_empty_content_returns_empty
-    assert_equal '', Rulepack::Common.strip_frontmatter('')
+    assert_equal '', Rulepack::Path.strip_frontmatter('')
   end
 
   def test_only_frontmatter_no_body
     content = "---\ntitle: Test\n---\n"
-    result = Rulepack::Common.strip_frontmatter(content)
+    result = Rulepack::Path.strip_frontmatter(content)
     assert_equal '', result
   end
 
   def test_frontmatter_with_leading_whitespace_not_matched
     content = "  ---\ntitle: Test\n---\nBody"
-    result = Rulepack::Common.strip_frontmatter(content)
+    result = Rulepack::Path.strip_frontmatter(content)
     assert_equal content, result
   end
 
   def test_multiline_frontmatter_body_stripped
     content = "---\ntitle: Hello\ndesc: World\nauthor: test\n---\nReal body"
-    result = Rulepack::Common.strip_frontmatter(content)
+    result = Rulepack::Path.strip_frontmatter(content)
     assert_equal "Real body", result
   end
 
   def test_opening_delimiter_only_not_stripped
     content = "---\ntitle: Test\nNo closing delimiter"
-    result = Rulepack::Common.strip_frontmatter(content)
+    result = Rulepack::Path.strip_frontmatter(content)
     assert_equal content, result
   end
 end

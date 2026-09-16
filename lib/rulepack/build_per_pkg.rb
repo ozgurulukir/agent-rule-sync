@@ -48,7 +48,7 @@ module Rulepack
       when 'local'
         src_path = src_cfg[:path]
         source_dir = if src_path.start_with?('/') || src_path.start_with?('~')
-                       Pathname.new(Rulepack::Common.expand_user_path(src_path))
+                       Pathname.new(Rulepack::Path.expand_user_path(src_path))
                      else
                        pkg_dir.join(src_path)
                      end
@@ -208,7 +208,7 @@ module Rulepack
 
       # Validate output filename (path traversal protection)
       begin
-        Rulepack::Common.validate_output_filename(output, pkgname)
+        Rulepack::Validation.validate_output_filename(output, pkgname)
       rescue StandardError => e
         Rulepack::Common.log_error e.message
         return [false, record]

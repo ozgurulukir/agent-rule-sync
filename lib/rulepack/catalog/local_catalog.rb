@@ -40,7 +40,7 @@ module Rulepack
         when 'local'
           src_path = source_cfg[:path]
           dir = if src_path.start_with?('/') || src_path.start_with?('~')
-                  Pathname.new(Rulepack::Common.expand_user_path(src_path))
+                  Pathname.new(Rulepack::Path.expand_user_path(src_path))
                 else
                   pkg_dir.join(src_path)
                 end

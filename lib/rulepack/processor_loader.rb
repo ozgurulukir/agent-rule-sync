@@ -42,7 +42,7 @@ module Rulepack
     def resolve_path(spec)
       custom_rel = spec.to_s.sub(/\Acustom:/, '')
       path = if custom_rel.start_with?('/') || custom_rel.start_with?('~')
-               Pathname.new(Rulepack::Common.expand_user_path(custom_rel))
+               Pathname.new(Rulepack::Path.expand_user_path(custom_rel))
              else
                Rulepack::Common::RULEPACK_ROOT.join(custom_rel)
              end

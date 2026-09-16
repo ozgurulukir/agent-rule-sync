@@ -232,7 +232,7 @@ module Rulepack
                            messages: ["  ⚠ MISSING: #{pkgname} (#{record.output}) at #{installed_path}"], files: nil)
       end
 
-      if Rulepack::Common.verify_checksum(installed_path, record.checksum, pkgname.to_s)
+      if Rulepack::Validation.verify_checksum(installed_path, record.checksum, pkgname.to_s)
         Verdict.new(status: :ok, type: :rule, path: installed_path,
                     messages: ["  ✓ #{pkgname} (#{record.output})"], files: nil)
       else

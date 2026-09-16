@@ -20,7 +20,7 @@ module Rulepack
 
       # 1. Apply frontmatter policy
       if ruleset[:frontmatter] == 'strip'
-        processed_content = Rulepack::Common.strip_frontmatter(processed_content)
+        processed_content = Rulepack::Path.strip_frontmatter(processed_content)
       end
 
       # 2. Apply emoji policy

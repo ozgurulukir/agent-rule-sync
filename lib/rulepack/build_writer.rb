@@ -18,7 +18,7 @@ module Rulepack
         packages: index_data[:packages]
       }
       begin
-        Rulepack::Common.write_yaml_atomic(Rulepack::Common::BUILD_INDEX_PATH, build_index_data)
+        Rulepack::IO.write_yaml_atomic(Rulepack::Common::BUILD_INDEX_PATH, build_index_data)
         Rulepack::Common.log "📝 Build index written: #{Rulepack::Common::BUILD_INDEX_PATH}"
         puts "\n📝 Build index written: #{Rulepack::Common::BUILD_INDEX_PATH}"
         true

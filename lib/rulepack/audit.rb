@@ -73,7 +73,7 @@ module Rulepack
 
         # 1. Parse YAML
         begin
-          data = Rulepack::Common.load_yaml(pkgbuild_path)
+          data = Rulepack::IO.load_yaml(pkgbuild_path)
           pkg_result[:details] = {
             version: "#{data[:epoch] || 0}:#{data[:pkgver]}-#{data[:pkgrel] || 1}",
             description: data[:pkgdesc]
@@ -87,7 +87,7 @@ module Rulepack
         end
 
         # 2. Schema Validation
-        validation_res = Rulepack::Common.validate_pkgbuild(data, pkg_dir)
+        validation_res = Rulepack::Validation.validate_pkgbuild(data, pkg_dir)
         if validation_res != true
           pkg_result[:valid] = false
           pkg_result[:errors] << "Schema Validation: #{validation_res}"

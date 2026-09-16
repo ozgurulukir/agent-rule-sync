@@ -22,8 +22,8 @@ class TestDriftCms < Minitest::Test
     checksum = Digest::SHA256.hexdigest(content)
     @file_path.write(content)
 
-    assert Rulepack::Common.verify_checksum(@file_path, checksum, 'my-pkg')
-    refute Rulepack::Common.verify_checksum(@file_path, 'wrong-checksum', 'my-pkg')
+    assert Rulepack::Validation.verify_checksum(@file_path, checksum, 'my-pkg')
+    refute Rulepack::Validation.verify_checksum(@file_path, 'wrong-checksum', 'my-pkg')
   end
 
   def test_verify_checksum_with_markers_clean
@@ -34,7 +34,7 @@ class TestDriftCms < Minitest::Test
     marked = "<!-- rulepack:my-pkg start -->\nThis is my rule content\n\n<!-- rulepack:my-pkg end -->"
     @file_path.write(marked)
 
-    assert Rulepack::Common.verify_checksum(@file_path, checksum, 'my-pkg')
+    assert Rulepack::Validation.verify_checksum(@file_path, checksum, 'my-pkg')
   end
 
   def test_verify_checksum_with_markers_shared_file
@@ -57,7 +57,7 @@ class TestDriftCms < Minitest::Test
     @file_path.write(shared)
 
     # Verification MUST pass, even with user custom configuration around the markers!
-    assert Rulepack::Common.verify_checksum(@file_path, checksum, 'my-pkg')
+    assert Rulepack::Validation.verify_checksum(@file_path, checksum, 'my-pkg')
   end
 
   def test_verify_checksum_with_markers_and_drift_inside
@@ -78,6 +78,6 @@ class TestDriftCms < Minitest::Test
     @file_path.write(drifted)
 
     # Verification MUST detect the drift and fail!
-    refute Rulepack::Common.verify_checksum(@file_path, checksum, 'my-pkg')
+    refute Rulepack::Validation.verify_checksum(@file_path, checksum, 'my-pkg')
   end
 end

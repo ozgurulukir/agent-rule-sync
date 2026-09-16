@@ -24,10 +24,10 @@ module Rulepack
     # PKGBUILDs may omit, then the descriptor is validated.
     def load_and_validate_pkgbuild(pkgbuild_path)
       pkg_dir = pkgbuild_path.dirname
-      pkg = Package.from_hash(Rulepack::Common.load_pkgbuild(pkg_dir))
+      pkg = Package.from_hash(Rulepack::Validation.load_pkgbuild(pkg_dir))
       pkgname = pkg.pkgname.to_sym
 
-      validation_error = Rulepack::Common.validate_pkgbuild(pkg, pkg_dir)
+      validation_error = Rulepack::Validation.validate_pkgbuild(pkg, pkg_dir)
       if validation_error != true
         Rulepack::Common.log_error "PKGBUILD validation failed for #{pkgname}: #{validation_error}"
         return nil

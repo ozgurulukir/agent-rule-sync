@@ -44,7 +44,7 @@ module Rulepack
         )
       end
 
-      index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+      index = Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
       registry = Rulepack::Common.load_platform_registry
 
       # ── Resolve target package ────────────────────────────────────────────────
@@ -102,7 +102,7 @@ module Rulepack
         # Save updated index
         unless dry_run
           index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-          Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
+          Rulepack::IO.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
           Rulepack::Emitter.emit(:progress, message: "\u{1f4dd} Index updated: #{Rulepack::Common.index_yaml_path}")
         end
       rescue StandardError => e
@@ -169,7 +169,7 @@ module Rulepack
 
         platform_cfg = registry[platform_id.to_sym] || registry[platform_id.to_s]
         project_root = project_arg ? Pathname.new(project_arg).expand_path : nil
-        base_path = project_root || Pathname.new(Rulepack::Common.expand_user_path(platform_cfg[:base_path]))
+        base_path = project_root || Pathname.new(Rulepack::Path.expand_user_path(platform_cfg[:base_path]))
 
         # Skill platforms: remove aggregated vendor skill
         if platform_cfg[:type] == 'skill' && !target_package
@@ -224,8 +224,8 @@ module Rulepack
     def uninstall_packages(index, platform_id, dry_run: false, project_root: nil,
                            specific_packages: nil, ctx: nil)
       platform_cfg = Rulepack::Common.platform_config(platform_id, Rulepack::Common.load_platform_registry)
-      base_path = project_root || Pathname.new(Rulepack::Common.expand_user_path(platform_cfg[:base_path]))
-      build_index = Rulepack::Common.load_yaml(Rulepack::Common.build_index_path)
+      base_path = project_root || Pathname.new(Rulepack::Path.expand_user_path(platform_cfg[:base_path]))
+      build_index = Rulepack::IO.load_yaml(Rulepack::Common.build_index_path)
       pkg_names = resolve_pkg_targets(index, platform_id, specific_packages)
 
       uninstalled = []
@@ -340,7 +340,7 @@ module Rulepack
         end
 
         if path.file? && !path.symlink? && pkgname
-          res = Rulepack::Common.remove_marked_content(path, pkgname)
+          res = Rulepack::IO.remove_marked_content(path, pkgname)
           if res == :removed
             Rulepack::Emitter.emit(:progress, message: "    \u{2713} Excised package content from: #{path}")
             return

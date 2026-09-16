@@ -69,7 +69,7 @@ module Rulepack
         raise Rulepack::IndexNotFound, 'index.yaml not found'
       end
 
-      index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+      index = Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
       platform_cfg = InstallPlan.platform_cfg_for(platform_id)
       InstallPlan.warn_prerequisites(platform_id, platform_cfg, false)
 
@@ -261,7 +261,7 @@ module Rulepack
             when 'append'
               backup_path = Rulepack::Common.backup_file(install_path)
               Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
-              result = Rulepack::Common.update_marked_content(install_path, "#{platform_id}_vendor", vendor_file.read)
+              result = Rulepack::IO.update_marked_content(install_path, "#{platform_id}_vendor", vendor_file.read)
               Rulepack::Emitter.emit(:progress, message: "  ✓ #{result.capitalize} vendor skill to #{install_path} (with backup)")
             when 'overwrite'
               backup_path = Rulepack::Common.backup_file(install_path)

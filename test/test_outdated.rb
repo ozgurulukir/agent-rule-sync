@@ -76,7 +76,7 @@ class TestOutdated < Minitest::Test
 
   def test_returns_success_when_all_current
     # Make old-version match build
-    index = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
+    index = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
     index[:packages][:'old-version'][:installed][0][:version] = '2.0.0'
     (@install_dir / 'index.yaml').write(index.to_yaml)
 

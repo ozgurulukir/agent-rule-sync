@@ -73,7 +73,7 @@ module Rulepack
       target_dir = install_cfg[:target_dir]
 
       if target_dir
-        target_subdir = expand_user_path(target_dir)
+        target_subdir = Rulepack::Path.expand_user_path(target_dir)
         # If rules_file override (single-file platforms like antigravity)
         if !%w[skill skill-bundle].include?(target_cfg[:format]) && platform_cfg[:rules_file] && platform_cfg[:rule_install]&.[](:type) == 'append'
           Pathname.new(base).join(platform_cfg[:rules_file])
@@ -130,7 +130,7 @@ module Rulepack
       base = if base_override
                base_override.to_s
              else
-               expand_user_path(platform_cfg[:base_path])
+               Rulepack::Path.expand_user_path(platform_cfg[:base_path])
              end
 
       install_cfg = target_cfg[:install] || {}
@@ -140,7 +140,7 @@ module Rulepack
         if target_cfg[:format] == 'agent' && platform_cfg[:agents_dir]
           resolve_agent_install_path(platform_cfg, target_cfg, base)
         else
-          target_subdir = expand_user_path(target_dir)
+          target_subdir = Rulepack::Path.expand_user_path(target_dir)
           # Directory-type platforms have special handling
           if platform_cfg[:type] == 'directory'
             resolve_directory_path(platform_cfg, target_cfg, base)

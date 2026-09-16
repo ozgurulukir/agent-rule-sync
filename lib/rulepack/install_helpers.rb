@@ -3,7 +3,7 @@
 # InstallHelpers — thin seam between Installer and Uninstaller.
 # Exists to break the circular dependency: Uninstaller requires Common,
 # and Common's facade delegates to InstallHelpers. Callers use
-# Rulepack::Common.uninstall_packages without depending on Uninstaller directly.
+# Rulepack::InstallHelpers.uninstall_packages without depending on Uninstaller directly.
 
 module Rulepack
   module InstallHelpers

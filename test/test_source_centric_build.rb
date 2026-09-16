@@ -82,7 +82,7 @@ class TestSourceCentricBuild < Minitest::Test
                  "found: #{per_platform_bundles.inspect}"
 
     # But the build index should still list all platforms as available.
-    index = Rulepack::Common.load_yaml(@build_dir.join('index.yaml'))
+    index = Rulepack::IO.load_yaml(@build_dir.join('index.yaml'))
     pkg_data = index[:packages]['anthropics-skills'] || index[:packages][:'anthropics-skills']
     assert pkg_data, 'anthropics-skills package should be in build index'
     assert pkg_data[:source_dir], 'anthropics-skills should have a source_dir recorded'

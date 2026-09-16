@@ -28,7 +28,7 @@ module Rulepack
 
     def resolve_install_base_path(platform_cfg, project_arg)
       project_root = Rulepack::Common.project_root_for(platform_cfg, project_arg)
-      project_root || Pathname.new(Rulepack::Common.expand_user_path(platform_cfg[:base_path]))
+      project_root || Pathname.new(Rulepack::Path.expand_user_path(platform_cfg[:base_path]))
     end
 
     def filter_targets_for_platform(pkgdata, platform_id)

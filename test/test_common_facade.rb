@@ -12,12 +12,18 @@ require_relative 'helper'
 class TestCommonFacade < Minitest::Test
   RE_EXPORTS = {
     'Rulepack::Platforms'  => %w[validate_platform_config validate_format_profile],
-    'Rulepack::Logging'    => %w[log log_warn log_error log_debug time],
-    'Rulepack::IO'         => %w[read_text read_binary load_yaml write_yaml_atomic atomic_write
-                                 safe_append update_marked_content remove_marked_content deep_merge],
-    'Rulepack::Path'       => %w[expand_user_path strip_frontmatter],
-    'Rulepack::Validation' => %w[load_pkgbuild validate_pkgbuild validate_output_filename
-                                 validate_target_dir validate_targets_and_packages verify_checksum],
+    'Rulepack::Logging'    => %w[log log_warn log_error log_debug time]
+  }.freeze
+
+  # Modules whose methods are NOT re-exported by Common — callers must use
+  # the owning module directly (IO, Path, Validation, InstallHelpers were
+  # de-facadeted in 2026-09; a re-export must not silently reappear).
+  # Note: Common natively defines strip_frontmatter via transform.rb — a
+  # duplicate of Path.strip_frontmatter left for a later dedup pass.
+  DE_FACADETED = {
+    'Rulepack::IO'         => %w[load_yaml write_yaml_atomic atomic_write update_marked_content deep_merge],
+    'Rulepack::Path'       => %w[expand_user_path],
+    'Rulepack::Validation' => %w[load_pkgbuild validate_pkgbuild validate_targets_and_packages verify_checksum],
     'Rulepack::InstallHelpers' => %w[uninstall_packages migrate_installed_records]
   }.freeze
 
@@ -27,6 +33,16 @@ class TestCommonFacade < Minitest::Test
       methods.each do |m|
         assert mod.respond_to?(m), "#{owner}.#{m} disappeared — common.rb re-export is dangling"
         assert Rulepack::Common.respond_to?(m), "Common.#{m} re-export missing"
+      end
+    end
+  end
+
+  def test_defacadeted_methods_stay_off_common
+    DE_FACADETED.each do |owner, methods|
+      mod = Object.const_get(owner)
+      methods.each do |m|
+        assert mod.respond_to?(m), "#{owner}.#{m} disappeared"
+        refute Rulepack::Common.respond_to?(m), "Common.#{m} re-export must stay deleted — call #{owner}.#{m} directly"
       end
     end
   end

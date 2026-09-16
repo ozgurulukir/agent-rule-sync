@@ -36,7 +36,7 @@ class TestBuildIntegration < Minitest::Test
     index_path = @build_dir.join('index.yaml')
     assert index_path.exist?, 'Build index should exist after build'
 
-    index = Rulepack::Common.load_yaml(index_path)
+    index = Rulepack::IO.load_yaml(index_path)
     assert index[:packages], 'Index should have packages key'
     assert index[:packages].key?(:'vibe-security'), 'Index should include vibe-security package'
     assert index[:packages].key?(:'anthropics-skills'), 'Index should include anthropics-skills package'
@@ -209,7 +209,7 @@ class TestIndexSchemaIntegration < Minitest::Test
       }
     }
 
-    Rulepack::Common.migrate_installed_records(index[:packages][:memory])
+    Rulepack::InstallHelpers.migrate_installed_records(index[:packages][:memory])
 
     record = index[:packages][:memory][:installed].first
     assert_equal 1, record[:pkgrel], 'Should add pkgrel=1'
@@ -230,8 +230,8 @@ class TestIndexSchemaIntegration < Minitest::Test
       }
     }
 
-    Rulepack::Common.migrate_installed_records(index[:packages][:memory])
-    Rulepack::Common.migrate_installed_records(index[:packages][:memory])
+    Rulepack::InstallHelpers.migrate_installed_records(index[:packages][:memory])
+    Rulepack::InstallHelpers.migrate_installed_records(index[:packages][:memory])
 
     record = index[:packages][:memory][:installed].first
     assert_equal 2, record[:pkgrel], 'existing pkgrel should be preserved'
@@ -240,13 +240,13 @@ class TestIndexSchemaIntegration < Minitest::Test
 
   def test_migrate_handles_empty_installed_list
     index = { packages: { memory: { installed: [] } } }
-    Rulepack::Common.migrate_installed_records(index[:packages][:memory])
+    Rulepack::InstallHelpers.migrate_installed_records(index[:packages][:memory])
     assert index[:packages][:memory][:installed].empty?, 'empty list should remain empty'
   end
 
   def test_migrate_handles_nil_installed
     index = { packages: { memory: { installed: nil } } }
-    Rulepack::Common.migrate_installed_records(index[:packages][:memory])
+    Rulepack::InstallHelpers.migrate_installed_records(index[:packages][:memory])
     assert_nil index[:packages][:memory][:installed]
   end
 end

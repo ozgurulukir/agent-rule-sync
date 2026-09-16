@@ -41,12 +41,12 @@ module Rulepack
         return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
-      index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+      index = Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
       packages = index[:packages] || {}
       registry = Rulepack::Common.load_platform_registry
 
       targets_to_fix, target_package = begin
-        Rulepack::Common.validate_targets_and_packages(
+        Rulepack::Validation.validate_targets_and_packages(
           target_arg, package_arg, packages, registry,
           exit_on_failure: false,
           project_arg: project_arg,
@@ -214,7 +214,7 @@ module Rulepack
       return [] unless platform_cfg
 
       project_root = project_arg ? Pathname.new(project_arg).expand_path : nil
-      base_path = project_root || Pathname.new(Rulepack::Common.expand_user_path(platform_cfg[:base_path]))
+      base_path = project_root || Pathname.new(Rulepack::Path.expand_user_path(platform_cfg[:base_path]))
       broken = []
 
       (index[:packages] || {}).each do |pkgname, pkgdata|

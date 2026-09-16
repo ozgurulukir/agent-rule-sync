@@ -71,13 +71,13 @@ class TestEndToEndPipeline < Minitest::Test
   def load_index
     idx_path = @rulepack_root.join('data', 'index.yaml')
     return nil unless idx_path.exist?
-    Rulepack::Common.load_yaml(idx_path)
+    Rulepack::IO.load_yaml(idx_path)
   end
 
   def load_build_index
     idx_path = @build_dir.join('index.yaml')
     return nil unless idx_path.exist?
-    Rulepack::Common.load_yaml(idx_path)
+    Rulepack::IO.load_yaml(idx_path)
   end
 
   # ─── Test: Clean Build ──────────────────────────────────────────────────────────

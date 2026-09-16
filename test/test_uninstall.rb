@@ -67,7 +67,7 @@ class TestUninstallPackages < Minitest::Test
 
   def test_uninstall_removes_installed_record_from_index
     with_build_index_override do
-      uninstalled = Rulepack::Common.uninstall_packages(@index, 'opencode', dry_run: false)
+      uninstalled = Rulepack::InstallHelpers.uninstall_packages(@index, 'opencode', dry_run: false)
       assert_includes uninstalled, :memory, 'memory should be in uninstalled list'
       records = @index[:packages][:memory][:installed]
       assert_empty records, 'installed records should be removed after uninstall'
@@ -77,7 +77,7 @@ class TestUninstallPackages < Minitest::Test
   def test_uninstall_modifies_index_in_place
     with_build_index_override do
       before_count = @index[:packages][:memory][:installed].size
-      Rulepack::Common.uninstall_packages(@index, 'opencode', dry_run: false)
+      Rulepack::InstallHelpers.uninstall_packages(@index, 'opencode', dry_run: false)
       after_count = @index[:packages][:memory][:installed].size
       assert_equal before_count - 1, after_count, 'should have one fewer installed record'
     end
@@ -86,14 +86,14 @@ class TestUninstallPackages < Minitest::Test
   def test_uninstall_dry_run_does_not_modify_index
     with_build_index_override do
       before = @index[:packages][:memory][:installed].dup
-      Rulepack::Common.uninstall_packages(@index, 'opencode', dry_run: true)
+      Rulepack::InstallHelpers.uninstall_packages(@index, 'opencode', dry_run: true)
       assert_equal before, @index[:packages][:memory][:installed], 'dry-run should not modify index'
     end
   end
 
   def test_uninstall_returns_package_names
     with_build_index_override do
-      result = Rulepack::Common.uninstall_packages(@index, 'opencode', dry_run: false)
+      result = Rulepack::InstallHelpers.uninstall_packages(@index, 'opencode', dry_run: false)
       assert_kind_of Array, result
       assert_includes result, :memory
     end
@@ -102,7 +102,7 @@ class TestUninstallPackages < Minitest::Test
   def test_uninstall_skips_not_installed_packages
     # No packages installed on a different platform
     with_build_index_override do
-      result = Rulepack::Common.uninstall_packages(@index, 'crush', dry_run: false)
+      result = Rulepack::InstallHelpers.uninstall_packages(@index, 'crush', dry_run: false)
       assert_empty result, 'should return empty list when nothing is installed on platform'
     end
   end
@@ -115,7 +115,7 @@ class TestUninstallPackages < Minitest::Test
       index_file.write(@index.to_yaml)
       original_content = index_file.read
 
-      Rulepack::Common.uninstall_packages(@index, 'opencode', dry_run: false)
+      Rulepack::InstallHelpers.uninstall_packages(@index, 'opencode', dry_run: false)
       # On-disk index should be unchanged (uninstall_packages doesn't write)
       assert_equal original_content, index_file.read, 'uninstall should not write index to disk'
     end
@@ -129,7 +129,7 @@ class TestUninstallPackages < Minitest::Test
       { platform: 'opencode', version: '1.0.0', output: 'memory-rule.md', checksum: 'def456', installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'), pkgrel: 1, epoch: 0 }
     ]
     with_build_index_override do
-      result = Rulepack::Common.uninstall_packages(@index, 'opencode', dry_run: false)
+      result = Rulepack::InstallHelpers.uninstall_packages(@index, 'opencode', dry_run: false)
       assert_equal 1, result.count(:memory), 'memory should appear only once in result'
     end
   end

@@ -23,13 +23,13 @@ module Rulepack
       project_arg = options[:project_path]
 
       unless Rulepack::Common.build_index_path.exist?
-        msg = "Build index not found at #{Rulepack::Common.build_index_path}. Run `ruby lib/rulepack/build.rb` first."
+        msg = "Build index not found at #{Rulepack::Common.build_index_path}. Run `rulepack build` first."
         return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
-      build_index = Rulepack::Common.load_yaml(Rulepack::Common.build_index_path)
+      build_index = Rulepack::IO.load_yaml(Rulepack::Common.build_index_path)
       index = if Rulepack::Common.index_yaml_path.exist?
-                Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+                Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
               else
                 { version: 3.0, packages: {} }
               end

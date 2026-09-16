@@ -203,7 +203,7 @@ module Rulepack
       pkgs = index[:packages] || {}
       build_root = Rulepack::Common.build_dir
       build_index = begin
-        Rulepack::Common.load_yaml(build_root.join('index.yaml'))
+        Rulepack::IO.load_yaml(build_root.join('index.yaml'))
       rescue StandardError
         nil
       end
@@ -328,14 +328,14 @@ module Rulepack
       build_path = root.join('build', 'index.yaml')
 
       installed = if yaml_path.exist?
-                    data = Rulepack::Common.load_yaml(yaml_path)
+                    data = Rulepack::IO.load_yaml(yaml_path)
                     data[:packages] || {}
                   else
                     {}
                   end
 
       build = if build_path.exist?
-                Rulepack::Common.load_yaml(build_path)
+                Rulepack::IO.load_yaml(build_path)
               else
                 {}
               end

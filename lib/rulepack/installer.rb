@@ -67,14 +67,14 @@ module Rulepack
         return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
-      build_index = Rulepack::Common.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
+      build_index = Rulepack::IO.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
       index = if Rulepack::Common.index_yaml_path.exist?
-                Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+                Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
               else
                 { version: 3.0, packages: {} }
               end
       index[:packages] ||= {}
-      (index[:packages] || {}).each_value { |pkg_idx| Rulepack::Common.migrate_installed_records(pkg_idx) }
+      (index[:packages] || {}).each_value { |pkg_idx| Rulepack::InstallHelpers.migrate_installed_records(pkg_idx) }
 
       backup_path = nil
       unless dry_run
@@ -100,7 +100,7 @@ module Rulepack
           Rulepack::Common.log '[DRY-RUN] Index write skipped'
         else
           index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-          Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
+          Rulepack::IO.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
           Rulepack::Common.log "📝 Index written: #{Rulepack::Common.index_yaml_path}"
         end
       rescue StandardError => e
@@ -156,7 +156,7 @@ module Rulepack
       end
 
       index = load_master_index
-      build_index = Rulepack::Common.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
+      build_index = Rulepack::IO.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
 
       backup_path = nil
       unless dry_run
@@ -196,7 +196,7 @@ module Rulepack
         Rulepack::Common.log "\n[DRY-RUN] Index write skipped"
       else
         index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-        Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
+        Rulepack::IO.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
         Rulepack::Common.log "\n📝 Index written: #{Rulepack::Common.index_yaml_path}"
       end
 
@@ -217,14 +217,14 @@ module Rulepack
 
     def load_master_index
       index = if Rulepack::Common.index_yaml_path.exist?
-                Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+                Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
               else
                 { version: 3.0, packages: {} }
               end
       index[:packages] ||= {}
       # Migrate schema if needed (idempotent — safe on already-migrated data)
       Rulepack::SchemaMigration.migrate!(index)
-      (index[:packages] || {}).each_value { |pkg_idx| Rulepack::Common.migrate_installed_records(pkg_idx) }
+      (index[:packages] || {}).each_value { |pkg_idx| Rulepack::InstallHelpers.migrate_installed_records(pkg_idx) }
       index
     end
 
@@ -364,7 +364,7 @@ module Rulepack
 
     def ensure_build_index
       return nil unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-      Rulepack::Common.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
+      Rulepack::IO.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
     end
 
     def resolve_targets(target_arg, target_package, build_idx, registry, project_arg)
@@ -403,7 +403,7 @@ module Rulepack
       Rulepack::Emitter.emit(:info, message: '')
       Rulepack::Emitter.emit(:info, message: 'Installed on:')
       index = if Rulepack::Common.index_yaml_path.exist?
-                Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
+                Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
               else
                 { version: 3.0, packages: {} }
               end
