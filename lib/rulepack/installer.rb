@@ -34,7 +34,17 @@ module Rulepack
 
     # ─── Main entry point ────────────────────────────────────────────────────────
 
-    def run(platform_id, options = {})
+    def run(platform_id, options = {}, paths: nil, ui: nil)
+      if ui
+        Rulepack::Common.with_ui(ui) { run(platform_id, options, paths: paths) }
+      elsif paths
+        Rulepack::Common.with_paths(paths) { run_unscoped(platform_id, options) }
+      else
+        run_unscoped(platform_id, options)
+      end
+    end
+
+    def run_unscoped(platform_id, options = {})
       dry_run = options.fetch(:dry_run, false)
       check_mode = options.fetch(:check_mode, false)
       force_mode = options.fetch(:force_mode, false)
@@ -243,7 +253,17 @@ module Rulepack
 
     # ─── CLI dispatch ────────────────────────────────────────────────────────────
 
-    def dispatch(options)
+    def dispatch(options, paths: nil, ui: nil)
+      if ui
+        Rulepack::Common.with_ui(ui) { dispatch(options, paths: paths) }
+      elsif paths
+        Rulepack::Common.with_paths(paths) { dispatch_unscoped(options) }
+      else
+        dispatch_unscoped(options)
+      end
+    end
+
+    def dispatch_unscoped(options)
       target_arg       = options[:target]
       package_arg      = options[:package_name]
       project_arg      = options[:project_path]
@@ -318,10 +338,10 @@ module Rulepack
           Rulepack::Emitter.emit(:progress, message: "\u{1f4e6} Installing all packages \u{2192} #{pkg_platform}")
         end
         result = run(pkg_platform,
-                     dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
-                     verbose_mode: verbose_mode, select_list: select_list,
-                     project_arg: project_arg, specific_package: target_package,
-                     rules_to: rules_to, collision_strategy: collision_strategy)
+                     { dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
+                       verbose_mode: verbose_mode, select_list: select_list,
+                       project_arg: project_arg, specific_package: target_package,
+                       rules_to: rules_to, collision_strategy: collision_strategy })
         if result.success?
           all_installed.concat(result.data[:installed] || [])
         else

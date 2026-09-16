@@ -5,7 +5,7 @@ require_relative '../lib/rulepack/verify'
 
 class TestVerifyCheck < Minitest::Test
   def test_check_returns_result
-    result = Rulepack::Verify.check(target: 'opencode')
+    result = Rulepack::Verify.check({ target: 'opencode' })
     assert result.success? || result.partial?
     assert result.data.key?(:ok)
     assert result.data.key?(:drift)
@@ -16,7 +16,7 @@ class TestVerifyCheck < Minitest::Test
   def test_check_with_no_index
     # Temporarily override index path to a non-existent location
     paths = Rulepack::Paths.new(root: Pathname.new('/tmp/rulepack-no-index-xyz'))
-    result = Rulepack::Common.with_paths(paths) { Rulepack::Verify.check(target: 'opencode') }
+    result = Rulepack::Common.with_paths(paths) { Rulepack::Verify.check({ target: 'opencode' }) }
     assert result.failure?
     assert_match(/Installed index not found/, result.errors.first)
   end

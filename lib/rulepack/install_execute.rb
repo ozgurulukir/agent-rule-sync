@@ -120,7 +120,7 @@ module Rulepack
       output = target[:output]
       built_path = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s, output)
       unless built_path.exist?
-        Rulepack::Common.log_error "Built artifact missing: #{built_path}. Run `ruby lib/rulepack/build.rb` first."
+        Rulepack::Common.log_error "Built artifact missing: #{built_path}. Run `rulepack build` first."
         return
       end
 
@@ -238,7 +238,7 @@ module Rulepack
       collision_strategy = ctx.collision_strategy || 'interactive'
       Rulepack::Emitter.emit(:progress, message: "\n  🧱 Aggregating vendor skills for #{platform_id}...")
       agg_ok = begin
-                 Rulepack::Aggregate.run(target: platform_id)
+                 Rulepack::Aggregate.run({ target: platform_id })
                  true
                rescue StandardError => e
                  Rulepack::Common.log_error "Aggregation error: #{e.message}"

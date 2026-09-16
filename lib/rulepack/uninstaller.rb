@@ -4,6 +4,7 @@ require 'set'
 require 'pathname'
 require 'fileutils'
 require_relative 'common'
+require_relative 'models/target'
 require_relative 'lib/transaction'
 require_relative 'aggregate'
 
@@ -12,7 +13,17 @@ module Rulepack
     module_function
 
     # ─── CLI dispatch: replaces uninstall.rb duplication ──────────────────────────
-    def dispatch(options)
+    def dispatch(options, paths: nil, ui: nil)
+      if ui
+        Rulepack::Common.with_ui(ui) { dispatch(options, paths: paths) }
+      elsif paths
+        Rulepack::Common.with_paths(paths) { dispatch_unscoped(options) }
+      else
+        dispatch_unscoped(options)
+      end
+    end
+
+    def dispatch_unscoped(options)
       package_arg    = options[:package_name]
       target_arg     = options[:target]
       project_arg    = options[:project_path]
@@ -201,7 +212,7 @@ module Rulepack
     def reaggregate_vendor_skills(platform_id)
       Rulepack::Emitter.emit(:progress, message: "  \u{1f9f1} Re-aggregating vendor skills for #{platform_id}...")
       begin
-        Rulepack::Aggregate.run(target: platform_id)
+        Rulepack::Aggregate.run({ target: platform_id })
         Rulepack::Emitter.emit(:progress, message: '    \u{2713} Vendor skill regenerated')
       rescue StandardError => e
         Rulepack::Emitter.emit(:progress, message: "    \u{26a0} Aggregation error: #{e.message}")

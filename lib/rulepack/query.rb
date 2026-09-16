@@ -21,7 +21,17 @@ module Rulepack
 
     # Data-returning API: dispatches the subcommand and returns the Result
     # without rendering — the CLI renders via the unified render path.
-    def run(argv = ARGV)
+    def run(argv = ARGV, paths: nil, ui: nil)
+      if ui
+        Rulepack::Common.with_ui(ui) { run(argv, paths: paths) }
+      elsif paths
+        Rulepack::Common.with_paths(paths) { run_unscoped(argv) }
+      else
+        run_unscoped(argv)
+      end
+    end
+
+    def run_unscoped(argv = ARGV)
       argv = argv.dup
       command = argv.shift || 'help'
 

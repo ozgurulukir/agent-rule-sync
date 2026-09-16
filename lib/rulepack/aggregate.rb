@@ -14,7 +14,17 @@ module Rulepack
   module Aggregate
     module_function
 
-    def run(options = {})
+    def run(options = {}, paths: nil, ui: nil)
+      if ui
+        Rulepack::Common.with_ui(ui) { run(options, paths: paths) }
+      elsif paths
+        Rulepack::Common.with_paths(paths) { run_unscoped(options) }
+      else
+        run_unscoped(options)
+      end
+    end
+
+    def run_unscoped(options = {})
       target_filter = options[:target]
 
       unless Rulepack::Common::BUILD_INDEX_PATH.exist?

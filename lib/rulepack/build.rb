@@ -29,14 +29,24 @@ module Rulepack
   module Build
     module_function
 
-    def run(options = {})
+    def run(options = {}, paths: nil, ui: nil)
+      if ui
+        Rulepack::Common.with_ui(ui) { run(options, paths: paths) }
+      elsif paths
+        Rulepack::Common.with_paths(paths) { run_unscoped(options) }
+      else
+        run_unscoped(options)
+      end
+    end
+
+    def run_unscoped(options = {})
       Rulepack::Logging.log_level = options[:verbose] ? :debug : Rulepack::Config.log_level
       log_path = Rulepack::Common.build_dir.join('build.log')
       Rulepack::Logging.log_file = log_path
 
       # ─── Clean Build Directory ──────────────────────────────────────────────────────
       if Rulepack::Common.build_dir.exist?
-        Rulepack::Emitter.emit(:progress, message: "🧹 Cleaning stale build directory: #{Rulepack::Common.build_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT)}")
+        Rulepack::Emitter.emit(:progress, message: "🧹 Cleaning stale build directory: #{Rulepack::Common.build_dir.relative_path_from(Rulepack::Common.paths.root)}")
         FileUtils.rm_rf(Rulepack::Common.build_dir)
         sleep 0.1 # wait for Windows file system to catch up
       end

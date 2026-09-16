@@ -102,7 +102,7 @@ module Rulepack
     def fix_platform(platform_id, package_arg, project_arg, dry_run, auto_mode, index)
       Rulepack::Emitter.emit(:progress, message: "\n── #{platform_id} ──")
 
-      result = Rulepack::Verify.check(target: platform_id, package_name: package_arg, project_path: project_arg)
+      result = Rulepack::Verify.check({ target: platform_id, package_name: package_arg, project_path: project_arg })
       data = result.data || {}
       has_drift = data[:drift].to_i > 0
       # Verify.check returns orphans as an integer count at the top level with

@@ -18,7 +18,17 @@ module Rulepack
     # options: the CliParser result (uses :strict and :target). Rendering is
     # the CLI's job (TextRenderer.render_audit / JsonRenderer); this method
     # only returns the structured Result.
-    def run(options = {})
+    def run(options = {}, paths: nil, ui: nil)
+      if ui
+        Rulepack::Common.with_ui(ui) { run(options, paths: paths) }
+      elsif paths
+        Rulepack::Common.with_paths(paths) { run_unscoped(options) }
+      else
+        run_unscoped(options)
+      end
+    end
+
+    def run_unscoped(options = {})
       strict = options.fetch(:strict, false)
       target_filter = options[:target]
 

@@ -14,7 +14,17 @@ module Rulepack
 
     # Data-returning API. Returns a Rulepack::Result with structured verify
     # data; rendering is the CLI's job (Reporter via the unified render path).
-    def check(options = {})
+    def check(options = {}, paths: nil, ui: nil)
+      if ui
+        Rulepack::Common.with_ui(ui) { check(options, paths: paths) }
+      elsif paths
+        Rulepack::Common.with_paths(paths) { check_unscoped(options) }
+      else
+        check_unscoped(options)
+      end
+    end
+
+    def check_unscoped(options = {})
       package_arg = options[:package_name]
       target_arg = options[:target]
       project_arg = options[:project_path]

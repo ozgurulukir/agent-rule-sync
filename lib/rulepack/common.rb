@@ -107,7 +107,16 @@ module Rulepack
     # ─── Platforms delegators ─────────────────────────────────────────────────
 
     def load_platform_registry
-      Platforms.load(RULEPACK_ROOT)
+      # Scoped root, not the repo constant — sandboxes that relocate paths
+      # via with_paths get their own registry (memoized per root in
+      # Platforms.load). A scoped root without registry files inherits the
+      # repo registry — the sandbox opted into relocation, not isolation.
+      root = paths.root
+      if root.join('data', 'registry', 'platforms.yaml').exist?
+        Platforms.load(root)
+      else
+        Platforms.load(RULEPACK_ROOT)
+      end
     end
 
     def clear_platform_registry_cache!
