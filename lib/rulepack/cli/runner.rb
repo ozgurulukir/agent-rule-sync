@@ -99,15 +99,15 @@ module Rulepack
       def execute_local(command, argv, options)
         case command
         when 'query'
-          render_query_result(Rulepack::Query.run(argv), options)
+          render_query_result(Rulepack::Query.run(argv))
         when 'list'
-          render_query_result(Rulepack::Query.run(['list-packages'] + argv), options)
+          render_query_result(Rulepack::Query.run(['list-packages'] + argv))
         when 'show'
-          render_query_result(Rulepack::Query.run(['show'] + argv), options)
+          render_query_result(Rulepack::Query.run(['show'] + argv))
         when 'search'
-          render_query_result(Rulepack::Query.run(['search'] + argv), options)
+          render_query_result(Rulepack::Query.run(['search'] + argv))
         when 'platforms'
-          render_query_result(Rulepack::Query.run(['list-platforms']), options)
+          render_query_result(Rulepack::Query.run(['list-platforms']))
         when 'status'
           print_status
           0
