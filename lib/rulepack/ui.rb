@@ -82,7 +82,11 @@ module Rulepack
 
       @stdout.print "\n  \e[33m?\e[0m #{prompt} [y/N] "
       input = @stdin.gets
-      !input.nil? && %w[y yes].include?(input.chomp.downcase)
+      if input.nil?
+        @stdout.puts # newline after EOF so the prompt line terminates
+        return false
+      end
+      %w[y yes].include?(input.chomp.downcase)
     end
 
     # Collision resolution prompt. Returns one of
