@@ -70,7 +70,7 @@ graph TD
 
 ## Modular Architecture
 
-The implementation is split across ~48 Ruby files under `lib/rulepack/`. Key modules:
+The implementation is split across ~66 Ruby files under `lib/rulepack/`. Key modules:
 
 - `common.rb` — explicit composition root: owns `RULEPACK_ROOT`, the scoped Paths/UI contexts (`with_paths` / `with_ui`), and explicit one-line re-exports of submodule APIs. No metaprogrammed flattening.
 - `paths.rb` — `Rulepack::Paths` frozen value object (root, build_dir, build_index_path, index_yaml_path); entry points accept `paths:`, tests build sandbox instances.
@@ -205,14 +205,7 @@ result.data[:platforms].first[:items] # per-package/per-item details
 Rulepack::Reporter.print(result, format: :json)
 ```
 
-CLI commands that support `--format json` / `--format yaml`:
-
-- `bin/rulepack query ... --format json`
-- `bin/rulepack verify ... --format json`
-- `bin/rulepack build ... --format json`
-- `bin/rulepack install ... --format json`
-- `bin/rulepack fix ... --format json`
-- `bin/rulepack uninstall ... --format json`
+All Result-producing commands support `--format text|json|yaml|jsonl` (build, install, uninstall, verify, check, fix, outdated, audit, bump, query/list/show/search/platforms). `jsonl` is a stream format (events + final `:result` line); local helpers (`status`, `catalog`, `remote`, `lock`, `init-hooks`) print plain text. Exit codes are uniform: **0 success, 1 partial/failure** (see `docs/agents/USAGE.md`).
 
 All backend modules return `Rulepack::Result`:
 
@@ -224,6 +217,9 @@ All backend modules return `Rulepack::Result`:
 | `Rulepack::Install.dispatch` | `{ installed, failed, targets, dry_run }` |
 | `Rulepack::Fix.run` | `{ platforms, fixed, failed, orphans_removed, dry_run }` |
 | `Rulepack::Uninstaller.dispatch` | `{ uninstalled, targets, dry_run }` |
+| `Rulepack::Bump.run` | `{ bump: { packages, summary, applied } }` (report in `messages`) |
+| `Rulepack::Audit.run` | `{ audit: { meta, packages } }` (report rendered by `TextRenderer.render_audit`) |
+| `Rulepack::Aggregate.run` | `{}` (narration via Emitter events) |
 
 ---
 
@@ -409,10 +405,12 @@ data/packages/
 - **Schema Profile Union**: `BuildPerPkg` computes SHA256 transform signatures (`union_key`) and caches pipeline outputs in memory. Targets sharing identical translators, schema rulesets, and transformers reuse transformed content without re-running passes.
 - **Target-scoped builds**: `bin/rulepack build -t <plat>` filters target platforms, building artifacts exclusively for active platform(s).
 - **Transactional fix**: `bin/rulepack fix` backs up the original index and commits the cleared state only after all reinstalls succeed; on failure it rolls back.
-- **Event substrate (2026-08-01)**: `Rulepack::Emitter` provides a lightweight subscribe/emit/unsubscribe pattern replacing hardcoded `puts`+`log` pairs. Two renderers ship: `ConsoleRenderer` (default, reproduces current stdout) and `JsonlRenderer` (`--format jsonl`, one JSON object per event). See `lib/rulepack/emitter.rb` and `lib/rulepack/reporter/`.
-- **Immutable domain models (2026-08-01)**: `Rulepack::Package`, `Rulepack::Platform`, and `Rulepack::Target` are frozen `Data.define` value objects replacing hash-passing. Constructed via `.from_hash`, serialized via `#to_h`. See `lib/rulepack/models/`.
-- **Catalog abstraction (2026-08-01)**: `Rulepack::Catalog::SourceRepository` interface with `LocalCatalog` (wrapping existing primitives) and `RemoteCatalog` (HTTP-based remote index with `search`, `list`, `fetch_package`). See `lib/rulepack/catalog/`.
+- **Event substrate (2026-08-01)**: `Rulepack::Emitter` provides a lightweight subscribe/emit/unsubscribe pattern. **All backends narrate via events** — no raw `puts` in `lib/`. Renderers: `ConsoleRenderer` (default, byte-identical text) and `JsonlRenderer` (`--format jsonl`: one JSON object per event plus a final `:result` line). See `lib/rulepack/emitter.rb` and `lib/rulepack/reporter/`.
+- **Immutable domain models (2026-08-01)**: `Rulepack::Package`, `Rulepack::Platform`, `Rulepack::Target`, and `Rulepack::BuildRecord` are frozen `Data.define` value objects. `BuildRecord` owns the build-index entry schema end to end (`from_package` → value-threaded runtime fields → invariant-enforcing `to_h`). See `lib/rulepack/models/`.
+- **Catalog abstraction (2026-08-01)**: `Rulepack::Catalog::SourceRepository` interface with `LocalCatalog` (wrapping existing primitives; takes `paths:` via constructor) and `RemoteCatalog` (HTTP-based remote index with `search`, `list`, `fetch_package`). See `lib/rulepack/catalog/`.
 - **Lockfile (2026-08-01)**: `Rulepack::Lockfile` pins `(pkgname, version, source_sha256)` tuples for reproducible installs. Supports `enforce!` for `install --locked`. See `lib/rulepack/lockfile.rb`.
+- **Explicit composition root (2026-09-15)**: `common.rb` has no metaprogrammed flattening — plain requires plus explicit one-line re-exports, guarded by `test/test_common_facade.rb`. Scoped `Paths`/`UI` contexts (`Common.with_paths` / `Common.with_ui`) replace global override setters and env-var branching. See `paths.rb`, `platforms.rb`, `ui.rb`.
+- **CLI spine (2026-09-16)**: `lib/rulepack/cli/commands.rb` is the real dispatch table (aliases, phases, transforms); `lib/rulepack/cli/runner.rb` parses once, renders once, and applies one exit-code rule (success 0, partial/failure 1). All Result-producing commands support `--format text|json|yaml|jsonl`.
 
 For detailed improvement notes, see [`docs/improvement-plan/OPEN-ITEMS.md`](docs/improvement-plan/OPEN-ITEMS.md). For the source-centric refactor decision and rationale (including the deferred cross-package union cache), see [`ADR-2026-07-29-build-pipeline-refactor.md`](docs/improvement-plan/ADR-2026-07-29-build-pipeline-refactor.md).
 

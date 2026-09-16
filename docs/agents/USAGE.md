@@ -461,7 +461,7 @@ All operations log to `build/build.log`. Check logs for detailed error messages.
 
 ## Output Formats & Exit Codes
 
-All Result-producing commands accept `--format text|json|yaml|jsonl` (local helpers ? `status`, `catalog`, `remote`, `lock`, `init-hooks` ? print plain text regardless):
+All Result-producing commands accept `--format text|json|yaml|jsonl` (local helpers - status, catalog, remote, lock, init-hooks - print plain text regardless):
 
 - `text` — human-readable (default). Narration streams live via events; the Result renders through the Reporter.
 - `json` / `yaml` — the full Result envelope (`status`, `data`, `errors`, `messages`).

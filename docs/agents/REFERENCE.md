@@ -16,7 +16,7 @@ Technical reference for PKGBUILD format, transformer API, index schema, and vali
 | `epoch` | integer | no | Upstream versioning scheme override (default: 0) |
 | `pkgdesc` | string | yes | Short description |
 | `arch` | string | yes | Architecture (currently only `any` supported) |
-| `pkg_type` | string | yes | Package type: `rule`, `skill`, `agent`, or `hybrid` |
+| `pkg_type` | string | yes | Package type: `rule`, `skill`, `skill-bundle`, `agent`, or `hybrid` |
 | `order` | integer | no | Order in vendor skill aggregation (lower = earlier; default: 0) |
 | `source` | array | yes | Source entries (local, url, or git) |
 | `targets` | array | no | Deployment targets (auto-expanded if omitted; overrides can customize platform-specific format, output, or install.type) |
@@ -38,6 +38,7 @@ Technical reference for PKGBUILD format, transformer API, index schema, and vali
 | `rule` | Pure rule file(s) — agent instructions, constraints, conventions | memory, shell, ast-grep |
 | `skill` | Pure skill file(s) — tool-like capabilities with SKILL.md manifest | vibe-security, line-repetition-control |
 | `agent` | Custom agent definition — installed to platform's `agents_dir` | ruby-update-signatures |
+| `skill-bundle` | Directory-based skill tree — lazily materialized at install time | anthropics-skills |
 | `hybrid` | Contains both rule and skill content — use multiple targets per platform | (future use) |
 
 ### Source Entry
@@ -260,7 +261,39 @@ Each platform has a format profile in `data/platforms/<agent>.yaml`. These descr
 
 ## Index Schema
 
-### index.yaml (master database)
+Two index files exist with related but distinct schemas. The build-index
+entry schema is owned by `Rulepack::BuildRecord` (`lib/rulepack/models/build_record.rb`).
+
+### build/index.yaml (build output — regenerated every build)
+
+```yaml
+version: 3.0
+generated: '2026-05-14T12:00:00Z'
+packages:
+  <pkgname>:
+    pkgver: '1.0.0'
+    pkgrel: 1
+    epoch: 0
+    pkgdesc: <string>
+    pkg_type: rule|skill|skill-bundle|agent|hybrid   # always present (BuildRecord)
+    order: <integer>
+    targets: []                    # expanded Target hashes
+    available_targets: [<platform>, ...]
+    checksums:
+      source: <sha256>
+      built:
+        <platform>: <sha256>
+    source_dir: <relative-path>     # skill-bundle/agent packages only
+    source_sha256: <sha256>         # skill-bundle/agent packages only (never nil)
+```
+
+Key fields:
+- `available_targets` — list of platforms this package can deploy to
+- `checksums.built[<platform>]` — artifact checksum after transformation (source fingerprint for lazily-materialized packages)
+- `source_dir` / `source_sha256` — lazy-materialization inputs; required for skill-bundle/agent packages, excluded from data/index.yaml
+- Note: the legacy `status` and `installed` keys no longer exist in the build index.
+
+### data/index.yaml (master database — installed state)
 
 ```yaml
 version: 3.0
@@ -273,7 +306,6 @@ packages:
     pkgdesc: <string>
     pkg_type: rule|skill|agent|hybrid
     order: <integer>
-    status: stable|beta|experimental
     installed:
       - platform: <platform-id>
         output: <filename>
@@ -285,10 +317,6 @@ packages:
     conflicts: []
     provides: []
     tags: []
-    checksums:
-      source: <sha256>
-      built:
-        <platform>: <sha256>
     targets:
       - platform: <platform-id>
         format: directory|import|skill|skill-bundle|agent
@@ -298,10 +326,7 @@ packages:
 Key fields:
 - `installed[]` — one record per platform+output combination
 - `installed[].format` — format type at install time
-- `checksums.built[<platform>]` — artifact checksum after transformation
-- `available_targets` — list of platforms this package can deploy to
-- `targets[]` — raw target definitions from PKGBUILD
-- `pkg_type` — package type: `rule`, `skill`, `agent`, or `hybrid`
+- `pkg_type` — package type: `rule`, `skill`, `agent`, or `hybrid` (copied from the build index; `SchemaMigration.derive_pkg_type` is only a fallback for pre-3.0 records)
 
 ---
 

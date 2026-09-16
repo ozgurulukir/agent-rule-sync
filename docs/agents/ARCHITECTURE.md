@@ -184,15 +184,15 @@ Configuration stored in the project repository, version-controlled alongside cod
 ## Data Flow
 
 **Build** (`lib/rulepack/build.rb`):
-1. Load all `PKGBUILD` files from `data/packages/*/`
+1. Load all `PKGBUILD` files from `data/packages/*/` as immutable `Package` models (targets expanded to `Target` models)
 2. For each source entry: read local file or fetch URL/git (with SHA256 verification)
-3. 4-stage pipeline per target:
+3. 4-stage pipeline per file-based target:
    - **Fetch**: read/cached source
    - **Translate**: platform-specific format conversion (e.g., rule → skill, agent → platform format)
    - **Schema Engine**: centralized formatting (frontmatter strip/inject, emoji policy, heading style, bullet style)
    - **Transform**: structural changes (copy, strip-frontmatter, custom Ruby)
-4. Write built artifact to `build/<platform>/<output>`
-5. Record checksums in `build/index.yaml`
+4. Write built artifact to `build/<platform>/<output>` (single-file targets only; skill-bundle/agent targets are recorded with `source_dir`/`source_sha256` and materialized lazily at install time - see ADR-2026-07-29)
+5. Record checksums in `build/index.yaml` (entry schema owned by `Rulepack::BuildRecord`)
 6. Generate `catalog.json`
 
 **Aggregate** (`lib/rulepack/aggregate.rb`):
@@ -246,7 +246,6 @@ packages:
     pkgdesc: Workstation Memory Constraints rule
     order: 0
     pkg_type: rule
-    status: stable
     installed:
       - platform: opencode
         output: 00-memory.md
