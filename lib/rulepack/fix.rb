@@ -8,6 +8,7 @@ require 'stringio'
 require_relative 'common'
 require_relative 'installer'
 require_relative 'verify'
+require_relative 'installed_state'
 
 module Rulepack
   module Fix
@@ -249,44 +250,14 @@ module Rulepack
         next unless inst
 
         target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
-        format_type = target ? target[:format] : 'directory'
-
-        is_broken = if Target.materializable_format?(format_type)
-                      if !platform_cfg[:skills_dir] && %w[skill import].include?(platform_cfg[:type].to_s)
-                        false
-                      else
-                        bundle_path = resolve_install_path(platform_cfg, target, base_path)
-                        !bundle_path.exist?
-                      end
-                    elsif format_type == 'skill' && platform_cfg[:type] == 'skill'
-                      !Rulepack::Common.build_dir.join(platform_id, pkgname.to_s, inst[:output]).exist?
-                    elsif format_type == 'agent'
-                      # Agents are directories; checksum-based detection does not apply.
-                      # Platforms without agents_dir silently report "not broken".
-                      agents_dir = platform_cfg[:agents_dir]
-                      unless agents_dir
-                        is_broken = false
-                      else
-                        target_dir = (target[:install] && target[:install][:target_dir]) || inst[:output] || pkgname.to_s
-                        is_broken = !base_path.join(agents_dir, target_dir).exist?
-                      end
-                    else
-                      installed_path = resolve_install_path(platform_cfg, target, base_path)
-                      !installed_path.exist? || !Rulepack::Common.verify_checksum(installed_path, inst[:checksum], pkgname.to_s)
-                    end
-
-        broken << pkgname.to_s if is_broken
+        verdict = InstalledState.check(
+          installed: inst, target: target, platform_cfg: platform_cfg,
+          pkgname: pkgname.to_s, base_path: base_path
+        )
+        broken << pkgname.to_s if verdict.broken?
       end
 
       broken
-    end
-
-    def resolve_install_path(platform_cfg, target, base_path)
-      if target
-        Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
-      else
-        base_path
-      end
     end
   end
 end

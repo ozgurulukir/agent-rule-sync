@@ -195,8 +195,9 @@ class TestFix < Minitest::Test
     index = Rulepack::Common.load_yaml(@install_dir / 'index.yaml')
 
     # Stub resolve_install_path to return non-existent path
+    # (resolution now lives in InstalledState via Common.resolve_install_path)
     broken_path = Pathname.new('/nonexistent/test-rule.md')
-    Rulepack::Fix.stub(:resolve_install_path, broken_path) do
+    Rulepack::Common.stub(:resolve_install_path, broken_path) do
       broken = Rulepack::Fix.find_broken_packages(
         'opencode',
         nil,
@@ -316,7 +317,7 @@ class TestFix < Minitest::Test
 
     install_called = false
 
-    Rulepack::Fix.stub(:resolve_install_path, installed_file) do
+    Rulepack::Common.stub(:resolve_install_path, installed_file) do
       Rulepack::Common.stub(:backup_index, nil) do
         Rulepack::Install.stub(:run, lambda { |platform_id, **opts|
           install_called = true

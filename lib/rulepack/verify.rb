@@ -4,9 +4,9 @@ require_relative 'encoding_defaults'
 require 'yaml'
 require 'pathname'
 require 'fileutils'
-require 'digest'
 require_relative 'common'
 require_relative 'installer'
+require_relative 'installed_state'
 
 module Rulepack
   module Verify
@@ -120,22 +120,16 @@ module Rulepack
           next
         end
 
-        format_type = target[:format]
-
-        installed_path = if inst[:target_path]
-                           Pathname.new(inst[:target_path])
-                         else
-                           Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
-                         end
-
-        item = if format_type == 'skill' && platform_cfg[:type] == 'skill'
-                 verify_skill_build_artifact(platform_id, pkgname, inst[:output], inst[:checksum])
-               elsif format_type == 'agent'
-                 verify_agent_on_disk(platform_cfg, target, base_path, pkgname)
-               elsif format_type == 'skill-bundle'
-                 verify_skill_bundle_on_disk(installed_path, pkgname)
+        verdict = InstalledState.check(
+          installed: inst, target: target, platform_cfg: platform_cfg,
+          pkgname: pkgname.to_s, base_path: base_path
+        )
+        # Only :rule and :skill items historically carried :output; skill-bundle
+        # and agent items never did (byte-compatible item shape).
+        item = if %i[rule skill].include?(verdict.type)
+                 verdict.to_item_h(pkgname: pkgname.to_s, output: inst[:output])
                else
-                 verify_single_file_on_disk(installed_path, inst[:checksum], pkgname, inst[:output])
+                 verdict.to_item_h(pkgname: pkgname.to_s)
                end
 
         items << item
@@ -171,144 +165,9 @@ module Rulepack
       messages
     end
 
-    # Helper verification functions — now return structured item hashes.
-
     def resolve_base_path(platform_cfg, project_arg)
       project_root = Rulepack::Common.project_root_for(platform_cfg, project_arg)
       project_root || Pathname.new(Rulepack::Common.expand_user_path(platform_cfg[:base_path]))
-    end
-
-    def verify_single_file_on_disk(path, expected_checksum, pkgname, expected_output)
-      item = {
-        pkgname: pkgname,
-        output: expected_output,
-        path: path,
-        type: :rule,
-        status: :ok,
-        messages: []
-      }
-
-      unless path.exist?
-        item[:status] = :missing
-        item[:messages] << "  ⚠ MISSING: #{pkgname} (#{expected_output}) at #{path}"
-        return item
-      end
-
-      if Rulepack::Common.verify_checksum(path, expected_checksum, pkgname)
-        item[:messages] << "  ✓ #{pkgname} (#{expected_output})"
-      else
-        item[:status] = :drift
-        item[:messages] << "  ⚠ CHECKSUM mismatch: #{pkgname} (#{expected_output})"
-      end
-      item
-    end
-
-    def verify_skill_build_artifact(platform_id, pkgname, expected_output, expected_checksum)
-      build_artifact = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s, expected_output)
-      item = {
-        pkgname: pkgname,
-        output: expected_output,
-        path: build_artifact,
-        type: :skill,
-        status: :ok,
-        messages: []
-      }
-
-      unless build_artifact.exist?
-        item[:status] = :missing
-        item[:messages] << "  ⚠ MISSING build artifact: #{pkgname} (#{build_artifact})"
-        return item
-      end
-
-      actual_sha = Digest::SHA256.hexdigest(build_artifact.read)
-      if actual_sha == expected_checksum
-        item[:messages] << "  ✓ #{pkgname} (#{expected_output}) — build artifact OK"
-      else
-        item[:status] = :drift
-        item[:messages] << "  ⚠ CHECKSUM mismatch (build artifact): #{pkgname}"
-      end
-      item
-    end
-
-    def verify_skill_bundle_on_disk(bundle_path, pkgname)
-      manifest_path = bundle_path.join('manifest.json')
-      item = {
-        pkgname: pkgname,
-        path: bundle_path,
-        type: :skill_bundle,
-        status: :ok,
-        messages: [],
-        files: []
-      }
-
-      unless manifest_path.exist?
-        item[:status] = :missing
-        item[:messages] << "  ⚠ MISSING manifest: #{pkgname} at #{manifest_path}"
-        return item
-      end
-
-      manifest = JSON.parse(manifest_path.read)
-      all_ok = true
-      total_files = 0
-      Array(manifest['sub_skills']).each do |sub_skill|
-        (sub_skill['files'] || {}).each do |rel_path, expected_sha|
-          total_files += 1
-          file_path = bundle_path.join(rel_path)
-          file_item = { path: rel_path, expected: expected_sha }
-          unless file_path.exist?
-            file_item[:status] = :missing
-            item[:messages] << "  ⚠ MISSING: #{pkgname}/#{rel_path}"
-            all_ok = false
-            next
-          end
-          actual_sha = Digest::SHA256.hexdigest(file_path.read)
-          if actual_sha == expected_sha
-            file_item[:status] = :ok
-          else
-            file_item[:status] = :drift
-            item[:messages] << "  ⚠ CHECKSUM mismatch: #{pkgname}/#{rel_path}"
-            all_ok = false
-          end
-          item[:files] << file_item
-        end
-      end
-
-      if all_ok
-        sub_count = Array(manifest['sub_skills']).size
-        item[:messages] << "  ✓ #{pkgname} (skill-bundle, #{sub_count} sub-skill(s), #{total_files} file(s))"
-      else
-        item[:status] = :drift
-      end
-      item
-    end
-
-    def verify_agent_on_disk(platform_cfg, target_cfg, base_path, pkgname)
-      agents_dir = platform_cfg[:agents_dir]
-      item = {
-        pkgname: pkgname,
-        type: :agent,
-        status: :ok,
-        messages: []
-      }
-
-      unless agents_dir
-        item[:messages] << "  ⊘ #{pkgname}: no agent support, skipping verify"
-        return item
-      end
-
-      install_cfg = target_cfg[:install] || {}
-      target_dir = install_cfg[:target_dir] || target_cfg[:output] || pkgname.to_s
-      agent_path = base_path.join(agents_dir, target_dir)
-      item[:path] = agent_path
-
-      unless agent_path.exist?
-        item[:status] = :missing
-        item[:messages] << "  ⚠ MISSING: #{pkgname} (agent) at #{agent_path}"
-        return item
-      end
-
-      item[:messages] << "  ✓ #{pkgname} (agent)"
-      item
     end
 
     # Legacy orphan scanner kept for backward compatibility.

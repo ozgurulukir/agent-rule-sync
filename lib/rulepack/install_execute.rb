@@ -7,10 +7,11 @@
 
 require 'English'
 require 'digest'
-require 'json'
 require_relative 'common'
 require_relative 'security'
 require_relative 'install_plan'
+require_relative 'installed_state'
+require_relative 'models/installed_record'
 require_relative 'lib/transaction'
 require_relative 'lib/install_handlers'
 require_relative 'lib/skill_bundle'
@@ -82,7 +83,11 @@ module Rulepack
         inst = pkgdata[:installed].find { |i| i[:platform] == platform_id }
         next unless inst
 
-        error = verify_package_on_disk(pkgname, pkgdata, inst, platform_id, platform_cfg, base_path)
+        verdict = InstalledState.check(
+          installed: inst, target: pkgdata[:targets]&.find { |t| t[:platform] == platform_id },
+          platform_cfg: platform_cfg, pkgname: pkgname.to_s, base_path: base_path
+        )
+        error = verdict.to_error_s(pkgname.to_s, output: inst[:output])
         errors << error if error
       end
 
@@ -195,7 +200,8 @@ module Rulepack
     def record_installation(index, pkgname, platform_id, pkgdata, output, checksum, format: nil, install_path: nil)
       pkg_index = index[:packages][pkgname] || { installed: [] }
       pkg_index[:installed] ||= []
-      record = {
+      # InstalledRecord owns the installed-record schema (models/installed_record.rb).
+      record = Rulepack::InstalledRecord.new(
         platform: platform_id,
         version: pkgdata[:pkgver],
         pkgrel: pkgdata[:pkgrel],
@@ -205,99 +211,13 @@ module Rulepack
         format: format,
         target_path: install_path ? install_path.to_s : nil,
         installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-      }
+      ).to_h
       if output == '.'
         pkg_index[:installed].reject! { |r| r[:platform] == platform_id }
       else
         pkg_index[:installed].reject! { |r| r[:platform] == platform_id && r[:output] == output }
       end
       pkg_index[:installed] << record
-    end
-
-    # ─── Verify on-disk state ────────────────────────────────────────────────────
-
-    def verify_package_on_disk(pkgname, pkgdata, inst, platform_id, platform_cfg, base_path)
-      expected_output = inst[:output]
-      expected_checksum = inst[:checksum]
-      target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
-      format_type = inst[:format] || (target ? target[:format] : 'directory')
-
-      if format_type == 'skill' && platform_cfg[:type] == 'skill'
-        build_artifact = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s, expected_output)
-        return "Build artifact missing: #{pkgname} (#{build_artifact})" unless build_artifact.exist?
-
-        actual_sha = Digest::SHA256.hexdigest(build_artifact.read)
-        return nil if actual_sha == expected_checksum
-
-        return "Build artifact checksum mismatch: #{pkgname}"
-      elsif Target.materializable_format?(format_type) && !platform_cfg[:skills_dir]
-        return nil if %w[skill import].include?(platform_cfg[:type].to_s)
-        build_artifact = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s)
-        return "Build artifact missing: #{pkgname} (#{build_artifact})" unless build_artifact.exist?
-        nil
-      elsif format_type == 'agent'
-        agents_dir = platform_cfg[:agents_dir]
-        return nil unless agents_dir
-        target_dir = (target[:install] && target[:install][:target_dir]) || expected_output || pkgname.to_s
-        agent_path = base_path.join(agents_dir, target_dir)
-        return "Missing agent: #{pkgname} at #{agent_path}" unless agent_path.exist?
-        Rulepack::Emitter.emit(:progress, message: "  ✓ #{pkgname} (agent)")
-        return nil
-      end
-
-      installed_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
-
-      if Target.materializable_format?(format_type)
-        verify_skill_bundle(installed_path, pkgname)
-      else
-        verify_single_file(installed_path, expected_checksum, pkgname, expected_output)
-      end
-    end
-
-    def verify_skill_bundle(installed_path, pkgname)
-      return "Skill-bundle directory missing: #{installed_path}" unless installed_path.directory?
-
-      manifest_path = installed_path.join('manifest.json')
-      return "#{pkgname}: no manifest" unless manifest_path.exist?
-
-      begin
-        manifest = JSON.parse(manifest_path.read)
-        mismatches = []
-        total_files = 0
-        manifest['sub_skills'].each do |sub_skill|
-          sub_skill['files'].each do |rel_path, expected_sha|
-            total_files += 1
-            file_path = installed_path.join(rel_path)
-            if file_path.exist?
-              actual_sha = Digest::SHA256.hexdigest(file_path.read)
-              mismatches << "checksum mismatch: #{rel_path}" unless actual_sha == expected_sha
-            else
-              mismatches << "missing: #{rel_path}"
-            end
-          end
-        end
-
-        if mismatches.empty?
-          count = manifest['sub_skills'].size
-          Rulepack::Emitter.emit(:progress, message: "  ✓ Bundle manifest: #{count} sub-skill(s), #{total_files} file(s)")
-          nil
-        else
-          Rulepack::Emitter.emit(:progress, message: "Skill-bundle manifest: #{mismatches.size} issue(s)")
-          mismatches.each { |m| Rulepack::Common.log_warn "    • #{m}" }
-          mismatches.map { |m| "#{pkgname}: #{m}" }.join('; ')
-        end
-      rescue StandardError => e
-        Rulepack::Emitter.emit(:progress, message: "Failed to read skill-bundle manifest: #{e.message}")
-        "#{pkgname}: manifest unreadable"
-      end
-    end
-
-    def verify_single_file(installed_path, expected_checksum, pkgname, expected_output)
-      return "Missing: #{pkgname} (#{expected_output}) at #{installed_path}" unless installed_path.exist?
-
-      return nil if Rulepack::Common.verify_checksum(installed_path, expected_checksum, pkgname)
-
-      "Checksum mismatch: #{pkgname} (#{expected_output})"
     end
 
     def report_check_results(errors)
