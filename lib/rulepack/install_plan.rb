@@ -42,6 +42,13 @@ module Rulepack
       existing_records = (pkg_index[:installed] || []).select { |r| r[:platform] == ctx.platform_id }
       return true if existing_records.empty?
 
+      # Forced reinstall (fix path): decision-only bypass — no uninstall step,
+      # install handlers replace content. Skips the version-compare entirely.
+      if existing_records.any? && ctx.force_packages&.include?(pkgname.to_s)
+        Rulepack::Common.log "  ↻ #{pkgname} forced reinstall" unless ctx.quiet
+        return true
+      end
+
       existing = existing_records.first
       cmp = Rulepack::Common.compare_versions(
         pkgdata[:pkgver], existing[:version],

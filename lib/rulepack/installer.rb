@@ -28,7 +28,7 @@ module Rulepack
     InstallContext = Struct.new(
       :index, :build_index, :platform_id, :platform_cfg, :base_path, :project_root,
       :dry_run, :force_mode, :needed_mode, :collision_strategy, :rules_to, :quiet,
-      :select_list, :installed_this_run, :journal,
+      :select_list, :installed_this_run, :journal, :force_packages,
       keyword_init: true
     )
 
@@ -43,6 +43,7 @@ module Rulepack
       select_list = options.fetch(:select_list, nil)
       project_arg = options.fetch(:project_arg, nil)
       specific_package = options.fetch(:specific_package, nil)
+      force_packages = options.fetch(:force_packages, nil)
       collision_strategy = options.fetch(:collision_strategy, 'interactive')
       rules_to = options.fetch(:rules_to, nil)
 
@@ -78,6 +79,7 @@ module Rulepack
           index: index, build_index: build_index, platform_id: platform_id,
           dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
           collision_strategy: collision_strategy, rules_to: rules_to, select_list: select_list,
+          force_packages: force_packages,
           project_root: project_arg ? Pathname.new(project_arg).expand_path : nil,
           installed_this_run: [],
           journal: []

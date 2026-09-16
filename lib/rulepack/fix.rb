@@ -151,51 +151,32 @@ module Rulepack
         return { fixed: [], failed: [] }
       end
 
-      # Keep a copy of the original index so we can roll back if reinstall fails.
-      original_index = Marshal.load(Marshal.dump(index))
-      backup_path = Rulepack::Common.backup_index
-
-      broken.each do |pkgname|
-        clear_installed_record(index, pkgname, platform_id)
-        Rulepack::Emitter.emit(:progress, message: "  Cleared index record for #{pkgname}")
-      end
-
-      # Write cleared index to disk BEFORE reinstall so Install.run sees no
-      # existing record and performs a fresh install (instead of skipping
-      # same-version packages as "already installed").
-      Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
-
       Rulepack::Emitter.emit(:progress, message: "  Reinstalling #{broken.size} package(s) on #{platform_id}...")
 
-      fixed = []
-      failed = []
-      broken.each do |pkgname|
-        install_result = Rulepack::Install.run(
-          platform_id,
-          specific_package: pkgname,
-          project_arg: project_arg,
-          collision_strategy: 'overwrite',
-          dry_run: false
-        )
-        if install_result.success?
-          fixed << pkgname
-        else
-          failed << pkgname
-          Rulepack::Emitter.emit(:progress, message: "  ⚠ Reinstall failed for #{pkgname}: #{install_result.errors.join(', ')}")
-          break
-        end
-      end
+      # Single transactional reinstall: Install.run forces the named packages
+      # past the same-version short-circuit, backs up the index, and journals
+      # file operations — a failure rolls both back. No disk choreography here.
+      install_result = Rulepack::Install.run(
+        platform_id,
+        force_packages: broken,
+        project_arg: project_arg,
+        collision_strategy: 'overwrite',
+        dry_run: false
+      )
+
+      # Build-index package keys are Symbols (YAML round-trip symbolizes);
+      # broken is built from pkgname.to_s — normalize before set arithmetic.
+      installed = (install_result.data[:installed] || []).map(&:to_s)
+      failed = broken - installed
+      fixed = broken & installed
 
       if failed.empty?
-        # Reload index from disk to pick up records written by Install.run,
-        # avoiding overwrite with stale in-memory state.
-        index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
-        index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-        Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
         Rulepack::Emitter.emit(:progress, message: '  ✓ Reinstall complete')
       else
-        Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, original_index)
-        Rulepack::Emitter.emit(:progress, message: "  ⚠ Reinstall failed; restored original index from backup.")
+        failed.each do |pkgname|
+          Rulepack::Emitter.emit(:progress, message: "  ⚠ Reinstall failed for #{pkgname}")
+        end
+        Rulepack::Emitter.emit(:progress, message: '  ⚠ Reinstall rolled back; index restored.')
       end
 
       { fixed: fixed, failed: failed }
@@ -226,14 +207,6 @@ module Rulepack
         Rulepack::Emitter.emit(:progress, message: '  Skipping orphan removal (use --auto to remove)')
         { orphans_removed: [] }
       end
-    end
-
-    def clear_installed_record(index, pkgname, platform_id)
-      pkgdata = index[:packages][pkgname.to_sym] || index[:packages][pkgname.to_s]
-      return unless pkgdata
-      return unless pkgdata[:installed].is_a?(Array)
-
-      pkgdata[:installed].reject! { |r| r[:platform] == platform_id }
     end
 
     def find_broken_packages(platform_id, package_arg, project_arg, index)
