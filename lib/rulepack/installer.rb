@@ -51,7 +51,7 @@ module Rulepack
       return check_platform(platform_id, project_arg: project_arg) if check_mode
 
       unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-        msg = "Build index not found at #{Rulepack::Common::BUILD_INDEX_PATH}. Run `ruby lib/rulepack/build.rb` first."
+        msg = "Build index not found at #{Rulepack::Common::BUILD_INDEX_PATH}. Run `rulepack build` first."
         Rulepack::Common.log_error(msg)
         return Rulepack::Result.new(status: :failure, errors: [msg])
       end
@@ -138,7 +138,7 @@ module Rulepack
       end
 
       unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-        msg = "Build index not found at #{Rulepack::Common::BUILD_INDEX_PATH}. Run `ruby lib/rulepack/build.rb` first."
+        msg = "Build index not found at #{Rulepack::Common::BUILD_INDEX_PATH}. Run `rulepack build` first."
         Rulepack::Common.log_error(msg)
         return Rulepack::Result.new(status: :failure, errors: [msg])
       end

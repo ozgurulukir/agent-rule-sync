@@ -19,16 +19,15 @@ module Rulepack
 
     # ─── Entry point ───────────────────────────────────────────────────────────────
 
-    def run(argv = ARGV, format: :text)
+    # Data-returning API: dispatches the subcommand and returns the Result
+    # without rendering — the CLI renders via the unified render path.
+    def run(argv = ARGV)
       argv = argv.dup
       command = argv.shift || 'help'
 
-      result = dispatch(command, argv)
-      Rulepack::Reporter.print(result, format: format)
-      result.failure? ? 1 : 0
+      dispatch(command, argv)
     rescue StandardError => e
-      warn "Error: #{e.message}"
-      1
+      Rulepack::Result.new(status: :failure, errors: [e.message])
     end
 
     def dispatch(command, argv)

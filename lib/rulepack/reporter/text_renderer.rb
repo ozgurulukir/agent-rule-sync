@@ -21,7 +21,9 @@ module Rulepack
       def render_hash(data, out:)
         return unless data.is_a?(Hash)
 
-        if data[:platform_id] && data.key?(:items) && !data.key?(:ok)
+        if data.key?(:audit)
+          render_audit(data, out: out)
+        elsif data[:platform_id] && data.key?(:items) && !data.key?(:ok)
           render_platform_items(data, out: out)
         elsif data.key?(:packages)
           render_packages(data, out: out)
@@ -184,6 +186,51 @@ module Rulepack
           out.puts("  Available (#{available.size}):")
           available.each { |a| out.puts("    • #{a[:pkgname]} on #{a[:platform]} (#{a[:build_version]})") }
         end
+      end
+
+      def render_audit(data, out:)
+        results = data[:audit]
+      out.puts "\e[1m==================================================\e[0m"
+      out.puts "\e[1;36m🔍 Rulepack PKGBUILD Audit Report\e[0m"
+      out.puts "\e[1m==================================================\e[0m"
+      out.puts "Strict Mode: #{results[:meta][:strict_mode] ? "\e[1;32mON\e[0m" : "\e[1;33mOFF\e[0m"}"
+      out.puts "Target Filter: #{results[:meta][:target_filter] || 'None'}"
+      out.puts "Total packages: #{results[:packages].size}"
+      out.puts "--------------------------------------------------"
+
+      failures = 0
+      results[:packages].each do |pkg|
+        status_color = pkg[:valid] ? "\e[1;32m✓ VALID\e[0m" : "\e[1;31m❌ INVALID\e[0m"
+        ns_label = pkg[:namespace] ? " (#{pkg[:namespace]})" : ''
+        out.puts "\n\e[1m📦 Package: #{pkg[:name]}#{ns_label}\e[0m [#{status_color}]"
+
+        if pkg[:details]
+          out.puts "  Version: #{pkg[:details][:version]}"
+          out.puts "  Desc:    #{pkg[:details][:description]}"
+        end
+
+        pkg[:errors].each do |err|
+          out.puts "  \e[31mError: #{err}\e[0m"
+          failures += 1
+        end
+
+        pkg[:warnings].each do |warning|
+          out.puts "  \e[33mWarning: #{warning}\e[0m"
+        end
+        
+        if pkg[:errors].empty? && pkg[:warnings].empty?
+          out.puts "  \e[32m✓ All checks passed perfectly.\e[0m"
+        end
+      end
+
+      out.puts "\e[1m--------------------------------------------------\e[0m"
+      out.puts "\e[1m📊 Audit Summary:\e[0m"
+      if failures == 0
+        out.puts "\e[1;32m🎉 Success! All PKGBUILD files conform perfectly to specifications.\e[0m"
+      else
+        out.puts "\e[1;31m❌ Failure! Found #{failures} total error(s) across packages.\e[0m"
+      end
+      out.puts "\e[1m==================================================\e[0m"
       end
 
       def status_icon(status)

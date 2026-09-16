@@ -28,11 +28,14 @@ class TestAggregateSkills < Minitest::Test
     capturing_stdout = StringIO.new
     original_stdout = $stdout
     $stdout = capturing_stdout
+    # Own renderer: other test files clear the global Emitter subscriptions.
+    renderer = Rulepack::Reporter::ConsoleRenderer.new
     begin
       result = Rulepack::Aggregate.run({})
       [result, capturing_stdout.string]
     ensure
       $stdout = original_stdout
+      renderer.unsubscribe!
     end
   end
 

@@ -34,30 +34,30 @@ module Rulepack
       end
 
       if skill_agents.empty?
-        puts 'ℹ️ No skill-based agents matched or configured in registry.'
-        return true
+        Rulepack::Emitter.emit(:progress, message: 'ℹ️ No skill-based agents matched or configured in registry.')
+        return Rulepack::Result.new(status: :success)
       end
 
-      puts "Base platform registry vendor skills..."
-      puts "🔧 Aggregating vendor skills for: #{skill_agents.join(', ')}\n"
+      Rulepack::Emitter.emit(:progress, message: "Base platform registry vendor skills...")
+      Rulepack::Emitter.emit(:progress, message: "🔧 Aggregating vendor skills for: #{skill_agents.join(', ')}\n")
 
       # ─── Process each skill agent ──────────────────────────────────────────────────
 
       skill_agents.each do |agent_id|
         platform_cfg = platforms[agent_id]
-        puts "Generating vendor skill for #{agent_id} (#{platform_cfg[:display_name]})..."
+        Rulepack::Emitter.emit(:progress, message: "Generating vendor skill for #{agent_id} (#{platform_cfg[:display_name]})...")
 
         content_parts = []
 
         # Header: optional inline header from platform config or agent-specific header file
         if platform_cfg[:vendor_header]
           content_parts << platform_cfg[:vendor_header]
-          puts '  ✓ vendor header (from registry)'
+          Rulepack::Emitter.emit(:progress, message: '  ✓ vendor header (from registry)')
         else
           header_file = Rulepack::Common::RULEPACK_ROOT.join('data', 'skills').join('agent-specific', agent_id.to_s, 'header.md')
           if header_file.exist?
             content_parts << header_file.read
-            puts "  ✓ header from #{header_file.relative_path_from(Rulepack::Common::RULEPACK_ROOT)}"
+            Rulepack::Emitter.emit(:progress, message: "  ✓ header from #{header_file.relative_path_from(Rulepack::Common::RULEPACK_ROOT)}")
           end
         end
 
@@ -93,7 +93,7 @@ module Rulepack
         rule_skills.each do |skill|
           content = skill[:path].read
           content_parts << content
-          puts "  ✓ rule fragment: #{skill[:pkgname]} (#{skill[:path].basename})"
+          Rulepack::Emitter.emit(:progress, message: "  ✓ rule fragment: #{skill[:pkgname]} (#{skill[:path].basename})")
         end
 
         # ─── Include common skills ───────────────────────────────────────────────────
@@ -102,7 +102,7 @@ module Rulepack
           common_files = Dir.glob(common_skills_dir.join('*.md')).sort
           common_files.each do |skill_file|
             content_parts << File.read(skill_file)
-            puts "  ✓ common skill: #{Pathname.new(skill_file).basename}"
+            Rulepack::Emitter.emit(:progress, message: "  ✓ common skill: #{Pathname.new(skill_file).basename}")
           end
         end
 
@@ -112,7 +112,7 @@ module Rulepack
           agent_files = Dir.glob(agent_skills_dir.join('*.md')).sort
           agent_files.each do |skill_file|
             content_parts << File.read(skill_file)
-            puts "  ✓ agent-specific skill: #{Pathname.new(skill_file).basename}"
+            Rulepack::Emitter.emit(:progress, message: "  ✓ agent-specific skill: #{Pathname.new(skill_file).basename}")
           end
         end
 
@@ -136,11 +136,11 @@ module Rulepack
         vendor_file = vendor_dir.join("#{agent_id}.md")
 
         vendor_file.write(final_content)
-        puts "  🎯 Vendor skill written: #{vendor_file.relative_path_from(Rulepack::Common::RULEPACK_ROOT)}\n"
+        Rulepack::Emitter.emit(:progress, message: "  🎯 Vendor skill written: #{vendor_file.relative_path_from(Rulepack::Common::RULEPACK_ROOT)}\n")
       end
 
-      puts "Base platform registry vendor skills aggregation complete for #{skill_agents.size} agent(s)."
-      true
+      Rulepack::Emitter.emit(:progress, message: "Base platform registry vendor skills aggregation complete for #{skill_agents.size} agent(s).")
+      Rulepack::Result.new(status: :success)
     end
   end
 end

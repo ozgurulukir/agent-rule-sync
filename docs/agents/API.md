@@ -24,6 +24,8 @@ Rulepack is organized into modular components under `lib/rulepack/`:
 | Module | Purpose | Key Classes/Functions |
 |--------|---------|----------------------|
 | `common.rb` | Shared utilities, config, constants | `Rulepack::Common`, `Rulepack::Config` |
+| `cli/commands.rb` | CLI dispatch table + pacman aliases | `Rulepack::CLI::COMMANDS`, `PACMAN_ALIASES` |
+| `cli/runner.rb` | CLI runner (parse ? dispatch ? render ? exit code) | `Rulepack::CLI::Runner.run(argv)` |
 | `cli_parser.rb` | Unified CLI argument parsing | `Rulepack::CliParser.parse` |
 | `logging.rb` | Centralized logging | `Rulepack::Common.log`, `log_error`, `log_warn` |
 | `cache.rb` | HTTP/Git caching | `Rulepack::Common.cache_fetch`, `cache_store` |

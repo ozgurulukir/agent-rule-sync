@@ -18,33 +18,59 @@ module Rulepack
       end
     end
 
+    # Returns a Rulepack::Result:
+    #   status: :failure if any upstream check errored, :partial if any
+    #   package changed upstream, else :success (→ exit 1/1/0 via the CLI's
+    #   unified rule).
+    #   data: { bump: { packages:, summary: } } for --format json/yaml.
+    #   messages: the human report (verbatim former print_report output).
     def run_unscoped(argv)
       options = parse_args(argv)
       packages = discover_git_packages
 
       if packages.empty?
-        puts 'No git-sourced packages found.'
-        return 0
+        return Rulepack::Result.new(status: :success, messages: ['No git-sourced packages found.'])
       end
 
       if options[:package_name]
         pkg_name = options[:package_name].to_sym
         unless packages.key?(pkg_name)
-          warn "Package '#{pkg_name}' is not a git-sourced package."
-          return 1
+          return Rulepack::Result.new(status: :failure, errors: ["Package '#{pkg_name}' is not a git-sourced package."])
         end
         packages = { pkg_name => packages[pkg_name] }
       end
 
       results = check_upstream(packages)
-      print_report(results)
+      messages = build_report_messages(results)
 
       if options[:apply]
         apply_changes(results, packages)
       end
 
-      any_changed = results.any? { |_n, r| r[:status] == :changed }
-      any_changed ? 1 : 0
+      changed = results.count { |_, r| r[:status] == :changed }
+      current = results.count { |_, r| r[:status] == :current }
+      unknown = results.count { |_, r| r[:status] == :unknown }
+      errors = results.count { |_, r| r[:status] == :error }
+
+      status = if errors.positive?
+                 :failure
+               elsif changed.positive?
+                 :partial
+               else
+                 :success
+               end
+
+      Rulepack::Result.new(
+        status: status,
+        data: {
+          bump: {
+            packages: results,
+            summary: { changed: changed, current: current, unknown: unknown, errors: errors },
+            applied: options[:apply]
+          }
+        },
+        messages: messages
+      )
     end
 
     def parse_args(argv)
@@ -184,9 +210,8 @@ module Rulepack
       end
     end
 
-    def print_report(results)
-      puts "\n📦 Upstream Version Check"
-      puts '━' * 60
+    def build_report_messages(results)
+      msgs = ["\n📦 Upstream Version Check", '━' * 60]
 
       results.each do |pkgname, r|
         label = case r[:status]
@@ -195,10 +220,10 @@ module Rulepack
                 when :unknown then "\e[36m[UNKNOWN]\e[0m"
                 when :error   then "\e[31m[ERROR]\e[0m"
                 end
-        puts "  #{label} #{pkgname} — #{r[:message]}"
+        msgs << "  #{label} #{pkgname} — #{r[:message]}"
         if r[:remote]
-          puts "           remote: #{r[:remote][0..11]}"
-          puts "           cached: #{r[:cached] ? r[:cached][0..11] : 'none'}"
+          msgs << "           remote: #{r[:remote][0..11]}"
+          msgs << "           cached: #{r[:cached] ? r[:cached][0..11] : 'none'}"
         end
       end
 
@@ -207,8 +232,9 @@ module Rulepack
       errors = results.count { |_, r| r[:status] == :error }
       unknown = results.count { |_, r| r[:status] == :unknown }
 
-      puts
-      puts "  Summary: #{changed} changed, #{current} current, #{unknown} unknown, #{errors} error(s)"
+      msgs << ''
+      msgs << "  Summary: #{changed} changed, #{current} current, #{unknown} unknown, #{errors} error(s)"
+      msgs
     end
 
     def apply_changes(results, packages)

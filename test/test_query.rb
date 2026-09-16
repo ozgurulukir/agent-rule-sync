@@ -7,27 +7,33 @@ require_relative 'helper'
 require_relative File.join(File.expand_path('..', __dir__), 'lib', 'rulepack', 'query')
 
 class TestQueryRun < Minitest::Test
+  # Query.run is now data-returning: it returns a Result and the CLI renders.
+  def render(result)
+    out, = capture_io { Rulepack::Reporter.print(result) }
+    out
+  end
+
   def test_run_help
-    out, _err = capture_io { Rulepack::Query.run(['help']) }
+    out = render(Rulepack::Query.run(['help']))
     assert_match(/Rulepack Database Query Tool/, out)
     assert_match(/list-packages/, out)
   end
 
   def test_run_help_is_default
-    out, _err = capture_io { Rulepack::Query.run([]) }
+    out = render(Rulepack::Query.run([]))
     assert_match(/Rulepack Database Query Tool/, out)
   end
 
   def test_run_aliases
-    out, _err = capture_io { Rulepack::Query.run(['lp']) }
+    out = render(Rulepack::Query.run(['lp']))
     assert_match(/Platforms/, out)
 
-    out, _err = capture_io { Rulepack::Query.run(['h']) }
+    out = render(Rulepack::Query.run(['h']))
     assert_match(/Rulepack Database Query Tool/, out)
   end
 
   def test_run_json_format
-    out, _err = capture_io { Rulepack::Query.run(['lp'], format: :json) }
+    out, = capture_io { Rulepack::Reporter.print(Rulepack::Query.run(['lp']), format: :json) }
     data = JSON.parse(out)
     assert data['data']
     assert data['data']['platforms']

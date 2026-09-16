@@ -29,15 +29,15 @@ module Rulepack
       InstallPlan.warn_prerequisites(ctx.platform_id, ctx.platform_cfg, ctx.quiet)
 
       ctx.base_path = InstallPlan.resolve_install_base_path(ctx.platform_cfg, ctx.project_root)
-      Rulepack::Common.log "📁 Base path: #{ctx.base_path}" unless ctx.quiet
-      Rulepack::Common.log "  Platform type: #{ctx.platform_cfg[:type]}" unless ctx.quiet
+      Rulepack::Emitter.emit(:progress, message: "📁 Base path: #{ctx.base_path}") unless ctx.quiet
+      Rulepack::Emitter.emit(:progress, message: "  Platform type: #{ctx.platform_cfg[:type]}") unless ctx.quiet
 
       ctx.build_index[:packages].each do |pkgname, pkgdata|
         next if specific_package && pkgname.to_s != specific_package.to_s
 
         targets = InstallPlan.filter_targets_for_platform(pkgdata, ctx.platform_id)
         if targets.empty?
-          Rulepack::Common.log "  ⊘ package '#{pkgname}': no target for #{ctx.platform_id}, skipping" unless ctx.quiet
+          Rulepack::Emitter.emit(:progress, message: "  ⊘ package '#{pkgname}': no target for #{ctx.platform_id}, skipping") unless ctx.quiet
           next
         end
 
@@ -61,8 +61,7 @@ module Rulepack
 
     def check_platform(platform_id, project_arg: nil)
       platform_id = platform_id.to_s
-      Rulepack::Common.log "🔍 Checking installed state for platform: #{platform_id}"
-      puts "🔍 Checking installed state for platform: #{platform_id}"
+      Rulepack::Emitter.emit(:progress, message: "🔍 Checking installed state for platform: #{platform_id}")
 
       unless Rulepack::Common.index_yaml_path.exist?
         Rulepack::Common.log_error 'index.yaml not found. Run build first.'
@@ -133,7 +132,7 @@ module Rulepack
       # Skill-type platforms: record only, aggregation handles file install
       if platform_cfg[:type] == 'skill'
         record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, format: 'skill') unless dry_run
-        Rulepack::Common.log "  ✓ Installed: #{pkgname}" unless quiet
+        Rulepack::Emitter.emit(:progress, message: "  ✓ Installed: #{pkgname}") unless quiet
         installed_this_run << pkgname
         return
       end
@@ -145,7 +144,7 @@ module Rulepack
       if format == 'agent'
         agents_dir = platform_cfg[:agents_dir]
         if agents_dir.nil?
-          Rulepack::Common.log "  ⊘ package '#{pkgname}': no agent support on #{platform_id}, skipping" unless quiet
+          Rulepack::Emitter.emit(:progress, message: "  ⊘ package '#{pkgname}': no agent support on #{platform_id}, skipping") unless quiet
           return
         end
         target_dir = install_cfg&.[](:target_dir) || pkgname.to_s
@@ -157,9 +156,9 @@ module Rulepack
           # cannot be followed by downstream agent tooling on the user's host.
           Rulepack::Security.strip_symlinks_in_tree(install_path, log_prefix: '⚠')
         end
-        Rulepack::Common.log "  ⤷ #{pkgname} (agent) → #{install_path} [copy]" unless quiet
+        Rulepack::Emitter.emit(:progress, message: "  ⤷ #{pkgname} (agent) → #{install_path} [copy]") unless quiet
         record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, format: 'agent') unless dry_run
-        Rulepack::Common.log "  ✓ Installed agent: #{pkgname}" unless quiet
+        Rulepack::Emitter.emit(:progress, message: "  ✓ Installed agent: #{pkgname}") unless quiet
         installed_this_run << pkgname
         return
       end
@@ -180,14 +179,14 @@ module Rulepack
 
       install_path.parent.mkpath unless dry_run
 
-      Rulepack::Common.log "  ⤷ #{pkgname} (#{output}) → #{install_path} [#{install_type}]" unless quiet
+      Rulepack::Emitter.emit(:progress, message: "  ⤷ #{pkgname} (#{output}) → #{install_path} [#{install_type}]") unless quiet
       Rulepack::InstallHandlers.perform_file_install(
         built_path, install_path, content, content_sha256, install_type,
         platform_cfg, output, pkgname, ctx
       )
 
       record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, format: format, install_path: install_path) unless dry_run
-      Rulepack::Common.log "  ✓ Installed: #{pkgname}" unless quiet
+      Rulepack::Emitter.emit(:progress, message: "  ✓ Installed: #{pkgname}") unless quiet
       installed_this_run << pkgname
     end
 
@@ -242,7 +241,7 @@ module Rulepack
         target_dir = (target[:install] && target[:install][:target_dir]) || expected_output || pkgname.to_s
         agent_path = base_path.join(agents_dir, target_dir)
         return "Missing agent: #{pkgname} at #{agent_path}" unless agent_path.exist?
-        Rulepack::Common.log "  ✓ #{pkgname} (agent)"
+        Rulepack::Emitter.emit(:progress, message: "  ✓ #{pkgname} (agent)")
         return nil
       end
 
@@ -280,15 +279,15 @@ module Rulepack
 
         if mismatches.empty?
           count = manifest['sub_skills'].size
-          Rulepack::Common.log "  ✓ Bundle manifest: #{count} sub-skill(s), #{total_files} file(s)"
+          Rulepack::Emitter.emit(:progress, message: "  ✓ Bundle manifest: #{count} sub-skill(s), #{total_files} file(s)")
           nil
         else
-          Rulepack::Common.log_warn "Skill-bundle manifest: #{mismatches.size} issue(s)"
+          Rulepack::Emitter.emit(:progress, message: "Skill-bundle manifest: #{mismatches.size} issue(s)")
           mismatches.each { |m| Rulepack::Common.log_warn "    • #{m}" }
           mismatches.map { |m| "#{pkgname}: #{m}" }.join('; ')
         end
       rescue StandardError => e
-        Rulepack::Common.log_warn "Failed to read skill-bundle manifest: #{e.message}"
+        Rulepack::Emitter.emit(:progress, message: "Failed to read skill-bundle manifest: #{e.message}")
         "#{pkgname}: manifest unreadable"
       end
     end
@@ -303,13 +302,12 @@ module Rulepack
 
     def report_check_results(errors)
       if errors.empty?
-        Rulepack::Common.log '✅ All installed packages are valid'
-        puts "\n✅ All installed packages are valid"
+        Rulepack::Emitter.emit(:progress, message: "\n✅ All installed packages are valid")
         Rulepack::Result.new(status: :success, data: { errors_count: 0 })
       else
         Rulepack::Common.log_error "#{errors.size} error(s) found"
-        puts "\n❌ #{errors.size} error(s) found:"
-        errors.each { |e| puts "  • #{e}" }
+        Rulepack::Emitter.emit(:progress, message: "\n❌ #{errors.size} error(s) found:")
+        errors.each { |e| Rulepack::Emitter.emit(:progress, message: "  • #{e}") }
         Rulepack::Result.new(status: :failure, data: { errors_count: errors.size }, errors: errors)
       end
     end
@@ -318,8 +316,7 @@ module Rulepack
 
     def aggregate_vendor_skills(platform_id, platform_cfg, base_path, ctx)
       collision_strategy = ctx.collision_strategy || 'interactive'
-      Rulepack::Common.log "  🧱 Aggregating vendor skills for #{platform_id}..."
-      puts "\n  🧱 Aggregating vendor skills for #{platform_id}..."
+      Rulepack::Emitter.emit(:progress, message: "\n  🧱 Aggregating vendor skills for #{platform_id}...")
       agg_ok = begin
                  Rulepack::Aggregate.run(target: platform_id)
                  true
@@ -328,8 +325,7 @@ module Rulepack
                  false
                end
       if agg_ok
-        Rulepack::Common.log '    ✓ Vendor skill aggregated'
-        puts '    ✓ Vendor skill aggregated'
+        Rulepack::Emitter.emit(:progress, message: '    ✓ Vendor skill aggregated')
         vendor_file = Rulepack::Common.build_dir.join(platform_id, 'skills', 'vendor',
                                                        "#{platform_id}.md")
         if vendor_file.exist?
@@ -346,27 +342,23 @@ module Rulepack
               backup_path = Rulepack::Common.backup_file(install_path)
               Rulepack::Transaction.record_journal(ctx, { action: :modify_file, path: install_path, backup: backup_path })
               result = Rulepack::Common.update_marked_content(install_path, "#{platform_id}_vendor", vendor_file.read)
-              Rulepack::Common.log "  ✓ #{result.capitalize} vendor skill to #{install_path} (with backup)"
-              puts "  ✓ #{result.capitalize} vendor skill to #{install_path} (with backup)"
+              Rulepack::Emitter.emit(:progress, message: "  ✓ #{result.capitalize} vendor skill to #{install_path} (with backup)")
             when 'overwrite'
               backup_path = Rulepack::Common.backup_file(install_path)
               Rulepack::Transaction.record_journal(ctx, { action: :replace_file, path: install_path, backup: backup_path })
               FileUtils.cp(vendor_file, install_path)
-              Rulepack::Common.log "  ✓ Overwrote vendor skill to #{install_path} (with backup)"
-              puts "  ✓ Overwrote vendor skill to #{install_path} (with backup)"
+              Rulepack::Emitter.emit(:progress, message: "  ✓ Overwrote vendor skill to #{install_path} (with backup)")
             when 'ignore'
-              Rulepack::Common.log "  ⚠ Collision: #{install_path} exists, skipping vendor skill install"
-              puts "  ⚠ Collision: #{install_path} exists, skipping"
+              Rulepack::Emitter.emit(:progress, message: "  ⚠ Collision: #{install_path} exists, skipping vendor skill install")
             else # stop
               Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
-              puts "  ❌ Collision: #{install_path} exists. Use --on-collision to proceed."
+              Rulepack::Emitter.emit(:progress, message: "  ❌ Collision: #{install_path} exists. Use --on-collision to proceed.")
               raise Rulepack::StateError, "Collision at #{install_path}"
             end
           else
             Rulepack::Transaction.record_journal(ctx, { action: :create_file, path: install_path })
             FileUtils.cp(vendor_file, install_path)
-            Rulepack::Common.log "  ✓ Installed vendor skill to #{install_path}"
-            puts "  ✓ Installed vendor skill to #{install_path}"
+            Rulepack::Emitter.emit(:progress, message: "  ✓ Installed vendor skill to #{install_path}")
           end
         else
           Rulepack::Common.log_error "Vendor skill not generated: #{vendor_file}"

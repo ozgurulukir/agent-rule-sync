@@ -30,11 +30,19 @@ class TestReporter < Minitest::Test
     out = StringIO.new
     Rulepack::Reporter.print(result, format: :yaml, out: out)
     data = YAML.safe_load(out.string)
-    assert_equal 1, data['count']
+    # yaml now carries the same envelope as json (status/data/errors/messages)
+    assert_equal 'success', data['status']
+    assert_equal 1, data['data']['count']
   end
 
   def test_unsupported_format_raises
     result = Rulepack::Result.new(status: :success, data: {})
-    assert_raises(ArgumentError) { Rulepack::Reporter.print(result, format: :xml) }
+    assert_raises(Rulepack::InvalidOptionValue) { Rulepack::Reporter.print(result, format: :xml) }
+  end
+
+  def test_jsonl_is_not_a_reporter_format
+    result = Rulepack::Result.new(status: :success, data: {})
+    e = assert_raises(Rulepack::InvalidOptionValue) { Rulepack::Reporter.print(result, format: :jsonl) }
+    assert_match(/jsonl/, e.message)
   end
 end

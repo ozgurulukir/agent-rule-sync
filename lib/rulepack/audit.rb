@@ -15,11 +15,12 @@ module Rulepack
   module Audit
     module_function
 
-    def run(argv)
-      opts = Rulepack::CliParser.parse(argv)
-      strict = opts.fetch(:strict, false)
-      target_filter = opts[:target]
-      format = opts.fetch(:format, :text)
+    # options: the CliParser result (uses :strict and :target). Rendering is
+    # the CLI's job (TextRenderer.render_audit / JsonRenderer); this method
+    # only returns the structured Result.
+    def run(options = {})
+      strict = options.fetch(:strict, false)
+      target_filter = options[:target]
 
       # Load system platforms
       begin
@@ -144,64 +145,16 @@ module Rulepack
         audit_results[:packages] << pkg_result
       end
 
-      # Render results
-      if format == :json
-        puts JSON.pretty_generate(audit_results)
-      else
-        print_text_report(audit_results)
-      end
-
-      # Return structured result
+      # Structured result ? the report itself is rendered by the CLI
+      # (TextRenderer.render_audit for text; json/yaml via Reporter envelope).
+      data = { audit: audit_results }
       if all_valid
-        Rulepack::Result.new(status: :success, data: audit_results)
+        Rulepack::Result.new(status: :success, data: data)
       else
-        Rulepack::Result.new(status: :failure, data: audit_results)
+        Rulepack::Result.new(status: :failure, data: data)
       end
     end
 
-    def print_text_report(results)
-      puts "\e[1m==================================================\e[0m"
-      puts "\e[1;36m🔍 Rulepack PKGBUILD Audit Report\e[0m"
-      puts "\e[1m==================================================\e[0m"
-      puts "Strict Mode: #{results[:meta][:strict_mode] ? "\e[1;32mON\e[0m" : "\e[1;33mOFF\e[0m"}"
-      puts "Target Filter: #{results[:meta][:target_filter] || 'None'}"
-      puts "Total packages: #{results[:packages].size}"
-      puts "--------------------------------------------------"
-
-      failures = 0
-      results[:packages].each do |pkg|
-        status_color = pkg[:valid] ? "\e[1;32m✓ VALID\e[0m" : "\e[1;31m❌ INVALID\e[0m"
-        ns_label = pkg[:namespace] ? " (#{pkg[:namespace]})" : ''
-        puts "\n\e[1m📦 Package: #{pkg[:name]}#{ns_label}\e[0m [#{status_color}]"
-
-        if pkg[:details]
-          puts "  Version: #{pkg[:details][:version]}"
-          puts "  Desc:    #{pkg[:details][:description]}"
-        end
-
-        pkg[:errors].each do |err|
-          puts "  \e[31mError: #{err}\e[0m"
-          failures += 1
-        end
-
-        pkg[:warnings].each do |warn|
-          puts "  \e[33mWarning: #{warn}\e[0m"
-        end
-        
-        if pkg[:errors].empty? && pkg[:warnings].empty?
-          puts "  \e[32m✓ All checks passed perfectly.\e[0m"
-        end
-      end
-
-      puts "\e[1m--------------------------------------------------\e[0m"
-      puts "\e[1m📊 Audit Summary:\e[0m"
-      if failures == 0
-        puts "\e[1;32m🎉 Success! All PKGBUILD files conform perfectly to specifications.\e[0m"
-      else
-        puts "\e[1;31m❌ Failure! Found #{failures} total error(s) across packages.\e[0m"
-      end
-      puts "\e[1m==================================================\e[0m"
-    end
 
     def print_help
       puts <<~HELP

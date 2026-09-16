@@ -36,13 +36,13 @@ module Rulepack
 
       # ─── Clean Build Directory ──────────────────────────────────────────────────────
       if Rulepack::Common.build_dir.exist?
-        puts "🧹 Cleaning stale build directory: #{Rulepack::Common.build_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT)}"
+        Rulepack::Emitter.emit(:progress, message: "🧹 Cleaning stale build directory: #{Rulepack::Common.build_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT)}")
         FileUtils.rm_rf(Rulepack::Common.build_dir)
         sleep 0.1 # wait for Windows file system to catch up
       end
       FileUtils.mkpath(Rulepack::Common.build_dir)
 
-      Rulepack::Common.log '🔧 Loading platform registry...'
+      Rulepack::Emitter.emit(:progress, message: '🔧 Loading platform registry...')
       platforms = Rulepack::Common.load_platform_registry
       if options[:target] && options[:target].to_s != 'all'
         target_list = options[:target].to_s.split(',').map(&:strip)
@@ -53,8 +53,8 @@ module Rulepack
             errors: ["❌ Build failed: No matching platforms found for target '#{options[:target]}'."]
           )
         end
-        Rulepack::Common.log "🎯 Filtering targets for platform(s): #{target_list.join(', ')}"
-        puts "🎯 Filtering targets for platform(s): #{target_list.join(', ')}\n\n"
+        Rulepack::Emitter.emit(:progress, message: "🎯 Filtering targets for platform(s): #{target_list.join(', ')}")
+        Rulepack::Emitter.emit(:progress, message: "🎯 Filtering targets for platform(s): #{target_list.join(', ')}\n\n")
       end
 
       index_data = {
@@ -66,8 +66,8 @@ module Rulepack
       # ─── Discover PKGBUILDs ────────────────────────────────────────────────────────
 
       pkgbuilds = BuildLoader.discover_pkgbuilds
-      Rulepack::Common.log "📦 Found #{pkgbuilds.size} package(s)"
-      puts "📦 Found #{pkgbuilds.size} package(s)\n\n"
+      Rulepack::Emitter.emit(:progress, message: "📦 Found #{pkgbuilds.size} package(s)")
+      Rulepack::Emitter.emit(:progress, message: "📦 Found #{pkgbuilds.size} package(s)\n\n")
 
       # ─── Build each package ─────────────────────────────────────────────────────────
 
@@ -112,7 +112,7 @@ module Rulepack
           end
         end
 
-        Rulepack::Common.log "  ✓ Built: #{pkgname}" if build_ok
+        Rulepack::Emitter.emit(:progress, message: "  ✓ Built: #{pkgname}") if build_ok
         if build_ok
           built << pkgname.to_s
         elsif build_attempted

@@ -99,7 +99,7 @@ module Rulepack
     # Execution Helpers
 
     def fix_platform(platform_id, package_arg, project_arg, dry_run, auto_mode, index)
-      puts "\n── #{platform_id} ──"
+      Rulepack::Emitter.emit(:progress, message: "\n── #{platform_id} ──")
 
       result = Rulepack::Verify.check(target: platform_id, package_name: package_arg, project_path: project_arg)
       data = result.data || {}
@@ -115,7 +115,7 @@ module Rulepack
                 end
 
       unless has_drift || orphans.any?
-        puts '  ✓ No drift detected.'
+        Rulepack::Emitter.emit(:progress, message: '  ✓ No drift detected.')
         return { fixed: [], failed: [], orphans_removed: [] }
       end
 
@@ -139,14 +139,14 @@ module Rulepack
 
     def fix_drift(platform_id, package_arg, project_arg, dry_run, index)
       if dry_run
-        puts "  [DRY-RUN] Would reinstall packages on #{platform_id}"
+        Rulepack::Emitter.emit(:progress, message: "  [DRY-RUN] Would reinstall packages on #{platform_id}")
         return { fixed: [], failed: [] }
       end
 
       broken = find_broken_packages(platform_id, package_arg, project_arg, index)
 
       if broken.empty?
-        puts '  ✓ No broken packages matched.'
+        Rulepack::Emitter.emit(:progress, message: '  ✓ No broken packages matched.')
         return { fixed: [], failed: [] }
       end
 
@@ -156,7 +156,7 @@ module Rulepack
 
       broken.each do |pkgname|
         clear_installed_record(index, pkgname, platform_id)
-        puts "  Cleared index record for #{pkgname}"
+        Rulepack::Emitter.emit(:progress, message: "  Cleared index record for #{pkgname}")
       end
 
       # Write cleared index to disk BEFORE reinstall so Install.run sees no
@@ -164,7 +164,7 @@ module Rulepack
       # same-version packages as "already installed").
       Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
 
-      puts "  Reinstalling #{broken.size} package(s) on #{platform_id}..."
+      Rulepack::Emitter.emit(:progress, message: "  Reinstalling #{broken.size} package(s) on #{platform_id}...")
 
       fixed = []
       failed = []
@@ -180,7 +180,7 @@ module Rulepack
           fixed << pkgname
         else
           failed << pkgname
-          puts "  ⚠ Reinstall failed for #{pkgname}: #{install_result.errors.join(', ')}"
+          Rulepack::Emitter.emit(:progress, message: "  ⚠ Reinstall failed for #{pkgname}: #{install_result.errors.join(', ')}")
           break
         end
       end
@@ -191,10 +191,10 @@ module Rulepack
         index = Rulepack::Common.load_yaml(Rulepack::Common.index_yaml_path)
         index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
         Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
-        puts '  ✓ Reinstall complete'
+        Rulepack::Emitter.emit(:progress, message: '  ✓ Reinstall complete')
       else
         Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, original_index)
-        puts "  ⚠ Reinstall failed; restored original index from backup."
+        Rulepack::Emitter.emit(:progress, message: "  ⚠ Reinstall failed; restored original index from backup.")
       end
 
       { fixed: fixed, failed: failed }
@@ -203,10 +203,10 @@ module Rulepack
     def fix_orphans(orphans, dry_run, auto_mode)
       return { orphans_removed: [] } unless orphans.any?
 
-      puts "\n  #{orphans.size} orphan(s) found:"
-      orphans.each { |f| puts "    #{f}" }
+      Rulepack::Emitter.emit(:progress, message: "\n  #{orphans.size} orphan(s) found:")
+      orphans.each { |f| Rulepack::Emitter.emit(:progress, message: "    #{f}") }
       if dry_run
-        puts '  [DRY-RUN] Would not remove orphans'
+        Rulepack::Emitter.emit(:progress, message: '  [DRY-RUN] Would not remove orphans')
         return { orphans_removed: [] }
       end
 
@@ -217,12 +217,12 @@ module Rulepack
       end
 
       if should_remove
-        puts "  Removing #{orphans.size} orphan(s)..."
+        Rulepack::Emitter.emit(:progress, message: "  Removing #{orphans.size} orphan(s)...")
         orphans.each { |f| FileUtils.rm_rf(f) }
-        puts '  ✓ Orphans removed'
+        Rulepack::Emitter.emit(:progress, message: '  ✓ Orphans removed')
         { orphans_removed: orphans }
       else
-        puts '  Skipping orphan removal (use --auto to remove)'
+        Rulepack::Emitter.emit(:progress, message: '  Skipping orphan removal (use --auto to remove)')
         { orphans_removed: [] }
       end
     end

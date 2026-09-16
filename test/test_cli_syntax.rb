@@ -71,7 +71,7 @@ class TestCliSyntax < Minitest::Test
                when 'uninstall'
                  Rulepack::Uninstaller.dispatch(opts)
                when 'verify'
-                 Rulepack::Verify.run(opts.merge(exit_on_failure: false))
+                 Rulepack::Verify.check(opts)
                when 'fix'
                  Rulepack::Fix.run(opts)
                else
@@ -187,6 +187,7 @@ class TestCliSyntax < Minitest::Test
 
   def capture_audit_run(argv)
     require_relative '../lib/rulepack/audit'
+    require_relative '../lib/rulepack/cli_parser'
 
     out_io = StringIO.new
     err_io = StringIO.new
@@ -197,8 +198,12 @@ class TestCliSyntax < Minitest::Test
 
     exit_code = 0
     begin
-      result = Rulepack::Audit.run(argv)
-      exit_code = result.is_a?(Rulepack::Result) ? (result.failure? ? 1 : 0) : 0
+      opts = Rulepack::CliParser.parse(argv)
+      result = Rulepack::Audit.run(opts)
+      fmt = opts[:format] || :text
+      # Render like the CLI does (text = audit report via TextRenderer.render_audit).
+      Rulepack::Reporter.print(result, format: fmt, out: out_io)
+      exit_code = result.failure? ? 1 : 0
     rescue SystemExit => e
       exit_code = e.status
     rescue StandardError => e
@@ -228,8 +233,9 @@ class TestCliSyntax < Minitest::Test
       File.join(__dir__, '..', 'data', 'packages', '*', 'PKGBUILD'),
       File.join(__dir__, '..', 'data', 'packages', '*', '*', 'PKGBUILD')
     ]).size
-    assert_equal expected_count, data['packages'].size,
-      "Expected #{expected_count} packages but got #{data['packages'].size}"
+    packages = data['data']['audit']['packages']
+    assert_equal expected_count, packages.size,
+      "Expected #{expected_count} packages but got #{packages.size}"
   end
 
   def test_audit_discovers_local_namespace_packages
@@ -257,9 +263,10 @@ class TestCliSyntax < Minitest::Test
 
     assert_equal 0, res[:exit_code], "Expected exit 0 but got: #{res[:stderr]}"
     data = JSON.parse(res[:stdout])
-    names = data['packages'].map { |p| p['name'] }
+    packages = data['data']['audit']['packages']
+    names = packages.map { |p| p['name'] }
     assert_includes names, 'test-local-audit-pkg'
-    local_pkg = data['packages'].find { |p| p['name'] == 'test-local-audit-pkg' }
+    local_pkg = packages.find { |p| p['name'] == 'test-local-audit-pkg' }
     assert_equal 'local', local_pkg['namespace']
   ensure
     FileUtils.rm_rf(local_pkg_dir) if local_pkg_dir
@@ -273,12 +280,12 @@ class TestCliSyntax < Minitest::Test
   # ─── Pacman alias remap ───────────────────────────────────────────────────────
 
   def test_pacman_aliases_are_remapped_in_bin_entry_point
-    # Alias handling lives solely in bin/rulepack; CliParser and backends
-    # never see the raw flags. Assert the remap table stays declared there.
-    bin_src = File.read(ROOT.join('bin', 'rulepack'))
+    # Alias handling lives solely in the CLI dispatch table (cli/commands.rb);
+    # CliParser and backends never see the raw flags.
+    table_src = File.read(ROOT.join('lib', 'rulepack', 'cli', 'commands.rb'))
     %w[-S install -R uninstall -Qk verify -F fix -Q query].each_slice(2) do |flag, command|
-      assert_includes bin_src, "'#{flag}' => '#{command}'",
-                      "bin/rulepack must remap #{flag} to #{command}"
+      assert_includes table_src, "'#{flag}' => '#{command}'",
+                      "cli/commands.rb must remap #{flag} to #{command}"
     end
   end
 end

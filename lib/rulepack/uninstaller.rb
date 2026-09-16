@@ -92,7 +92,7 @@ module Rulepack
         unless dry_run
           index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
           Rulepack::Common.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
-          Rulepack::Common.log "\u{1f4dd} Index updated: #{Rulepack::Common.index_yaml_path}"
+          Rulepack::Emitter.emit(:progress, message: "\u{1f4dd} Index updated: #{Rulepack::Common.index_yaml_path}")
         end
       rescue StandardError => e
         if backup_path && Rulepack::Common.restore_index(backup_path)
@@ -154,8 +154,7 @@ module Rulepack
       uninstalled_total = []
 
       targets.each do |platform_id|
-        Rulepack::Common.log "\u{1f9f9} Uninstalling from platform: #{platform_id} #{'(dry-run)' if dry_run}"
-        puts "\u{1f9f9} Uninstalling from platform: #{platform_id} #{'(dry-run)' if dry_run}"
+        Rulepack::Emitter.emit(:progress, message: "\u{1f9f9} Uninstalling from platform: #{platform_id} #{'(dry-run)' if dry_run}")
 
         platform_cfg = registry[platform_id.to_sym] || registry[platform_id.to_s]
         project_root = project_arg ? Pathname.new(project_arg).expand_path : nil
@@ -185,27 +184,27 @@ module Rulepack
     # ─── Remove vendor skill for skill-type platforms ────────────────────────────
 
     def remove_vendor_skill(base_path, platform_cfg, dry_run)
-      Rulepack::Common.log '  \u{1f3af} Skill platform: removing vendor skill'
+      Rulepack::Emitter.emit(:progress, message: '  \u{1f3af} Skill platform: removing vendor skill')
       vendor_path = base_path.join(platform_cfg[:skill_file])
       return unless vendor_path.exist?
 
       if dry_run
-        Rulepack::Common.log "    [DRY-RUN] Would remove vendor skill: #{vendor_path}"
+        Rulepack::Emitter.emit(:progress, message: "    [DRY-RUN] Would remove vendor skill: #{vendor_path}")
       else
         FileUtils.rm(vendor_path)
-        Rulepack::Common.log '    \u{2713} Removed vendor skill'
+        Rulepack::Emitter.emit(:progress, message: '    \u{2713} Removed vendor skill')
       end
     end
 
     # ─── Re-aggregate vendor skills via direct API call ──────────────────────────
 
     def reaggregate_vendor_skills(platform_id)
-      Rulepack::Common.log "  \u{1f9f1} Re-aggregating vendor skills for #{platform_id}..."
+      Rulepack::Emitter.emit(:progress, message: "  \u{1f9f1} Re-aggregating vendor skills for #{platform_id}...")
       begin
         Rulepack::Aggregate.run(target: platform_id)
-        Rulepack::Common.log '    \u{2713} Vendor skill regenerated'
+        Rulepack::Emitter.emit(:progress, message: '    \u{2713} Vendor skill regenerated')
       rescue StandardError => e
-        Rulepack::Common.log_warn "    \u{26a0} Aggregation error: #{e.message}"
+        Rulepack::Emitter.emit(:progress, message: "    \u{26a0} Aggregation error: #{e.message}")
       end
     end
 
@@ -263,11 +262,11 @@ module Rulepack
       output = rec[:output]
       target = target_by_output[output]
       unless target
-        Rulepack::Common.log_warn "  \u{26a0} No target found for output '#{output}' in #{pkgname}, skipping uninstall"
+        Rulepack::Emitter.emit(:progress, message: "  \u{26a0} No target found for output '#{output}' in #{pkgname}, skipping uninstall")
         return false
       end
       if dry_run
-        Rulepack::Common.log "    [DRY-RUN] Would remove: #{output}"
+        Rulepack::Emitter.emit(:progress, message: "    [DRY-RUN] Would remove: #{output}")
         if !Target.materializable_format?(target[:format])
           begin
             install_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
@@ -276,22 +275,22 @@ module Rulepack
               start_marker = "<!-- rulepack:#{pkgname} start -->"
               end_marker = "<!-- rulepack:#{pkgname} end -->"
               if content.include?(start_marker) && content.include?(end_marker)
-                puts "    \e[1;36m[DRY-RUN] Diff for #{install_path.basename} (Excising lines):\e[0m"
-                puts "    \e[31m- #{start_marker}\e[0m"
+                Rulepack::Emitter.emit(:progress, message: "    \e[1;36m[DRY-RUN] Diff for #{install_path.basename} (Excising lines):\e[0m")
+                Rulepack::Emitter.emit(:progress, message: "    \e[31m- #{start_marker}\e[0m")
                 pattern = /#{Regexp.escape(start_marker)}\n(.*?)\n#{Regexp.escape(end_marker)}/m
                 if content =~ pattern
                   extracted = $1
                   extracted.each_line do |line|
-                    puts "    \e[31m- #{line.chomp}\e[0m"
+                    Rulepack::Emitter.emit(:progress, message: "    \e[31m- #{line.chomp}\e[0m")
                   end
                 end
-                puts "    \e[31m- #{end_marker}\e[0m"
+                Rulepack::Emitter.emit(:progress, message: "    \e[31m- #{end_marker}\e[0m")
               else
-                puts "    \e[1;33m[DRY-RUN] File will be completely deleted: #{install_path.basename}\e[0m"
+                Rulepack::Emitter.emit(:progress, message: "    \e[1;33m[DRY-RUN] File will be completely deleted: #{install_path.basename}\e[0m")
               end
             end
           rescue StandardError => e
-            Rulepack::Common.log_warn "Could not resolve dry-run diff: #{e.message}"
+            Rulepack::Emitter.emit(:progress, message: "Could not resolve dry-run diff: #{e.message}")
           end
         end
         return true
@@ -332,10 +331,10 @@ module Rulepack
         if path.file? && !path.symlink? && pkgname
           res = Rulepack::Common.remove_marked_content(path, pkgname)
           if res == :removed
-            Rulepack::Common.log "    \u{2713} Excised package content from: #{path}"
+            Rulepack::Emitter.emit(:progress, message: "    \u{2713} Excised package content from: #{path}")
             return
           elsif res == :file_removed
-            Rulepack::Common.log "    \u{2713} Removed empty file: #{path}"
+            Rulepack::Emitter.emit(:progress, message: "    \u{2713} Removed empty file: #{path}")
             return
           end
         end
@@ -345,9 +344,9 @@ module Rulepack
         else
           FileUtils.rm_rf(path)
         end
-        Rulepack::Common.log "    \u{2713} Removed: #{path}"
+        Rulepack::Emitter.emit(:progress, message: "    \u{2713} Removed: #{path}")
       else
-        Rulepack::Common.log "    \u{2713} Already removed: #{path}"
+        Rulepack::Emitter.emit(:progress, message: "    \u{2713} Already removed: #{path}")
       end
     end
 

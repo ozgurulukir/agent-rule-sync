@@ -459,6 +459,25 @@ All operations log to `build/build.log`. Check logs for detailed error messages.
 
 ---
 
+## Output Formats & Exit Codes
+
+All Result-producing commands accept `--format text|json|yaml|jsonl` (local helpers ? `status`, `catalog`, `remote`, `lock`, `init-hooks` ? print plain text regardless):
+
+- `text` — human-readable (default). Narration streams live via events; the Result renders through the Reporter.
+- `json` / `yaml` — the full Result envelope (`status`, `data`, `errors`, `messages`).
+- `jsonl` — one JSON object per event plus a final `{"event":"result",...}` line. Ideal for piping into `jq`.
+
+**Exit codes (uniform across all commands):**
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | Partial (drift found, some packages/platforms failed, outdated packages exist, upstream changes available) **or** outright failure |
+
+So `rulepack verify` exits 1 when drift exists, `rulepack outdated` exits 1 when updates exist, and `rulepack build` exits 1 if any package failed — script-friendly and consistent.
+
+---
+
 ## See Also
 
 - [Architecture](ARCHITECTURE.md) — System design

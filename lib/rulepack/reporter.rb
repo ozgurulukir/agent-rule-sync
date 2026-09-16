@@ -13,11 +13,14 @@ module Rulepack
 
     def print(result, format: :text, out: $stdout)
       fmt = format.to_sym
-      raise ArgumentError, "Unsupported format: #{format}" unless SUPPORTED_FORMATS.include?(fmt)
+      unless SUPPORTED_FORMATS.include?(fmt)
+        hint = ' (jsonl is a stream format: the CLI renders it via JsonlRenderer, not Reporter)' if fmt == :jsonl
+        raise Rulepack::InvalidOptionValue, "Unsupported format: #{format}#{hint}"
+      end
 
       case fmt
       when :json then JsonRenderer.print(result, out: out)
-      when :yaml then out.puts JsonRenderer.sanitize(result.data).to_yaml
+      when :yaml then out.puts JsonRenderer.sanitize(result.to_h).to_yaml
       else TextRenderer.print(result, out: out)
       end
     end

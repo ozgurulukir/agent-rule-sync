@@ -1,95 +1,77 @@
 # frozen_string_literal: true
 
-# Command registry — maps CLI verbs to their backend module and metadata.
+# CLI dispatch table — the single registry mapping command names to backends.
 #
-# Each entry specifies:
-#   :backend   — the module to call (responds to .run or .dispatch)
-#   :method    — the method name on the backend (default: :run)
-#   :renderer  — how to render the result (:reporter or :direct)
-#   :needs_target — whether --target is required
-#   :needs_project — whether --project is required
-#   :description — one-line help text
+# Rows come in two shapes:
+#   { backend:, method:, transform:, max_positional:, usage:, raw_argv: }
+#     — Runner calls backend.public_send(method, options) (the parsed CliParser
+#       hash), or (argv) when raw_argv: true (commands with private flags).
+#   { phases: [{ backend:, method: }, ...] }
+#     — Runner executes phases in order, short-circuits on failure, and
+#       flat-merges their Result data into one combined Result.
 #
-# The CLI dispatcher (bin/rulepack) uses this table instead of a case/when.
+# PACMAN_ALIASES is applied by the Runner before dispatch; backends never
+# see the raw flags.
 
 module Rulepack
   module CLI
+    PACMAN_ALIASES = {
+      '-S' => 'install', '-R' => 'uninstall', '-Qk' => 'verify',
+      '-F' => 'fix', '-Q' => 'query'
+    }.freeze
+
     COMMANDS = {
       'build' => {
-        backend: Rulepack::Build,
-        method: :run,
-        renderer: :reporter,
-        needs_target: false,
-        needs_project: false,
-        description: 'Build all packages (fetch → transform → artifacts)'
+        phases: [
+          { backend: 'Build', method: :run },
+          { backend: 'Aggregate', method: :run }
+        ],
+        description: 'Build all packages (fetch → transform → artifacts) and aggregate vendor skills'
       },
       'install' => {
-        backend: Rulepack::Install,
-        method: :dispatch,
-        renderer: :reporter,
-        needs_target: true,
-        needs_project: false,
+        backend: 'Install', method: :dispatch, max_positional: 1,
+        usage: 'rulepack install [package] --target <platform|all>',
         description: 'Install packages to a platform'
       },
       'uninstall' => {
-        backend: Rulepack::Uninstaller,
-        method: :dispatch,
-        renderer: :reporter,
-        needs_target: true,
-        needs_project: false,
+        backend: 'Uninstaller', method: :dispatch, max_positional: 1,
+        usage: 'rulepack uninstall [package] --target <platform|all>',
         description: 'Remove packages from a platform'
       },
       'verify' => {
-        backend: Rulepack::Verify,
-        method: :run,
-        renderer: :reporter,
-        needs_target: true,
-        needs_project: false,
+        backend: 'Verify', method: :check,
         description: 'Comprehensive index vs disk reconciliation'
       },
       'fix' => {
-        backend: Rulepack::Fix,
-        method: :run,
-        renderer: :reporter,
-        needs_target: false,
-        needs_project: false,
+        backend: 'Fix', method: :run,
         description: 'Repair drift (index-disk reconciliation)'
       },
       'outdated' => {
-        backend: Rulepack::Outdated,
-        method: :run,
-        renderer: :reporter,
-        needs_target: false,
-        needs_project: false,
+        backend: 'Outdated', method: :run,
         description: 'Show installed packages older than the build'
       },
       'audit' => {
-        backend: Rulepack::Audit,
-        method: :run,
-        renderer: :direct,
-        needs_target: false,
-        needs_project: false,
+        backend: 'Audit', method: :run,
         description: 'Audit all PKGBUILD descriptors for schema compliance'
       },
-      'query' => {
-        backend: Rulepack::Query,
-        method: :run,
-        renderer: :direct,
-        needs_target: false,
-        needs_project: false,
-        description: 'Query package database'
-      },
       'bump' => {
-        backend: Rulepack::Bump,
-        method: :run,
-        renderer: :direct,
-        needs_target: false,
-        needs_project: false,
+        backend: 'Bump', method: :run, raw_argv: true,
         description: 'Check upstream for new versions; --apply to auto-update'
+      },
+      'check' => {
+        backend: 'Install', method: :dispatch,
+        transform: lambda { |opts|
+          # check <platform> positional maps to --target
+          target = opts[:target] || opts[:positional]&.first
+          opts.merge(check_mode: true, target: target, package_name: nil, positional: [])
+        },
+        description: 'Verify installed state matches index'
       }
     }.freeze
 
-    # Commands that are handled directly by the CLI module (no backend module).
-    LOCAL_COMMANDS = %w[list show search status catalog platforms init-hooks help].freeze
+    # Commands handled directly by the Runner (forwarding, local files, help).
+    LOCAL_COMMANDS = %w[query list show search status catalog platforms remote lock init-hooks help].freeze
+
+    VALID_COMMANDS = (COMMANDS.keys + LOCAL_COMMANDS).freeze
   end
 end

@@ -162,4 +162,10 @@ end
 # no-op, collisions stop. Replaces the old ENV['RULEPACK_TEST'] flag.
 Rulepack::UI.default = Rulepack::UI::Null.new
 
+# Wire the console renderer (as bin/rulepack does) so Emitter events reach
+# the current $stdout — tests capturing stdout see narration output.
+require 'rulepack/emitter'
+require 'rulepack/reporter/console_renderer'
+Rulepack::Reporter::ConsoleRenderer.new
+
 Minitest::Test.include TestHelpers

@@ -12,14 +12,8 @@ module Rulepack
   module Verify
     module_function
 
-    # CLI entry point — parses options, calls check, and renders output.
-    def run(options = {})
-      result = check(options)
-      Rulepack::Reporter.print(result, format: options[:format] || :text, out: options.fetch(:output, $stdout))
-      result
-    end
-
-    # Data-returning API. Returns a Rulepack::Result with structured verify data.
+    # Data-returning API. Returns a Rulepack::Result with structured verify
+    # data; rendering is the CLI's job (Reporter via the unified render path).
     def check(options = {})
       package_arg = options[:package_name]
       target_arg = options[:target]
