@@ -117,20 +117,20 @@ Rulepack::Common.log_warn("Cache miss for #{key}")
 
 ```ruby
 # Load YAML with safe_load
-data = Rulepack::Common.load_yaml(path)
+data = Rulepack::IO.load_yaml(path)
 
 # Write YAML atomically (temp file + rename)
-Rulepack::Common.write_yaml_atomic(path, data)
+Rulepack::IO.write_yaml_atomic(path, data)
 ```
 
 ### File Utilities
 
 ```ruby
 # Validate output filename (no directory separators, no ..)
-Rulepack::Common.validate_output_filename!("00-memory.md", :memory)
+Rulepack::Validation.validate_output_filename("00-memory.md", :memory)
 
 # Expand ~ in paths
-expanded = Rulepack::Common.expand_user_path("~/.config/opencode/")
+expanded = Rulepack::Path.expand_user_path("~/.config/opencode/")
 ```
 
 ### Checksum Utilities
@@ -206,7 +206,7 @@ def install_with_transaction(index, &block)
     block.call  # Perform installs
 
     # Write final index
-    Rulepack::Common.write_yaml_atomic(INDEX_PATH, index)
+    Rulepack::IO.write_yaml_atomic(INDEX_PATH, index)
     cleanup_backups(backup_path)
   rescue => e
     # Rollback: restore index + undo filesystem changes via journal
@@ -322,21 +322,24 @@ end
 registry = Rulepack::Platforms.load(root)   # memoized per root
 Rulepack::Platforms.clear_cache!            # drop one or all cached roots
 
-# Backwards-compatible delegators live on Common:
+# Common.load_platform_registry resolves the SCOPED root (paths.root);
+# a scoped root without registry files inherits the repo registry:
 registry = Rulepack::Common.load_platform_registry
 ```
 
 ### Scoped Paths / UI Contexts
 
-Backend entry points (`Fix.run`, `Outdated.run`, `Bump.run`) accept a
-`paths:` keyword (a `Rulepack::Paths`); interactive backends (`Fix.run`,
-`Installer.dispatch`, `Uninstaller.dispatch`) accept `ui:` (a `Rulepack::UI`).
+Every backend entry point (Build, Aggregate, Install, Uninstall, Verify,
+Query, Audit, Fix, Outdated, Bump) accepts a `paths:` keyword (a
+`Rulepack::Paths`) and interactive ones accept `ui:` (a `Rulepack::UI`).
 Internally they open a thread-scoped context so deep layers resolve paths and
-prompts through it:
+prompts through it. Internal backend calls pass the options hash positionally:
+Ruby 4 no longer converts positional hashes to keyword arguments, so
+keyword-style calls would collide with the `paths:`/`ui:` keywords.
 
 ```ruby
-Rulepack::Common.with_paths(sandbox_paths) { Rulepack::Fix.run(target: 'opencode') }
-Rulepack::Common.with_ui(Rulepack::UI::Null.new) { Rulepack::Uninstaller.dispatch(opts) }
+Rulepack::Fix.run({ target: 'opencode' }, paths: sandbox_paths)
+Rulepack::Uninstaller.dispatch(opts, ui: Rulepack::UI::Null.new)
 ```
 
 ---
