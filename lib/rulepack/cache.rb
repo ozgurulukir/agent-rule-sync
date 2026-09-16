@@ -184,13 +184,21 @@ module Rulepack
 
     # Fetch git source with cache support (directory / skill-bundle)
     # Returns [persistent_dir_path, commit_hash]
-    def cached_fetch_git_dir(url, ref, git_path, depth: Rulepack::Config.git_clone_depth)
+    #
+    # on_clone: optional callable invoked with the tmp clone root — the only
+    # place where .git exists — before the tree is extracted to the cache.
+    # Used by the build to run PKGBUILD pkgver_func snippets (typically
+    # `git log …`) against the real repository. Its return value is passed
+    # through as the third tuple element (nil when no block given).
+    def cached_fetch_git_dir(url, ref, git_path, depth: Rulepack::Config.git_clone_depth, on_clone: nil)
       commit_hash = nil
       cache_key = nil
+      on_clone_result = nil
       require 'tmpdir'
       Dir.mktmpdir('rulepack-git-') do |tmp|
         commit_hash = fetch_git_source(url, ref, tmp, depth: depth)
         repo_base = Pathname.new(tmp).realpath
+        on_clone_result = on_clone.call(repo_base) if on_clone
         source_in_repo = repo_base.join(git_path).cleanpath
         raise Rulepack::StateError, "Path not found in git repo: #{git_path}" unless source_in_repo.exist?
         resolved_source = source_in_repo.realpath
@@ -203,8 +211,12 @@ module Rulepack
 
         cache_source(cache_key, source_in_repo, source_type: 'file')
       end
-      # Return persistent cache dir + hash
-      [cache_dir(cache_key).join('extracted'), commit_hash]
+      # Return persistent cache dir + hash (+ on_clone result)
+      if on_clone
+        [cache_dir(cache_key).join('extracted'), commit_hash, on_clone_result]
+      else
+        [cache_dir(cache_key).join('extracted'), commit_hash]
+      end
     end
 
     # Fetch git source with cache (generic: returns content/dir based on source type)

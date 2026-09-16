@@ -251,7 +251,7 @@ module Rulepack
         target = pkgdata[:targets]&.find { |t| t[:platform] == platform_id }
         format_type = target ? target[:format] : 'directory'
 
-        is_broken = if format_type == 'skill-bundle'
+        is_broken = if Target.materializable_format?(format_type)
                       if !platform_cfg[:skills_dir] && %w[skill import].include?(platform_cfg[:type].to_s)
                         false
                       else

@@ -65,5 +65,11 @@ module Rulepack
       src = source.first
       src ? File.basename(src[:path].to_s) : ''
     end
+
+    # True when every target installs via lazy materialization (skill-bundle
+    # or agent formats) — i.e. the source is a directory tree, not a file.
+    def materializable_only?
+      !targets.nil? && !targets.empty? && targets.all?(&:materializable?)
+    end
   end
 end

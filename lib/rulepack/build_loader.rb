@@ -1,11 +1,15 @@
 # frozen_string_literal: true
 
-# Build Loader — PKGBUILD discovery, loading, validation, and index initialization.
+# Build Loader — PKGBUILD discovery, loading, validation, and target expansion.
 #
-# Extracted from build.rb (P-B: split 430 LOC build.rb into 3 focused files).
+# Returns immutable Rulepack::Package models (with Target models) to the
+# build orchestrator; the build-index entry schema is owned by
+# Rulepack::BuildRecord.
 
 require 'pathname'
 require_relative 'common'
+require_relative 'models/package'
+require_relative 'models/target'
 
 module Rulepack
   module BuildLoader
@@ -15,17 +19,14 @@ module Rulepack
       Rulepack::PackageResolver.all_pkgbuilds(namespaces: :all)
     end
 
+    # Returns [Rulepack::Package, pkgname_sym] or nil on failure.
+    # Package.from_hash applies the epoch/pkgrel/order defaults that
+    # PKGBUILDs may omit, then the descriptor is validated.
     def load_and_validate_pkgbuild(pkgbuild_path)
       pkg_dir = pkgbuild_path.dirname
-      pkg = Rulepack::Common.load_pkgbuild(pkg_dir)
+      pkg = Package.from_hash(Rulepack::Common.load_pkgbuild(pkg_dir))
+      pkgname = pkg.pkgname.to_sym
 
-      pkgname = pkg[:pkgname].to_sym
-
-      # Set default epoch/pkgrel before validation (PKGBUILD may omit them)
-      pkg[:epoch] = 0 unless pkg.key?(:epoch)
-      pkg[:pkgrel] = 1 unless pkg.key?(:pkgrel)
-
-      # Validate PKGBUILD
       validation_error = Rulepack::Common.validate_pkgbuild(pkg, pkg_dir)
       if validation_error != true
         Rulepack::Common.log_error "PKGBUILD validation failed for #{pkgname}: #{validation_error}"
@@ -36,32 +37,6 @@ module Rulepack
     rescue StandardError => e
       Rulepack::Common.log_error "Failed to load #{pkgbuild_path}: #{e.message}"
       nil
-    end
-
-    def init_pkg_index(pkg)
-      pkgname = pkg[:pkgname].to_sym
-      {
-        pkgver: pkg[:pkgver],
-        pkgrel: pkg[:pkgrel],
-        epoch: pkg[:epoch],
-        pkgdesc: pkg[:pkgdesc],
-        order: pkg[:order] || 0,
-        status: 'stable',
-        installed: [],
-        available_targets: [],
-        dependencies: pkg[:dependencies] || [],
-        conflicts: pkg[:conflicts] || [],
-        provides: pkg[:provides] || [],
-        tags: pkg[:tags] || [],
-        checksums: { source: nil, built: {} }
-      }
-    end
-
-    def update_pkg_index_from_pkg(pkg_index, pkg)
-      pkg_index[:pkgver] = pkg[:pkgver]
-      pkg_index[:pkgrel] = pkg[:pkgrel]
-      pkg_index[:epoch] = pkg[:epoch]
-      pkg_index[:targets] = pkg[:targets] || []
     end
 
     FORMAT_MAP = {
@@ -86,33 +61,28 @@ module Rulepack
       FORMAT_MAP[[pkg_type, platform_type]] || raise(Rulepack::ConfigError, "Unknown format for pkg_type=#{pkg_type}, platform_type=#{platform_type}")
     end
 
-    def resolve_default_install(platform_cfg, format_type, pkg_type, pkgname)
-      return { 'type' => 'copy', 'target_dir' => "#{pkgname}/" } if %w[skill-bundle agent].include?(format_type)
+    def resolve_default_install(platform_cfg, target_format, pkgname)
+      return { 'type' => 'copy', 'target_dir' => "#{pkgname}/" } if target_format.materializable?
 
-      if format_type == 'import'
-        result = { 'type' => 'copy' }
-        return result
+      if target_format.import?
+        return { 'type' => 'copy' }
       end
 
-      default_cfg = if %w[skill].include?(format_type)
-                      platform_cfg[:skill_install]
-                    else
-                      platform_cfg[:rule_install]
-                    end
+      default_cfg = target_format.skill_format? ? platform_cfg[:skill_install] : platform_cfg[:rule_install]
       install_type = default_cfg&.dig(:type) || 'copy'
       { 'type' => install_type }
     end
 
-    def resolve_default_output(pkg, format_type, platform_id, _platform_type, source_basename)
-      return '.' if %w[skill-bundle agent].include?(format_type)
+    def resolve_default_output(pkg, target_format, platform_id, _platform_type, source_basename)
+      return '.' if target_format.materializable?
 
       return 'SKILL.md' if platform_id.to_s == 'codex'
 
-      pkgname = pkg[:pkgname].to_s
+      pkgname = pkg.pkgname.to_s
 
-      return pkg[:output] if pkg[:output]
+      return pkg.output if pkg.output
 
-      if format_type == 'import'
+      if target_format.import?
         return "#{pkgname}-instructions.md" if platform_id.to_s == 'github-copilot'
         return "#{pkgname}-rule.md"
       end
@@ -120,27 +90,26 @@ module Rulepack
       source_basename
     end
 
+    # Returns a new Package with targets expanded to every platform and
+    # normalized as Target models. The input Package is never mutated.
     def expand_targets(pkg, platforms)
-      pkg_type = pkg[:pkg_type].to_s
-      pkgname = pkg[:pkgname].to_s
+      pkg_type = pkg.pkg_type.to_s
+      pkgname = pkg.pkgname.to_s
 
-      if pkg_type == 'hybrid' && (pkg[:targets].nil? || pkg[:targets].empty?)
+      if pkg_type == 'hybrid' && (pkg.targets.nil? || pkg.targets.empty?)
         raise ArgumentError, "hybrid pkg_type requires explicit targets in PKGBUILD (ambiguous format mix)"
       end
 
-      src = (pkg[:source] || []).first || {}
-      source_path = src[:path].to_s
+      source_path = pkg.source.first ? pkg.source.first[:path].to_s : ''
       source_basename = File.basename(source_path)
       source_is_dir = source_path.end_with?('/')
 
-      has_explicit_targets = pkg[:targets] && !pkg[:targets].empty?
       existing = {}
-      (pkg[:targets] || []).each do |t|
+      (pkg.targets || []).each do |t|
         existing[t[:platform].to_s] = t
       end
 
-      expanded = []
-      platforms.each do |platform_id, platform_cfg|
+      expanded = platforms.map do |platform_id, platform_cfg|
         platform_type = platform_cfg[:type].to_s
 
         default_format = if pkg_type == 'agent'
@@ -153,9 +122,10 @@ module Rulepack
 
         override = existing[platform_id.to_s]
         format_type = (override && override[:format]) || default_format
+        format = Target.from_hash(format: format_type, platform: platform_id)
 
-        default_output = resolve_default_output(pkg, format_type, platform_id, platform_type, source_basename)
-        default_install = resolve_default_install(platform_cfg, format_type, pkg_type, pkgname)
+        default_output = resolve_default_output(pkg, format, platform_id, platform_type, source_basename)
+        default_install = resolve_default_install(platform_cfg, format, pkgname)
 
         target = {
           platform: platform_id.to_s,
@@ -172,20 +142,10 @@ module Rulepack
           target[:agent_config] = override[:agent_config] if override[:agent_config]
         end
 
-        expanded << target
+        Target.from_hash(target)
       end
 
-      pkg[:targets] = expanded
+      pkg.with(targets: expanded)
     end
-
-    VALID_PKG_TYPES = %w[rule skill skill-bundle agent hybrid].freeze
-
-    def validate_pkg_type(pkg, errors)
-      pkg_type = pkg[:pkg_type]
-      if pkg_type.nil? || !pkg_type.is_a?(String) || !VALID_PKG_TYPES.include?(pkg_type)
-        errors << "Invalid or missing pkg_type '#{pkg_type}': must be one of #{VALID_PKG_TYPES.join('/')}"
-      end
-    end
-
   end
 end

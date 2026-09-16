@@ -2,8 +2,9 @@
 
 # Build Per-Package — Source fetching and per-target artifact construction.
 #
-# Extracted from build.rb (P-B: split 430 LOC build.rb into 3 focused files).
-# Requires build_loader.rb for pkg_index initialization helpers.
+# Takes an immutable Rulepack::Package and an accumulating Rulepack::BuildRecord;
+# every method returns the updated record (value-threading, no mutation).
+# The build-index entry schema is owned by BuildRecord.
 
 require 'pathname'
 require_relative 'common'
@@ -20,25 +21,27 @@ module Rulepack
 
     # ─── Fetch source ─────────────────────────────────────────────────────────────
 
-    def fetch_source(pkg, pkgname, pkg_index, pkg_dir)
-      # Determine if all targets are skill-bundle (source is a directory)
-      all_skill_bundle = pkg[:targets].all? { |t| %w[skill-bundle agent].include?(t[:format]) }
-
-      if all_skill_bundle
-        fetch_skill_bundle_source(pkg, pkgname, pkg_index, pkg_dir)
-        # skill-bundle: source is a directory; no source_content needed downstream
-        true
+    # Returns [source_content_or_truthy, record]. For materializable packages
+    # (directory source) source_content is true — nothing downstream needs it.
+    # A nil first element marks the package as failed (fetch or pkgver_func
+    # error); the record is still returned so partial state can be inspected.
+    def fetch_source(pkg, pkgname, record, pkg_dir)
+      if pkg.materializable_only?
+        record = fetch_skill_bundle_source(pkg, pkgname, record, pkg_dir)
+        record ? [true, record] : [nil, record]
       else
-        source_content, _source_sha256 = fetch_file_source(pkg, pkgname, pkg_index, pkg_dir)
-        source_content
+        fetch_file_source(pkg, pkgname, record, pkg_dir)
       end
     end
 
-    def fetch_skill_bundle_source(pkg, pkgname, pkg_index, pkg_dir)
-      src_cfg = pkg[:source].first
+    # Returns the updated record, or nil when the source cannot be fetched
+    # (missing/invalid source config, or pkgver_func failure — the package
+    # must not be built with a stale version).
+    def fetch_skill_bundle_source(pkg, pkgname, record, pkg_dir)
+      src_cfg = pkg.source.first
       unless src_cfg
         Rulepack::Common.log_error "No source defined for #{pkgname} (skill-bundle)"
-        return
+        return nil
       end
 
       case src_cfg[:type]
@@ -52,12 +55,20 @@ module Rulepack
         source_dir = source_dir.cleanpath
         unless source_dir.directory?
           Rulepack::Common.log_error "Source path must be a directory for skill-bundle: #{source_dir}"
-          return
+          return nil
         end
-        pkg_index[:source_dir] = source_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT).to_s
-        pkg_index[:source_sha256] = nil
 
-        run_pkgver_func(pkg, pkgname, pkg_index, source_dir) || return
+        # Deterministic content hash of the source tree — never nil, so the
+        # install-time materialization staleness gate always has a real
+        # fingerprint to compare against. (compute_local_source_sha returns
+        # nil only for a non-directory, rejected above.)
+        record = record.with_source(
+          source_dir: source_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT).to_s,
+          source_sha256: Rulepack::SkillBundle.compute_local_source_sha(source_dir)
+        )
+
+        ok, pkg, record = run_pkgver_func(pkg, pkgname, record, source_dir)
+        return nil unless ok
 
         Rulepack::Emitter.emit(:progress, message: "  ✓ Source directory verified: #{source_dir}")
       when 'git'
@@ -66,33 +77,52 @@ module Rulepack
         git_path = Pathname.new(src_cfg[:path] || '.')
         git_depth = src_cfg[:depth] || 1
         Rulepack::Common.log "  Fetching git repo (cached): #{git_url} (ref: #{git_ref})"
-        cached_dir, commit_hash = Rulepack::Common.cached_fetch_git_dir(git_url, git_ref, git_path,
-                                                                        depth: git_depth)
-        persistent_dir = Rulepack::Common.build_dir.join('git-sources', pkgname.to_s)
+
+        # pkgver_func needs the real repository (.git) — run it inside the
+        # clone via the cache layer's on_clone hook, before extraction to
+        # the .git-less cache tree.
+        pkgver_result = nil
+        cached_dir, commit_hash, pkgver_result = Rulepack::Common.cached_fetch_git_dir(
+          git_url, git_ref, git_path, depth: git_depth,
+          on_clone: lambda { |clone_root|
+            run_pkgver_shell(pkg, pkgname, clone_root)
+          }
+        )
+        ok, updated_pkg, new_pkgver = pkgver_result
+        unless ok
+          Rulepack::Common.log_error "pkgver_func failed for #{pkgname}: aborting package"
+          return nil
+        end
+        pkg = updated_pkg
+
+        persistent_dir = Rulepack::Common.paths.git_sources_dir(pkgname.to_s)
         FileUtils.rm_rf(persistent_dir)
         FileUtils.mkpath(persistent_dir.parent)
         FileUtils.cp_r(cached_dir, persistent_dir)
-        pkg_index[:source_dir] = persistent_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT).to_s
-        pkg_index[:source_sha256] = commit_hash
+        record = record.with_source(
+          source_dir: persistent_dir.relative_path_from(Rulepack::Common::RULEPACK_ROOT).to_s,
+          source_sha256: commit_hash
+        )
         Rulepack::Emitter.emit(:progress, message: "  ✓ Git source cached/build dir (#{commit_hash[0..7]})")
 
-        run_pkgver_func(pkg, pkgname, pkg_index, persistent_dir) || return
+        record = record.with(pkgver: new_pkgver) if new_pkgver
       else
         Rulepack::Common.log_error "skill-bundle only supports 'local' or 'git' source type, got: #{src_cfg[:type]}"
-        return
+        return nil
       end
 
-      pkg_index[:checksums][:source] = pkg_index[:source_sha256]
+      record
     end
 
-    def fetch_file_source(pkg, pkgname, pkg_index, pkg_dir)
-      sources = pkg[:source]
+    # Returns [source_content_or_nil, record].
+    def fetch_file_source(pkg, pkgname, record, pkg_dir)
+      sources = pkg.source
       sources = [sources] unless sources.is_a?(Array)
 
       src_cfg = sources.first
       unless src_cfg
         Rulepack::Common.log_warn "  ⚠ No source defined for #{pkgname}, skipping"
-        return nil
+        return [nil, record]
       end
 
       source_content = nil
@@ -122,42 +152,35 @@ module Rulepack
         end
       else
         Rulepack::Common.log_warn "  ⚠ Unknown source type: #{src_cfg[:type]} for #{pkgname}"
-        return nil
+        return [nil, record]
       end
 
-      pkg_index[:checksums][:source] = source_sha256
+      record = record.with_checksum_source(source_sha256)
       Rulepack::Emitter.emit(:progress, message: "  ✓ Fetched source (#{source_sha256[0..7]})")
 
-      [source_content, source_sha256]
+      [source_content, record]
     end
 
     # ─── Process each target ──────────────────────────────────────────────────────
 
-    def process_targets(pkg, pkgname, pkg_index, platforms, source_content)
-      targets = pkg[:targets]
-      targets = [targets] unless targets.is_a?(Array)
-
+    # Returns [ok, record].
+    def process_targets(pkg, pkgname, record, platforms, source_content)
       transform_cache = {}
 
       success = true
-      targets.each do |tgt|
-        platform_id = tgt[:platform]
-        format = tgt[:format]
-        output = tgt[:output]
-        translate = tgt[:translate] || nil
-        transformer = tgt[:transformer] || 'copy'
-
-        result = if %w[skill-bundle agent].include?(format)
-                   build_skill_bundle_target(pkg, pkgname, pkg_index, tgt, platforms, translate)
-                 else
-                   build_single_file_target(pkg, pkgname, pkg_index, tgt, platforms, source_content, translate, transformer, transform_cache)
-                 end
+      pkg.targets.each do |tgt|
+        result, record = if tgt.materializable?
+                           build_skill_bundle_target(pkgname, record, tgt)
+                         else
+                           build_single_file_target(pkg, pkgname, record, tgt, platforms,
+                                                    source_content, transform_cache)
+                         end
         success = false unless result
       end
-      success
+      [success, record]
     end
 
-    def build_skill_bundle_target(_pkg, pkgname, pkg_index, tgt, _platforms, _translate)
+    def build_skill_bundle_target(pkgname, record, tgt)
       # ADR-2026-07-29: source-centric build.
       # The build phase no longer copies source_dir → build/<plat>/<pkg>/.
       # That step (cp_r, symlink strip, agent translate, schema engine,
@@ -165,47 +188,46 @@ module Rulepack
       # Rulepack::SkillBundleLazy.ensure_materialized!. Recording the
       # available_target and source SHA here is sufficient — install will
       # lazily create the build/<plat>/<pkg>/ tree when needed.
-      platform_id = tgt[:platform]
+      platform_id = tgt.platform
 
-      unless pkg_index[:source_dir]
+      unless record.source_dir
         Rulepack::Common.log_error "internal error: source_dir not set for skill-bundle #{pkgname}"
-        return false
+        return [false, record]
       end
 
       Rulepack::Emitter.emit(:progress, message: "  → Recorded for #{platform_id} (skill-bundle: #{pkgname}, lazy)")
 
-      # Record in package index — install will use these to materialize on demand.
-      pkg_index[:available_targets] << platform_id unless pkg_index[:available_targets].include?(platform_id)
-      pkg_index[:checksums][:built][platform_id.to_s] = pkg_index[:source_sha256]
-      true
+      # Install will use these to materialize on demand; the built checksum
+      # for lazy targets is the source fingerprint itself.
+      [true, record.with_target(platform_id, record.source_sha256)]
     end
 
-    def build_single_file_target(pkg, pkgname, pkg_index, tgt, platforms, source_content, translate, transformer, transform_cache = {})
-      platform_id = tgt[:platform]
-      format = tgt[:format]
-      output = tgt[:output]
+    def build_single_file_target(pkg, pkgname, record, tgt, platforms, source_content, transform_cache = {})
+      platform_id = tgt.platform
+      output = tgt.output
 
       # Validate output filename (path traversal protection)
       begin
         Rulepack::Common.validate_output_filename(output, pkgname)
       rescue StandardError => e
         Rulepack::Common.log_error e.message
-        return false
+        return [false, record]
       end
 
       platform_cfg = Rulepack::Common.platform_config(platform_id, platforms)
       format_profile = platform_cfg[:format_profile] || {}
-      target_format = tgt[:format]
+      translate = tgt.translate
+      transformer = tgt.transformer || 'copy'
 
-      translator_cfg = Rulepack::SchemaEngine.resolve_translator(translate, platform_id, target_format, platform_cfg)
-      schema_section = %w[skill skill-bundle].include?(target_format) ? :skills : :rules
+      translator_cfg = Rulepack::SchemaEngine.resolve_translator(translate, platform_id, tgt.format, platform_cfg)
+      schema_section = tgt.skill_format? || tgt.skill_bundle? ? :skills : :rules
       ruleset = format_profile[schema_section] || {}
-      transformer_cfg = Rulepack::SchemaEngine.resolve_transformer(transformer, platform_id, target_format, platform_cfg)
+      transformer_cfg = Rulepack::SchemaEngine.resolve_transformer(transformer, platform_id, tgt.format, platform_cfg)
 
-      source_sha = pkg_index[:source_sha256] || Digest::SHA256.hexdigest(source_content.to_s)
+      source_sha = record.source_sha256 || record.checksums[:source]
       union_key = Digest::SHA256.hexdigest([
         source_sha,
-        target_format,
+        tgt.format,
         translator_cfg.to_s,
         ruleset.to_json,
         transformer_cfg.to_s
@@ -224,7 +246,7 @@ module Rulepack
             source_content,
             platform_id: platform_id,
             pkgname: pkgname,
-            target_format: tgt[:format],
+            target_format: tgt.format,
             format_profile: format_profile,
             transformer: transformer,       # explicit from PKGBUILD (may be 'copy')
             explicit_translate: translate   # explicit from PKGBUILD (nil if not set)
@@ -233,7 +255,7 @@ module Rulepack
           transform_cache[union_key] = [transformed, platform_id]
         rescue StandardError => e
           Rulepack::Common.log_error "Build pipeline failed for #{pkgname}/#{platform_id}: #{e.message}"
-          return false
+          return [false, record]
         end
       end
 
@@ -242,14 +264,13 @@ module Rulepack
       # Write to build store & link to build directory
       begin
         # Write canonical file to build/store/
-        store_dir = Rulepack::Common.build_dir.join('store')
+        store_dir = Rulepack::Common.paths.store_dir
         store_dir.mkpath
         store_file = store_dir.join(transformed_sha256)
         store_file.write(transformed) unless store_file.exist?
 
         # Build destination path
-        build_platform_dir = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s)
-        build_file = build_platform_dir.join(output)
+        build_file = Rulepack::Common.paths.platform_dir(platform_id, pkgname).join(output)
         build_file.parent.mkpath
 
         # Remove existing file/symlink
@@ -264,39 +285,48 @@ module Rulepack
         end
       rescue StandardError => e
         Rulepack::Common.log_error "Failed to write build artifact for #{pkgname}/#{platform_id}: #{e.message}"
-        return false
+        return [false, record]
       end
 
       Rulepack::Emitter.emit(:progress, message: "    ✓ Built #{output} (#{transformed_sha256[0..7]})")
 
-      # Record in package index
-      pkg_index[:available_targets] << platform_id unless pkg_index[:available_targets].include?(platform_id)
-      pkg_index[:checksums][:built][platform_id.to_s] = transformed_sha256
-      true
+      [true, record.with_target(platform_id, transformed_sha256)]
     end
 
     # ─── Helper ──────────────────────────────────────────────────────────────────
 
-    def run_pkgver_func(pkg, pkgname, pkg_index, source_dir)
-      return true unless pkg[:pkgver_func]
+    # Runs pkgver_func when the descriptor declares one. Returns
+    # [ok, pkg, record]: success propagates the refreshed version into both
+    # the Package and the record; failure aborts the package without partial
+    # state (caller returns the record untouched apart from source fields).
+    def run_pkgver_func(pkg, pkgname, record, source_dir)
+      return [true, pkg, record] unless pkg.pkgver_func
 
-      Rulepack::Common.log "  Running pkgver_func: #{pkg[:pkgver_func]}"
-      stdout_err, status = Dir.chdir(source_dir) do
-        Open3.capture2e({ 'LC_ALL' => 'C.UTF-8' }, 'sh', '-c', pkg[:pkgver_func])
+      ok, updated_pkg, new_pkgver = run_pkgver_shell(pkg, pkgname, source_dir)
+      return [false, pkg, record] unless ok
+
+      [true, updated_pkg, record.with(pkgver: new_pkgver)]
+    end
+
+    # Raw shell execution of pkgver_func in dir. Returns [ok, pkg, new_pkgver].
+    def run_pkgver_shell(pkg, pkgname, dir)
+      return [true, pkg, nil] unless pkg.pkgver_func
+
+      Rulepack::Common.log "  Running pkgver_func: #{pkg.pkgver_func}"
+      stdout_err, status = Dir.chdir(dir) do
+        Open3.capture2e({ 'LC_ALL' => 'C.UTF-8' }, 'sh', '-c', pkg.pkgver_func)
       end
       new_pkgver = stdout_err.force_encoding(Encoding::UTF_8).scrub.strip
       unless status.success?
         Rulepack::Common.log_error "pkgver_func failed for #{pkgname}: #{stdout_err}"
-        return false
+        return [false, pkg, nil]
       end
       if new_pkgver.empty?
         Rulepack::Common.log_error "pkgver_func returned empty version for #{pkgname}"
-        return false
+        return [false, pkg, nil]
       end
-      Rulepack::Common.log "  pkgver updated: #{pkg[:pkgver]} → #{new_pkgver}"
-      pkg[:pkgver] = new_pkgver
-      pkg_index[:pkgver] = new_pkgver
-      true
+      Rulepack::Common.log "  pkgver updated: #{pkg.pkgver} → #{new_pkgver}"
+      [true, pkg.with(pkgver: new_pkgver), new_pkgver]
     end
   end
 end

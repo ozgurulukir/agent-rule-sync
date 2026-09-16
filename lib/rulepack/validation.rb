@@ -67,12 +67,15 @@ module Rulepack
       errors << 'Invalid order: must be integer >= 0' unless order_val.is_a?(Integer) && order_val >= 0
     end
 
-    VALID_PKG_TYPES = %w[rule skill skill-bundle agent hybrid].freeze
+    # Single source of truth lives on Rulepack::Package::VALID_TYPES.
+    def valid_pkg_types
+      Rulepack::Package::VALID_TYPES
+    end
 
     def validate_pkg_type_field(pkg, errors)
       pkg_type = pkg.pkg_type
-      if pkg_type.nil? || !pkg_type.is_a?(String) || !VALID_PKG_TYPES.include?(pkg_type)
-        errors << "Invalid or missing pkg_type '#{pkg_type}': must be one of #{VALID_PKG_TYPES.join('/')}"
+      if pkg_type.nil? || !pkg_type.is_a?(String) || !valid_pkg_types.include?(pkg_type)
+        errors << "Invalid or missing pkg_type '#{pkg_type}': must be one of #{valid_pkg_types.join('/')}"
       end
     end
 

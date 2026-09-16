@@ -7,7 +7,8 @@ require 'json'
 require 'time'
 require_relative 'common'
 require_relative 'validation'
-require_relative 'build_loader'
+require_relative 'models/package'
+require_relative 'cli_parser'
 require_relative 'build_loader'
 
 module Rulepack
@@ -96,9 +97,18 @@ module Rulepack
 
         # 4. Target Platforms Check
         # Apply auto-expansion (same logic as build engine) for strict audit
-        # expand_targets mutates data[:targets] in-place and returns the expanded array
-        expanded_targets = Rulepack::BuildLoader.expand_targets(data.dup, platforms_registry) || []
-        targeted_platforms = expanded_targets.map { |t| t[:platform] }.uniq
+        # A hybrid package without explicit targets is invalid ? report it
+        # instead of crashing the whole audit.
+        begin
+          expanded_pkg = Rulepack::BuildLoader.expand_targets(Rulepack::Package.from_hash(data), platforms_registry)
+        rescue ArgumentError => e
+          pkg_result[:valid] = false
+          pkg_result[:errors] << e.message
+          audit_results[:packages] << pkg_result
+          all_valid = false
+          next
+        end
+        targeted_platforms = expanded_pkg.targets.map(&:platform).uniq
 
         # Check for unknown platforms in targets
         unknown_platforms = targeted_platforms - all_platforms

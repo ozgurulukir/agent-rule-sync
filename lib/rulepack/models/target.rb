@@ -40,5 +40,16 @@ module Rulepack
     def directory?    = format == 'directory'
     def import?       = format == 'import'
     def skill_format? = format == 'skill'
+
+    # Bundled formats: the source is a directory tree installed by lazy
+    # materialization rather than a single transformed file.
+    def materializable? = skill_bundle? || agent?
+    def file_based?     = !materializable?
+
+    # Class-level form for raw format strings (install-side readers that
+    # have not migrated to Target models yet).
+    def self.materializable_format?(format)
+      format == 'skill-bundle' || format == 'agent'
+    end
   end
 end

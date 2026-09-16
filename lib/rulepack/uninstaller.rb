@@ -268,7 +268,7 @@ module Rulepack
       end
       if dry_run
         Rulepack::Common.log "    [DRY-RUN] Would remove: #{output}"
-        if target[:format] != 'skill-bundle' && target[:format] != 'agent'
+        if !Target.materializable_format?(target[:format])
           begin
             install_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
             if install_path.exist? && install_path.file? && !install_path.symlink?

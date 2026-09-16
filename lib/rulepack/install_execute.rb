@@ -231,7 +231,7 @@ module Rulepack
         return nil if actual_sha == expected_checksum
 
         return "Build artifact checksum mismatch: #{pkgname}"
-      elsif format_type == 'skill-bundle' && !platform_cfg[:skills_dir]
+      elsif Target.materializable_format?(format_type) && !platform_cfg[:skills_dir]
         return nil if %w[skill import].include?(platform_cfg[:type].to_s)
         build_artifact = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s)
         return "Build artifact missing: #{pkgname} (#{build_artifact})" unless build_artifact.exist?
@@ -248,7 +248,7 @@ module Rulepack
 
       installed_path = Rulepack::Common.resolve_install_path(platform_cfg, target, base_path)
 
-      if format_type == 'skill-bundle'
+      if Target.materializable_format?(format_type)
         verify_skill_bundle(installed_path, pkgname)
       else
         verify_single_file(installed_path, expected_checksum, pkgname, expected_output)

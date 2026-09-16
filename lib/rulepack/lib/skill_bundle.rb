@@ -35,13 +35,12 @@ module Rulepack
         end
 
         source_dir = pkgdata[:source_dir]
-        source_sha = pkgdata[:source_sha256] || compute_local_source_sha(pkgdata[:source_dir])
-        unless source_dir
-          Rulepack::Common.log_error "Skill-bundle build directory missing: #{build_src_dir} (no source_dir recorded)"
+        source_sha = pkgdata[:source_sha256]
+        unless source_dir && source_sha
+          Rulepack::Common.log_error \
+            "Skill-bundle #{pkgname} lacks source_dir/source_sha256 in the build index — stale build? Run `rulepack build`."
           return false
         end
-        # Fall back: if pkgdata lacks source_sha (e.g. legacy build index), recompute
-        # it from the source directory so staleness checks still work.
 
         # pkg_index shim — SkillBundleLazy expects a hash with :source_dir,
         # :source_sha256, :pkgdesc, :tags. pkgdata already has these.

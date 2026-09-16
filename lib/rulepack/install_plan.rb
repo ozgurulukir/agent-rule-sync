@@ -113,7 +113,7 @@ module Rulepack
 
     # ─── Index management ─────────────────────────────────────────────────────────
 
-    EXCLUDE_KEYS = [:installed, :source_dir, :source_sha256].freeze
+    EXCLUDE_KEYS = [:installed, :status, :source_dir, :source_sha256].freeze
 
     def ensure_package_in_index(index, pkgname, pkgdata, dry_run: false)
       return if dry_run

@@ -29,6 +29,14 @@ module Rulepack
       name ? @build_dir.join('git-sources', name) : @build_dir.join('git-sources')
     end
 
+    def store_dir
+      @build_dir.join('store')
+    end
+
+    def platform_dir(platform, pkgname = nil)
+      pkgname ? @build_dir.join(platform, pkgname.to_s) : @build_dir.join(platform)
+    end
+
     # Keyword-merge with overrides (used by Common.with_paths). Returns a new
     # frozen instance; keys not overridden are inherited. Overriding build_dir
     # re-derives build_index_path unless one is given explicitly.

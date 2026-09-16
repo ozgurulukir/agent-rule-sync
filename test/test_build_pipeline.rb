@@ -2,6 +2,10 @@
 
 require_relative 'helper'
 require_relative '../lib/rulepack/build_pipeline'
+require_relative '../lib/rulepack/build_per_pkg'
+require_relative '../lib/rulepack/models/package'
+require_relative '../lib/rulepack/models/target'
+require_relative '../lib/rulepack/models/build_record'
 
 class TestBuildPipeline < Minitest::Test
   def setup
@@ -137,8 +141,8 @@ class TestBuildPipeline < Minitest::Test
   end
 
   def test_schema_profile_union_caching
-    pkg = { pkgname: 'union-test', pkg_type: 'rule', pkgver: '1.0.0', pkgrel: 1, epoch: 0 }
-    pkg_index = { source_sha256: 'dummy_hash', available_targets: [], checksums: { built: {} } }
+    pkg = Rulepack::Package.from_hash(pkgname: 'union-test', pkg_type: 'rule', pkgver: '1.0.0', pkgrel: 1, epoch: 0)
+    record = Rulepack::BuildRecord.from_package(pkg)
     platforms = {
       'opencode' => { type: 'directory', format_profile: { rules: { frontmatter: 'strip' } } },
       'cursor' => { type: 'directory', format_profile: { rules: { frontmatter: 'strip' } } }
@@ -146,16 +150,15 @@ class TestBuildPipeline < Minitest::Test
     targets = [
       { platform: 'opencode', format: 'directory', output: 'rule.md' },
       { platform: 'cursor', format: 'directory', output: 'rule.md' }
-    ]
-    pkg[:targets] = targets
+    ].map { |t| Rulepack::Target.from_hash(t) }
     transform_cache = {}
 
-    res1 = Rulepack::BuildPerPkg.build_single_file_target(pkg, 'union-test', pkg_index, targets[0], platforms, "# Rule", nil, 'copy', transform_cache)
+    res1, record = Rulepack::BuildPerPkg.build_single_file_target(pkg, 'union-test', record, targets[0], platforms, "# Rule", transform_cache)
     assert res1
     assert_equal 1, transform_cache.size
 
     # Second build for equivalent platform should hit cache
-    res2 = Rulepack::BuildPerPkg.build_single_file_target(pkg, 'union-test', pkg_index, targets[1], platforms, "# Rule", nil, 'copy', transform_cache)
+    res2, _record = Rulepack::BuildPerPkg.build_single_file_target(pkg, 'union-test', record, targets[1], platforms, "# Rule", transform_cache)
     assert res2
     assert_equal 1, transform_cache.size
   end

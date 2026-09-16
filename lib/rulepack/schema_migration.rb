@@ -44,6 +44,8 @@ module Rulepack
     # into 'hybrid'.
 
     def migrate_2_to_3!(index)
+      # Fresh build indexes always carry :pkg_type (BuildRecord writes it);
+      # derive_pkg_type is only a fallback for pre-3.0 installed indexes.
       index[:packages]&.each_value do |pkg_idx|
         pkg_idx[:pkg_type] ||= derive_pkg_type(pkg_idx)
       end

@@ -3,7 +3,7 @@
 # Build orchestrator — thin coordinator
 #
 # P-B split: 430 LOC → ~150 LOC orchestrator.
-#   build_loader.rb  — PKGBUILD discovery, load & validate, pkg_index init
+#   build_loader.rb  — PKGBUILD discovery, load & validate, target expansion
 #   build_per_pkg.rb  — source fetching, per-target pipeline, checksum recording
 #   build_writer.rb   — build index write, catalog generation
 
@@ -17,6 +17,7 @@ require 'open3'
 require_relative 'models/package'
 require_relative 'models/platform'
 require_relative 'models/target'
+require_relative 'models/build_record'
 require_relative 'common'
 require_relative 'schema_engine'
 require_relative 'build_pipeline'
@@ -81,31 +82,33 @@ module Rulepack
           next
         end
 
-        all_discovered << result.last.to_s
-
         pkg, pkgname = result
-        BuildLoader.expand_targets(pkg, platforms)
+        all_discovered << pkgname.to_s
 
-        Rulepack::Common.log "Building: #{pkgname} (#{Rulepack::Common.format_version(pkg[:epoch], pkg[:pkgver],
-                                                                                      pkg[:pkgrel])})"
+        pkg = BuildLoader.expand_targets(pkg, platforms)
+        record = BuildRecord.from_package(pkg)
+
+        Rulepack::Common.log "Building: #{pkgname} (#{Rulepack::Common.format_version(pkg.epoch, pkg.pkgver,
+                                                                                      pkg.pkgrel)})"
 
         build_attempted = true
         build_ok = false
         Rulepack::Common.time("build #{pkgname}") do
-          Rulepack::Common.spin("Building: #{pkgname} (#{Rulepack::Common.format_version(pkg[:epoch], pkg[:pkgver], pkg[:pkgrel])})") do
+          Rulepack::Common.spin("Building: #{pkgname} (#{Rulepack::Common.format_version(pkg.epoch, pkg.pkgver, pkg.pkgrel)})") do
             pkg_dir = pkgbuild_path.dirname
-            pkg_index = index_data[:packages][pkgname] || BuildLoader.init_pkg_index(pkg)
-            BuildLoader.update_pkg_index_from_pkg(pkg_index, pkg)
 
-            source_content = BuildPerPkg.fetch_source(pkg, pkgname, pkg_index, pkg_dir)
+            source_content, record = BuildPerPkg.fetch_source(pkg, pkgname, record, pkg_dir)
             unless source_content
               failed << pkgname.to_s
               build_attempted = false
               next
             end
 
-            build_ok = BuildPerPkg.process_targets(pkg, pkgname, pkg_index, platforms, source_content)
-            index_data[:packages][pkgname] = pkg_index
+            build_ok, record = BuildPerPkg.process_targets(pkg, pkgname, record, platforms, source_content)
+            # Serialize only successful packages: to_h enforces the
+            # materializable-needs-source_sha256 invariant, which a failed
+            # fetch would violate.
+            index_data[:packages][pkgname] = record.to_h if build_ok
           end
         end
 
