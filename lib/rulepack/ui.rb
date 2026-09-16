@@ -21,10 +21,6 @@ module Rulepack
       @default ||= new
     end
 
-    def self.default=(ui)
-      @default = ui
-    end
-
     def interactive?
       @stdin.isatty && @stdout.isatty
     end

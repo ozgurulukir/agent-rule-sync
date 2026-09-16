@@ -11,7 +11,6 @@ require_relative 'common'
 require_relative 'emitter'
 require_relative 'security'
 require_relative 'schema_engine'
-require_relative 'build_pipeline'
 require_relative 'build_loader'
 require_relative 'lib/skill_bundle_lazy'
 
@@ -240,18 +239,16 @@ module Rulepack
       else
         Rulepack::Emitter.emit(:progress, message: "  → Building for #{platform_id} (#{output})")
 
-        # Run the build pipeline
+        # Run the three content passes in order (translate → schema engine →
+        # transform). Formerly the BuildPipeline stage machine — inlined: the
+        # stages run exactly once, in this order, for this one caller.
         begin
-          pipeline = Rulepack::BuildPipeline.new(
+          transformed = run_content_passes(
             source_content,
-            platform_id: platform_id,
-            pkgname: pkgname,
-            target_format: tgt.format,
-            format_profile: format_profile,
-            transformer: transformer,       # explicit from PKGBUILD (may be 'copy')
-            explicit_translate: translate   # explicit from PKGBUILD (nil if not set)
+            platform_id: platform_id, pkgname: pkgname, target_format: tgt.format,
+            format_profile: format_profile, transformer: transformer, translate: translate,
+            platform_cfg: platform_cfg
           )
-          transformed = pipeline.run(platform_cfg)
           transform_cache[union_key] = [transformed, platform_id]
         rescue StandardError => e
           Rulepack::Common.log_error "Build pipeline failed for #{pkgname}/#{platform_id}: #{e.message}"
@@ -328,5 +325,35 @@ module Rulepack
       Rulepack::Common.log "  pkgver updated: #{pkg.pkgver} → #{new_pkgver}"
       [true, pkg.with(pkgver: new_pkgver), new_pkgver]
     end
-  end
+    # ─── Content passes (the former BuildPipeline, inlined) ───────────────────────
+
+    # translate → schema_engine → transform, in order. Returns transformed content.
+    def run_content_passes(content, platform_id:, pkgname:, target_format:,
+                           format_profile:, transformer:, translate:, platform_cfg:)
+      content = translate_pass(content, platform_id, pkgname, target_format, translate, platform_cfg)
+      content = Rulepack::SchemaEngine.apply(content, format_profile, target_format)
+      transform_pass(content, platform_id, pkgname, target_format, transformer, platform_cfg)
+    end
+
+    def translate_pass(content, platform_id, pkgname, target_format, translate, platform_cfg)
+      translator_cfg = Rulepack::SchemaEngine.resolve_translator(translate, platform_id, target_format, platform_cfg)
+      return content unless translator_cfg
+
+      Rulepack::Emitter.emit(:progress, message: "  → Translating for #{platform_id} (#{translator_cfg})")
+      content = Rulepack::Common.apply_translator(translator_cfg, content, pkgname: pkgname)
+      Rulepack::Emitter.emit(:progress, message: "    ✓ Translated (#{translator_cfg})")
+      content
+    end
+
+    def transform_pass(content, platform_id, pkgname, target_format, transformer, platform_cfg)
+      transformer_cfg = Rulepack::SchemaEngine.resolve_transformer(transformer, platform_id, target_format, platform_cfg)
+      return content if !transformer_cfg || transformer_cfg == 'copy'
+
+      Rulepack::Emitter.emit(:progress, message: "  → Transforming for #{platform_id} (#{transformer_cfg})")
+      content = Rulepack::Common.apply_transformer(transformer_cfg, content, pkgname: pkgname)
+      Rulepack::Emitter.emit(:progress, message: "    ✓ Transformed (#{transformer_cfg})")
+      content
+    end
+    end
+
 end

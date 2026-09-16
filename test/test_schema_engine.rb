@@ -98,5 +98,40 @@ class TestSchemaEngine < Minitest::Test
     assert_match(/^### H3$/, result)
     assert_match(/^### H4$/, result)
     assert_match(/^### H5$/, result)
+  end  # ─── Translator / transformer resolution (moved from test_build_pipeline) ─────
+
+  def test_resolve_translator_uses_platform_registry_default
+    platform_cfg = { type: 'skill', default_translator: 'custom:data/translators/rule_to_skill.rb' }
+
+    result = Rulepack::SchemaEngine.resolve_translator(nil, 'crush', 'skill', platform_cfg)
+    assert_equal 'custom:data/translators/rule_to_skill.rb', result
+  end
+
+  def test_resolve_translator_explicit_pkbuild_overrides_registry
+    platform_cfg = { type: 'skill', default_translator: 'custom:data/translators/rule_to_skill.rb' }
+
+    result = Rulepack::SchemaEngine.resolve_translator('custom:data/translators/my-translator.rb', 'crush', 'skill', platform_cfg)
+    assert_equal 'custom:data/translators/my-translator.rb', result
+  end
+
+  def test_resolve_translator_returns_nil_when_no_default
+    platform_cfg = { type: 'directory', default_translator: nil }
+
+    result = Rulepack::SchemaEngine.resolve_translator(nil, 'opencode', 'directory', platform_cfg)
+    assert_nil result
+  end
+
+  def test_resolve_transformer_uses_platform_registry_default
+    platform_cfg = { type: 'skill', default_transformer: 'custom:data/transformers/my-transform.rb' }
+
+    result = Rulepack::SchemaEngine.resolve_transformer(nil, 'crush', 'skill', platform_cfg)
+    assert_equal 'custom:data/transformers/my-transform.rb', result
+  end
+
+  def test_resolve_transformer_falls_back_to_copy
+    platform_cfg = { type: 'directory' }
+
+    result = Rulepack::SchemaEngine.resolve_transformer(nil, 'opencode', 'directory', platform_cfg)
+    assert_equal 'copy', result
   end
 end

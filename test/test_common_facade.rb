@@ -18,11 +18,9 @@ class TestCommonFacade < Minitest::Test
   # Modules whose methods are NOT re-exported by Common — callers must use
   # the owning module directly (IO, Path, Validation, InstallHelpers were
   # de-facadeted in 2026-09; a re-export must not silently reappear).
-  # Note: Common natively defines strip_frontmatter via transform.rb — a
-  # duplicate of Path.strip_frontmatter left for a later dedup pass.
   DE_FACADETED = {
     'Rulepack::IO'         => %w[load_yaml write_yaml_atomic atomic_write update_marked_content deep_merge],
-    'Rulepack::Path'       => %w[expand_user_path],
+    'Rulepack::Path'       => %w[expand_user_path strip_frontmatter],
     'Rulepack::Validation' => %w[load_pkgbuild validate_pkgbuild validate_targets_and_packages verify_checksum],
     'Rulepack::InstallHelpers' => %w[uninstall_packages migrate_installed_records]
   }.freeze

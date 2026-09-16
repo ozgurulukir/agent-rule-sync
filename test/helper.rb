@@ -160,7 +160,9 @@ end
 
 # Non-interactive UI for the whole test process: confirms decline, spinners
 # no-op, collisions stop. Replaces the old ENV['RULEPACK_TEST'] flag.
-Rulepack::UI.default = Rulepack::UI::Null.new
+# Test-only seam: poke the memoized default directly (the public
+# UI.default= setter was deleted; only tests may install a UI).
+Rulepack::UI.instance_variable_set(:@default, Rulepack::UI::Null.new)
 
 # Wire the console renderer (as bin/rulepack does) so Emitter events reach
 # the current $stdout — tests capturing stdout see narration output.

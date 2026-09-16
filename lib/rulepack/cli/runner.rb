@@ -37,19 +37,31 @@ module Rulepack
 
         options = Rulepack::CliParser.parse(argv)
         @format = options[:format] || :text
-        wire_renderer
+        # Hold the reference: renderers exist by their subscription side
+        # effect. Without the ensure-unsubscribe, two Runner.run invocations
+        # in one process (tests, embedding) stack duplicate renderers.
+        # Dispatch AND render both stay inside the subscription window — for
+        # :jsonl the final :result line is an event emitted by render.
+        renderer = wire_renderer
 
-        result = if command == 'help'
-                   print_help
-                   Rulepack::Result.new(status: :success)
-                 elsif (row = COMMANDS[command])
-                   execute_row(command, row, argv, options)
-                 else
-                   execute_local(command, argv, options)
-                 end
-        return result if result.is_a?(Integer) # local handlers may return bare exit codes
+        begin
+          result = if command == 'help'
+                     print_help
+                     Rulepack::Result.new(status: :success)
+                   elsif (row = COMMANDS[command])
+                     execute_row(command, row, argv, options)
+                   else
+                     execute_local(command, argv, options)
+                   end
 
-        render(result)
+          if result.is_a?(Integer) # local handlers may return bare exit codes
+            result
+          else
+            render(result)
+          end
+        ensure
+          renderer.unsubscribe! if renderer.respond_to?(:unsubscribe!)
+        end
       rescue Rulepack::Error => e
         warn "Error: #{e.message}"
         1

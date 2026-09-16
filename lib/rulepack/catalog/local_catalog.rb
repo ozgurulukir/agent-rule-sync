@@ -6,14 +6,12 @@ require_relative 'source_repository'
 #
 # This is the default implementation, preserving current behavior.
 # It delegates to Rulepack::Common (which delegates to Source and Cache).
+# Path relocation goes through the scoped Common.paths (backends open the
+# scope); no constructor injection — one seam, not two.
 module Rulepack
   module Catalog
     class LocalCatalog < SourceRepository
-      # paths: inject a Rulepack::Paths to relocate the git-sources store
-      # (sandbox tests); defaults to the scoped/global paths.
-      def initialize(paths: nil)
-        @paths = paths
-      end
+      def initialize; end
 
       def fetch(source_cfg, pkg_dir: nil)
         case source_cfg[:type]
@@ -52,7 +50,7 @@ module Rulepack
           git_depth = source_cfg[:depth] || 1
           cached_dir, commit_hash = Rulepack::Common.cached_fetch_git_dir(git_url, git_ref, git_path,
                                                                          depth: git_depth)
-          persistent_dir = (@paths || Rulepack::Common.paths).git_sources_dir(
+          persistent_dir = Rulepack::Common.paths.git_sources_dir(
             File.basename(git_url).sub(/\.git$/, '')
           )
           FileUtils.rm_rf(persistent_dir)

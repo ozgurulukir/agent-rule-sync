@@ -22,11 +22,6 @@ module Rulepack
       end
     end
 
-    # Remove YAML frontmatter (--- ... ---) from content
-    def strip_frontmatter(content)
-      content.sub(/\A---\s*\n.*?\n---\s*\n/m, '')
-    end
-
     # ─── Translate Layer ─────────────────────────────────────────────────────
     # Translator: platform-specific content conversion (markdown dialect, format family).
     # Runs BEFORE transformer. Translators read content + optional args, return translated content.
