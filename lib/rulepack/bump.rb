@@ -151,10 +151,9 @@ module Rulepack
     end
 
     def cached_commit_for(pkgname)
-      build_index_path = Rulepack::Common.build_index_path
-      return nil unless build_index_path.exist?
+      index = Rulepack::BuildIndex.load_or_nil
+      return nil unless index
 
-      index = YAML.safe_load(build_index_path.read, permitted_classes: [Symbol], symbolize_names: true) || {}
       pkg = index.dig(:packages, pkgname.to_sym) || index.dig(:packages, pkgname.to_s)
       return nil unless pkg
 
@@ -336,8 +335,7 @@ module Rulepack
     end
 
     def invoke_build
-      build_index = Rulepack::Common.build_index_path
-      FileUtils.rm_f(build_index) if build_index.exist?
+      Rulepack::BuildIndex.remove
 
       Rulepack::Build.run
       Rulepack::Aggregate.run

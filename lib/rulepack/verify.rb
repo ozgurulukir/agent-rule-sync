@@ -29,16 +29,15 @@ module Rulepack
       target_arg = options[:target]
       project_arg = options[:project_path]
 
-      unless Rulepack::Common.index_yaml_path.exist?
-        msg = "Installed index not found at #{Rulepack::Common.index_yaml_path}. Nothing is installed."
+      index = begin
+        Rulepack::InstalledIndex.load
+      rescue Rulepack::IndexNotFound => e
         return Rulepack::Result.new(
           status: :failure,
-          errors: [msg],
-          messages: [msg]
+          errors: [e.message],
+          messages: [e.message]
         )
       end
-
-      index = Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
       packages = index[:packages] || {}
       registry = Rulepack::Common.load_platform_registry
 

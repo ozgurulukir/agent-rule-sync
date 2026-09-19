@@ -31,17 +31,16 @@ module Rulepack
       dry_run = options.fetch(:dry_run, false)
       auto_mode = options.fetch(:auto, false)
 
-      unless Rulepack::Common.build_index_path.exist?
-        msg = 'Build index not found. Run build first.'
+      unless Rulepack::BuildIndex.exist?
+        msg = "Build index not found at #{Rulepack::Common.paths.build_index_path}. Run `rulepack build` first."
         return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
-      unless Rulepack::Common.index_yaml_path.exist?
-        msg = "Installed index not found at #{Rulepack::Common.index_yaml_path}. Nothing is installed."
-        return Rulepack::Result.new(status: :failure, errors: [msg])
+      index = begin
+        Rulepack::InstalledIndex.load
+      rescue Rulepack::IndexNotFound => e
+        return Rulepack::Result.new(status: :failure, errors: [e.message])
       end
-
-      index = Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
       packages = index[:packages] || {}
       registry = Rulepack::Common.load_platform_registry
 

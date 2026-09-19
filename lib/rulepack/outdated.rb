@@ -22,17 +22,13 @@ module Rulepack
       target_arg = options[:target] || 'all'
       project_arg = options[:project_path]
 
-      unless Rulepack::Common.build_index_path.exist?
-        msg = "Build index not found at #{Rulepack::Common.build_index_path}. Run `rulepack build` first."
+      build_index = Rulepack::BuildIndex.load_or_nil
+      if build_index.nil?
+        msg = "Build index not found at #{Rulepack::Common.paths.build_index_path}. Run `rulepack build` first."
         return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
-      build_index = Rulepack::IO.load_yaml(Rulepack::Common.build_index_path)
-      index = if Rulepack::Common.index_yaml_path.exist?
-                Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
-              else
-                { version: 3.0, packages: {} }
-              end
+      index = Rulepack::InstalledIndex.load_or_fresh
       registry = Rulepack::Common.load_platform_registry
 
       targets = resolve_targets(target_arg, registry, project_arg)

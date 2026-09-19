@@ -201,9 +201,8 @@ module Rulepack
     def check
       index = load_index
       pkgs = index[:packages] || {}
-      build_root = Rulepack::Common.build_dir
       build_index = begin
-        Rulepack::IO.load_yaml(build_root.join('index.yaml'))
+        Rulepack::BuildIndex.load_or_nil
       rescue StandardError
         nil
       end
@@ -323,22 +322,14 @@ module Rulepack
     # ─── Shared helpers ──────────────────────────────────────────────────────────
 
     def load_index
-      root = Pathname.new(__dir__).parent.parent.expand_path
-      yaml_path = root.join('data', 'index.yaml')
-      build_path = root.join('build', 'index.yaml')
-
-      installed = if yaml_path.exist?
-                    data = Rulepack::IO.load_yaml(yaml_path)
+      installed = if Rulepack::InstalledIndex.exist?
+                    data = Rulepack::InstalledIndex.load
                     data[:packages] || {}
                   else
                     {}
                   end
 
-      build = if build_path.exist?
-                Rulepack::IO.load_yaml(build_path)
-              else
-                {}
-              end
+      build = Rulepack::BuildIndex.load_or_nil || {}
 
       build[:packages] ||= {}
       build[:packages].each_key do |name|
