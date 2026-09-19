@@ -1662,6 +1662,7 @@ end
 | P-AO | 🟡 MEDIUM | Hybrid pkg_type support in FORMAT_MAP | ✅ COMPLETED (verified at HEAD 2026-09-19: `build_loader.rb` FORMAT_MAP hybrid rows, `models/package.rb` VALID_TYPES, hybrid-without-targets raises) |
 | P-AP | 🟡 MEDIUM | Platform format_profile validation on load | ✅ COMPLETED (verified at HEAD 2026-09-19: `platforms.rb` validate_format_profile warns on unknown keys; warn-only, not an error) |
 | P-AQ | 🟠 HIGH | Index store ownership: InstalledIndex/BuildIndex + paths-seam leaks | ✅ COMPLETED (2026-09-19) — see below |
+| P-AR | 🟡 MEDIUM | Silent partial failures found during the 2026-09-19 review (pre-existing shapes, deliberately deferred) | OPEN — (a) uninstall skips packages absent from the build index with exit 0 (`uninstaller.rb` uninstall_single_package → nil); (b) catalog-generation and post-uninstall vendor re-aggregation failures never affect exit codes (`build_writer.rb#generate_catalog`, `uninstaller.rb#reaggregate_vendor_skills`); (c) `bump.rb#invoke_build` removes the build index before `Build.run` and ignores both Results — a failed rebuild leaves no build index; (d) `Common.backup_file` anchors journal backups at the repo `RULEPACK_ROOT` rather than the scoped Paths |
 | ADR-2026-07-29 | 🟠 HIGH | Source-centric build: lazy install-time skill-bundle materialization (build/ 1.3 GB → 46 MB, −96.5%) | ✅ PHASE 1 COMPLETED / PHASE 2 DEFERRED (YAGNI) |
 
 ---
@@ -1671,12 +1672,25 @@ end
 | # | Goal | Before | Target | Open Items |
 |---|---|---|---|---|
 | 1 | Upstream/local sources | 9/10 | 9/10 | (already met) |
-| 2 | Content as skills/rules (pkg_type) | 8.5/10 | 9/10 | P-AO |
+| 2 | Content as skills/rules (pkg_type) | 8.5/10 | 9/10 | ✅ P-AO completed (2026-09-19) |
 | 3 | Universal canonical format + aliases | 7.5/10 | 9/10 | P-AL |
-| 4 | Schema Engine drives formatting | 8/10 | 9/10 | P-AK, P-AP |
+| 4 | Schema Engine drives formatting | 8/10 | 9/10 | P-AK (partially stale — see table) |
 | 5 | Symlink/copy install | 9.5/10 | 9.5/10 | (already met) |
-| 6 | Append/inject (marker-based) | 9/10 | 9.5/10 | P-AN |
-| 7 | Surgical JSON/YAML config injection | 3/10 | 9/10 | P-AM |
+| 6 | Append/inject (marker-based) | 9/10 | 9.5/10 | ✅ P-AN implemented |
+| 7 | Surgical JSON/YAML config injection | 3/10 → 8/10 | 9/10 | P-AM implemented; remaining: handler tests + key-scoped merge |
+
+---
+
+### ✅ P-AQ — Index Store Ownership (completed 2026-09-19)
+
+Deepening scan (`/feature-dev` + improve-codebase-architecture) verified and closed the two top candidates:
+
+1. **Fix→Install seam crash**: `fix.rb` passed keyword-style options into `Install.run(platform_id, options = {}, paths:, ui:)` — Ruby 4 raised `unknown keyword` at repair time; a `**opts` test stub masked it. Fixed positionally, pinned by two in-process Fix→Install.run sandbox tests.
+2. **Store ownership**: `InstalledIndex` (`installed_index.rb`) and `BuildIndex` (`build_index.rb`) are the only readers/writers of `data/index.yaml` / `build/index.yaml`. Load always migrates (`SchemaMigration` + `InstalledRecord.migrate_legacy!` — no caller can forget); save owns the `:generated` stamp; index backup/restore/cleanup moved out of the `Common`-reopening `backup.rb`. All path resolution goes through the scoped `Paths`; the repo-anchored `Common::BUILD_DIR`/`BUILD_INDEX_PATH`/`INDEX_YAML_PATH`/`LOG_PATH` constants are deleted, closing the constant/`__dir__` scope bypasses (installer read the repo's build index inside sandboxes; `query.rb load_index` rooted at `__dir__`).
+
+Review hardening (same date): corrupt (empty) index files raise typed `IndexCorrupt`/`BuildIndexCorrupt` instead of reading as fresh; `SchemaMigration.migrate!` refuses future/non-numeric versions with typed errors; `fix_drift` propagates install errors and tolerates data-less failure Results; `cleanup_backups` logs per-file failures instead of `rescue nil`.
+
+Test gate: `rake test` 501 runs / 1534 assertions / 1 pre-existing Windows-only failure (`test_processor_loader` `/etc/passwd` path resolution), `audit --strict` 18/18.
 
 ---
 
