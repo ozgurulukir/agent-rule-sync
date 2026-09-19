@@ -63,7 +63,7 @@ module Rulepack
 
       # ── Makepkg-style ─────────────────────────────────────────────────────────
       'build' => {
-        backend: 'BuildAll', method: :run, group: :makepkg,
+        backend: 'BuildAll', method: :run, max_positional: 0, group: :makepkg,
         synopsis: 'build',
         usage: 'rulepack build [--target <plat[,plat]>]',
         description: 'Build all packages (fetch → transform → artifacts)'
