@@ -11,11 +11,11 @@ module Rulepack
   module Bump
     module_function
 
-    def run(argv, paths: nil)
+    def run(options = {}, paths: nil)
       if paths
-        Rulepack::Common.with_paths(paths) { run_unscoped(argv) }
+        Rulepack::Common.with_paths(paths) { run_unscoped(options) }
       else
-        run_unscoped(argv)
+        run_unscoped(options)
       end
     end
 
@@ -25,8 +25,9 @@ module Rulepack
     #   unified rule).
     #   data: { bump: { packages:, summary: } } for --format json/yaml.
     #   messages: the human report (verbatim former print_report output).
-    def run_unscoped(argv)
-      options = parse_args(argv)
+    # options come from the CLI spine's single CliParser parse (--apply,
+    # package_name positional).
+    def run_unscoped(options = {})
       packages = discover_git_packages
 
       if packages.empty?
@@ -72,19 +73,6 @@ module Rulepack
         },
         messages: messages
       )
-    end
-
-    def parse_args(argv)
-      { apply: false, package_name: nil }.tap do |opts|
-        argv.each do |arg|
-          case arg
-          when '--apply'
-            opts[:apply] = true
-          else
-            opts[:package_name] = arg unless arg.start_with?('-')
-          end
-        end
-      end
     end
 
     def discover_git_packages

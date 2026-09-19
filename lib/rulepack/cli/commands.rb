@@ -55,7 +55,8 @@ module Rulepack
         description: 'Audit all PKGBUILD descriptors for schema compliance'
       },
       'bump' => {
-        backend: 'Bump', method: :run, raw_argv: true,
+        backend: 'Bump', method: :run, max_positional: 1,
+        usage: 'rulepack bump [pkg] [--apply]',
         description: 'Check upstream for new versions; --apply to auto-update'
       },
       'check' => {

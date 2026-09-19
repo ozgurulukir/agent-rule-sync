@@ -25,7 +25,8 @@ module Rulepack
         verbose: false,
         check_mode: false,
         targets_mode: false,
-        rules_to: nil
+        rules_to: nil,
+        apply: false
       }
 
       positional = []
@@ -96,6 +97,9 @@ module Rulepack
           i += 2
         when '--targets'
           options[:targets_mode] = true
+          i += 1
+        when '--apply'
+          options[:apply] = true
           i += 1
         when '--locked'
           options[:locked] = true

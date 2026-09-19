@@ -2,6 +2,7 @@
 
 require 'helper'
 require 'rulepack/bump'
+require 'rulepack/cli_parser'
 
 class TestBump < Minitest::Test
   def test_discover_git_packages_finds_real_packages
@@ -114,24 +115,14 @@ class TestBump < Minitest::Test
     assert_equal 'ok', result['text']
   end
 
-  def test_parse_args_default
-    opts = Rulepack::Bump.parse_args([])
-    refute opts[:apply]
+  def test_cli_parses_apply_flag
+    opts = Rulepack::CliParser.parse(['--apply'])
+    assert opts[:apply]
     assert_nil opts[:package_name]
   end
 
-  def test_parse_args_apply
-    opts = Rulepack::Bump.parse_args(['--apply'])
-    assert opts[:apply]
-  end
-
-  def test_parse_args_with_package_name
-    opts = Rulepack::Bump.parse_args(['vibe-security'])
-    assert_equal 'vibe-security', opts[:package_name]
-  end
-
-  def test_parse_args_apply_and_package
-    opts = Rulepack::Bump.parse_args(['--apply', 'vibe-security'])
+  def test_cli_parses_apply_with_package_positional
+    opts = Rulepack::CliParser.parse(['--apply', 'vibe-security'])
     assert opts[:apply]
     assert_equal 'vibe-security', opts[:package_name]
   end
