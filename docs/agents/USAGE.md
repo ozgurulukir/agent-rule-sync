@@ -461,11 +461,13 @@ All operations log to `build/build.log`. Check logs for detailed error messages.
 
 ## Output Formats & Exit Codes
 
-All Result-producing commands accept `--format text|json|yaml|jsonl` (local helpers - status, catalog, remote, lock, init-hooks - print plain text regardless):
+All Result-producing commands accept `--format text|json|yaml|jsonl` (including the local commands — status, catalog, remote, lock, init-hooks — which previously printed plain text only):
 
 - `text` — human-readable (default). Narration streams live via events; the Result renders through the Reporter.
 - `json` / `yaml` — the full Result envelope (`status`, `data`, `errors`, `messages`).
 - `jsonl` — one JSON object per event plus a final `{"event":"result",...}` line. Ideal for piping into `jq`.
+
+Text output is byte-stable: each command declares which renderer prints its Result data (`Result#view`), so nothing is inferred from data shape. `rulepack outdated [platform]` now also accepts the platform as a positional argument, matching its documented usage.
 
 **Exit codes (uniform across all commands):**
 
