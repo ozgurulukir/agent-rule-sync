@@ -1,35 +1,15 @@
 # frozen_string_literal: true
 
+# File-level backup choreography for the install journal (session-scoped
+# backups of individual files/directories before they are replaced).
+#
+# The INDEX backup/restore/cleanup lifecycle moved to InstalledIndex —
+# that module owns data/index.yaml end to end. This file stays in Common
+# because Transaction and the uninstall journal call it as Common.backup_file.
+
 module Rulepack
   module Common
     module_function
-
-    def backup_index(index_path = nil)
-      index_path ||= Rulepack::Common.paths.index_yaml_path
-      return nil unless index_path.exist?
-
-      @_backup_mutex ||= Monitor.new
-      @_backup_mutex.synchronize { @_backup_counter ||= 0; @_backup_counter += 1 }
-      backup_path = index_path.parent.join("#{index_path.basename}.bak.#{@_backup_counter}")
-      FileUtils.cp(index_path, backup_path)
-      backup_path
-    end
-
-    def restore_index(backup_path, index_path = nil)
-      index_path ||= Rulepack::Common.paths.index_yaml_path
-      return false unless backup_path&.exist?
-
-      FileUtils.cp(backup_path, index_path)
-      true
-    end
-
-    def cleanup_backups(index_path = nil)
-      index_path ||= Rulepack::Common.paths.index_yaml_path
-      pattern = index_path.parent.join("#{index_path.basename}.bak.*")
-      Pathname.glob(pattern.to_s).each(&:delete) rescue nil
-      cleanup_old_backups
-      true
-    end
 
     def backup_file(file_path)
       file_path = Pathname.new(file_path)

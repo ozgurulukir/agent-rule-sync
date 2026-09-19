@@ -209,7 +209,7 @@ class TestIndexSchemaIntegration < Minitest::Test
       }
     }
 
-    Rulepack::InstallHelpers.migrate_installed_records(index[:packages][:memory])
+    Rulepack::InstalledRecord.migrate_legacy!(index[:packages][:memory])
 
     record = index[:packages][:memory][:installed].first
     assert_equal 1, record[:pkgrel], 'Should add pkgrel=1'
@@ -230,8 +230,8 @@ class TestIndexSchemaIntegration < Minitest::Test
       }
     }
 
-    Rulepack::InstallHelpers.migrate_installed_records(index[:packages][:memory])
-    Rulepack::InstallHelpers.migrate_installed_records(index[:packages][:memory])
+    Rulepack::InstalledRecord.migrate_legacy!(index[:packages][:memory])
+    Rulepack::InstalledRecord.migrate_legacy!(index[:packages][:memory])
 
     record = index[:packages][:memory][:installed].first
     assert_equal 2, record[:pkgrel], 'existing pkgrel should be preserved'
@@ -240,13 +240,13 @@ class TestIndexSchemaIntegration < Minitest::Test
 
   def test_migrate_handles_empty_installed_list
     index = { packages: { memory: { installed: [] } } }
-    Rulepack::InstallHelpers.migrate_installed_records(index[:packages][:memory])
+    Rulepack::InstalledRecord.migrate_legacy!(index[:packages][:memory])
     assert index[:packages][:memory][:installed].empty?, 'empty list should remain empty'
   end
 
   def test_migrate_handles_nil_installed
     index = { packages: { memory: { installed: nil } } }
-    Rulepack::InstallHelpers.migrate_installed_records(index[:packages][:memory])
+    Rulepack::InstalledRecord.migrate_legacy!(index[:packages][:memory])
     assert_nil index[:packages][:memory][:installed]
   end
 end
@@ -271,17 +271,30 @@ end
 # ─── Transaction Rollback ─────────────────────────────────────────────────────
 
 class TestTransactionRollbackIntegration < Minitest::Test
-  def test_backup_and_restore_index
+  # InstalledIndex resolves the scoped Paths, so these tests relocate the
+  # index into a tmpdir via with_paths instead of passing explicit paths.
+  def with_sandbox_index(&block)
     with_tmpdir do |tmpdir|
       index_path = tmpdir.join('index.yaml')
+      paths = Rulepack::Paths.new(
+        root: tmpdir,
+        build_dir: tmpdir.join('build'),
+        index_yaml_path: index_path
+      )
+      Rulepack::Common.with_paths(paths) { block.call(index_path) }
+    end
+  end
+
+  def test_backup_and_restore_index
+    with_sandbox_index do |index_path|
       index_path.write("version: 3.0\npackages: {}\n")
 
-      backup = Rulepack::Common.backup_index(index_path)
+      backup = Rulepack::InstalledIndex.backup
       assert backup.exist?, 'Backup should exist'
 
       index_path.write("version: 3.0\npackages:\n  test:\n    pkgver: 2.0.0\n")
 
-      assert Rulepack::Common.restore_index(backup, index_path), 'Restore should return true'
+      assert Rulepack::InstalledIndex.restore(backup), 'Restore should return true'
 
       restored = YAML.safe_load(File.read(index_path), permitted_classes: [Symbol], symbolize_names: true)
       assert_nil restored[:packages][:test], 'Should restore to backup state'
@@ -289,27 +302,25 @@ class TestTransactionRollbackIntegration < Minitest::Test
   end
 
   def test_backup_contains_same_content_as_original
-    with_tmpdir do |tmpdir|
-      index_path = tmpdir.join('index.yaml')
+    with_sandbox_index do |index_path|
       original_content = "version: 3.0\npackages:\n  foo:\n    pkgver: 1.0.0\n"
       index_path.write(original_content)
 
-      backup = Rulepack::Common.backup_index(index_path)
+      backup = Rulepack::InstalledIndex.backup
       assert_equal original_content, backup.read, 'Backup content should match original'
     end
   end
 
   def test_cleanup_backups_removes_all_backup_files
-    with_tmpdir do |tmpdir|
-      index_path = tmpdir.join('index.yaml')
+    with_sandbox_index do |index_path|
       index_path.write("test\n")
 
-      3.times { Rulepack::Common.backup_index(index_path) }
+      3.times { Rulepack::InstalledIndex.backup }
 
       backups = Pathname.glob("#{index_path}.bak.*")
       assert_equal 3, backups.size, 'Should have 3 backups'
 
-      Rulepack::Common.cleanup_backups(index_path)
+      Rulepack::InstalledIndex.cleanup_backups
 
       remaining = Pathname.glob("#{index_path}.bak.*")
       assert_equal 0, remaining.size, 'All backups should be cleaned up'
@@ -317,17 +328,22 @@ class TestTransactionRollbackIntegration < Minitest::Test
   end
 
   def test_cleanup_backups_safe_when_no_backups_exist
-    with_tmpdir do |tmpdir|
-      index_path = tmpdir.join('index.yaml')
+    with_sandbox_index do |index_path|
       index_path.write("test\n")
-      assert Rulepack::Common.cleanup_backups(index_path), 'cleanup should succeed with no backups'
+      assert Rulepack::InstalledIndex.cleanup_backups, 'cleanup should succeed with no backups'
+    end
+  end
+
+  def test_backup_returns_nil_when_index_missing
+    with_sandbox_index do |_index_path|
+      assert_nil Rulepack::InstalledIndex.backup, 'no index file → nothing to back up'
     end
   end
 
   def test_restore_nonexistent_backup_returns_false
-    with_tmpdir do |tmpdir|
-      fake_backup = tmpdir.join('nonexistent.bak')
-      result = Rulepack::Common.restore_index(fake_backup, tmpdir.join('index.yaml'))
+    with_sandbox_index do |index_path|
+      fake_backup = index_path.parent.join('nonexistent.bak')
+      result = Rulepack::InstalledIndex.restore(fake_backup)
       refute result, 'Restore should return false for nonexistent backup'
     end
   end

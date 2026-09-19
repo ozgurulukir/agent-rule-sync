@@ -18,10 +18,5 @@ module Rulepack
                                                 specific_packages: specific_packages,
                                                 ctx: ctx)
     end
-
-    # Migrate installed records in the index to add missing fields
-    def migrate_installed_records(pkg_index)
-      Rulepack::Uninstaller.migrate_installed_records(pkg_index)
-    end
   end
 end

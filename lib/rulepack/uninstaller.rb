@@ -37,14 +37,11 @@ module Rulepack
       end
 
       # ── Index required ─────────────────────────────────────────────────────────
-      unless Rulepack::Common.index_yaml_path.exist?
-        return Rulepack::Result.new(
-          status: :failure,
-          errors: ["Installed index not found at #{Rulepack::Common.index_yaml_path}. Nothing is installed."]
-        )
+      index = begin
+        Rulepack::InstalledIndex.load
+      rescue Rulepack::IndexNotFound => e
+        return Rulepack::Result.new(status: :failure, errors: [e.message])
       end
-
-      index = Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
       registry = Rulepack::Common.load_platform_registry
 
       # ── Resolve target package ────────────────────────────────────────────────
@@ -90,7 +87,7 @@ module Rulepack
 
       # ── Execute uninstall ──────────────────────────────────────────────────────
       backup_path = nil
-      backup_path = Rulepack::Common.backup_index unless dry_run
+      backup_path = Rulepack::InstalledIndex.backup unless dry_run
 
       uninstalled_total = []
       begin
@@ -101,12 +98,11 @@ module Rulepack
 
         # Save updated index
         unless dry_run
-          index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-          Rulepack::IO.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
-          Rulepack::Emitter.emit(:progress, message: "\u{1f4dd} Index updated: #{Rulepack::Common.index_yaml_path}")
+          Rulepack::InstalledIndex.save(index)
+          Rulepack::Emitter.emit(:progress, message: "\u{1f4dd} Index updated: #{Rulepack::Common.paths.index_yaml_path}")
         end
       rescue StandardError => e
-        if backup_path && Rulepack::Common.restore_index(backup_path)
+        if backup_path && Rulepack::InstalledIndex.restore(backup_path)
           Rulepack::Common.log_error "Uninstall failed (#{e.message}). Index restored from backup."
           return Rulepack::Result.new(
             status: :failure,
@@ -117,7 +113,7 @@ module Rulepack
           return Rulepack::Result.new(status: :failure, errors: ["Uninstall failed: #{e.message}"])
         end
       ensure
-        Rulepack::Common.cleanup_backups rescue nil
+        Rulepack::InstalledIndex.cleanup_backups rescue nil
       end
 
       messages = uninstall_messages(uninstalled_total, dry_run)
@@ -225,7 +221,7 @@ module Rulepack
                            specific_packages: nil, ctx: nil)
       platform_cfg = Rulepack::Common.platform_config(platform_id, Rulepack::Common.load_platform_registry)
       base_path = project_root || Pathname.new(Rulepack::Path.expand_user_path(platform_cfg[:base_path]))
-      build_index = Rulepack::IO.load_yaml(Rulepack::Common.build_index_path)
+      build_index = Rulepack::BuildIndex.load
       pkg_names = resolve_pkg_targets(index, platform_id, specific_packages)
 
       uninstalled = []
@@ -358,21 +354,6 @@ module Rulepack
         Rulepack::Emitter.emit(:progress, message: "    \u{2713} Removed: #{path}")
       else
         Rulepack::Emitter.emit(:progress, message: "    \u{2713} Already removed: #{path}")
-      end
-    end
-
-    # Migrate installed records to include pkgrel/epoch if missing (for old index)
-    def migrate_installed_records(pkg_index)
-      return if pkg_index[:installed].nil?
-
-      unless pkg_index[:installed].is_a?(Array)
-        pkg_index[:installed] = []
-        return
-      end
-
-      pkg_index[:installed].each do |rec|
-        rec[:pkgrel] ||= 1
-        rec[:epoch] ||= 0
       end
     end
 

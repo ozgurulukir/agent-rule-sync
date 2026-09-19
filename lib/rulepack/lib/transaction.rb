@@ -7,7 +7,7 @@ module Rulepack
     module_function
 
     def transaction_rollback(error, backup_path, journal = nil)
-      if backup_path && Rulepack::Common.restore_index(backup_path)
+      if backup_path && Rulepack::InstalledIndex.restore(backup_path)
         Rulepack::Common.log_error "Transaction failed (#{error.message}). Index restored from backup."
         puts "\n❌ Transaction failed. Index restored from backup: #{backup_path.basename}"
       else

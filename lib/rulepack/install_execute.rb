@@ -64,12 +64,7 @@ module Rulepack
       platform_id = platform_id.to_s
       Rulepack::Emitter.emit(:progress, message: "🔍 Checking installed state for platform: #{platform_id}")
 
-      unless Rulepack::Common.index_yaml_path.exist?
-        Rulepack::Common.log_error 'index.yaml not found. Run build first.'
-        raise Rulepack::IndexNotFound, 'index.yaml not found'
-      end
-
-      index = Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
+      index = Rulepack::InstalledIndex.load
       platform_cfg = InstallPlan.platform_cfg_for(platform_id)
       InstallPlan.warn_prerequisites(platform_id, platform_cfg, false)
 

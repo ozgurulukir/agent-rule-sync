@@ -4,7 +4,8 @@
 #
 # Decision-making lives in install_plan.rb (InstallPlan).
 # Execution (symlink/copy/inject/append, verification, vendor aggregation) lives in install_execute.rb (InstallExecute).
-# This file retains only: run, install_all, load_master_index, install_single_platform,
+# Index file lifecycle lives in installed_index.rb / build_index.rb (the stores).
+# This file retains only: run, install_all, install_single_platform,
 # dispatch, and stateless CLI helpers.
 
 require 'English'
@@ -61,24 +62,18 @@ module Rulepack
 
       return check_platform(platform_id, project_arg: project_arg) if check_mode
 
-      unless Rulepack::Common.build_index_path.exist?
-        msg = "Build index not found at #{Rulepack::Common.build_index_path}. Run `rulepack build` first."
-        Rulepack::Common.log_error(msg)
-        return Rulepack::Result.new(status: :failure, errors: [msg])
+      begin
+        build_index = Rulepack::BuildIndex.load
+      rescue Rulepack::BuildIndexNotFound => e
+        Rulepack::Common.log_error(e.message)
+        return Rulepack::Result.new(status: :failure, errors: [e.message])
       end
 
-      build_index = Rulepack::IO.load_yaml(Rulepack::Common.build_index_path)
-      index = if Rulepack::Common.index_yaml_path.exist?
-                Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
-              else
-                { version: 3.0, packages: {} }
-              end
-      index[:packages] ||= {}
-      (index[:packages] || {}).each_value { |pkg_idx| Rulepack::InstallHelpers.migrate_installed_records(pkg_idx) }
+      index = Rulepack::InstalledIndex.load_or_fresh
 
       backup_path = nil
       unless dry_run
-        backup_path = Rulepack::Common.backup_index
+        backup_path = Rulepack::InstalledIndex.backup
         Rulepack::Common.log "  🗂 Index backed up to #{backup_path.basename}" if backup_path
       end
 
@@ -99,9 +94,8 @@ module Rulepack
         if dry_run
           Rulepack::Common.log '[DRY-RUN] Index write skipped'
         else
-          index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-          Rulepack::IO.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
-          Rulepack::Common.log "📝 Index written: #{Rulepack::Common.index_yaml_path}"
+          Rulepack::InstalledIndex.save(index)
+          Rulepack::Common.log "📝 Index written: #{Rulepack::Common.paths.index_yaml_path}"
         end
       rescue StandardError => e
         Rulepack::Transaction.transaction_rollback(e, backup_path, ctx&.journal)
@@ -112,7 +106,7 @@ module Rulepack
         )
       ensure
         begin
-          Rulepack::Common.cleanup_backups
+          Rulepack::InstalledIndex.cleanup_backups
         rescue StandardError
           nil
         end
@@ -149,18 +143,19 @@ module Rulepack
         end
       end
 
-      unless Rulepack::Common.build_index_path.exist?
-        msg = "Build index not found at #{Rulepack::Common.build_index_path}. Run `rulepack build` first."
+      begin
+        build_index = Rulepack::BuildIndex.load
+      rescue Rulepack::BuildIndexNotFound => e
+        msg = e.message
         Rulepack::Common.log_error(msg)
         return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
-      index = load_master_index
-      build_index = Rulepack::IO.load_yaml(Rulepack::Common.build_index_path)
+      index = Rulepack::InstalledIndex.load_or_fresh
 
       backup_path = nil
       unless dry_run
-        backup_path = Rulepack::Common.backup_index
+        backup_path = Rulepack::InstalledIndex.backup
         Rulepack::Common.log "  🗂 Index backed up to #{backup_path.basename}" if backup_path
       end
 
@@ -186,7 +181,7 @@ module Rulepack
         )
       ensure
         begin
-          Rulepack::Common.cleanup_backups
+          Rulepack::InstalledIndex.cleanup_backups
         rescue StandardError
           nil
         end
@@ -195,9 +190,8 @@ module Rulepack
       if dry_run
         Rulepack::Common.log "\n[DRY-RUN] Index write skipped"
       else
-        index[:generated] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-        Rulepack::IO.write_yaml_atomic(Rulepack::Common.index_yaml_path, index)
-        Rulepack::Common.log "\n📝 Index written: #{Rulepack::Common.index_yaml_path}"
+        Rulepack::InstalledIndex.save(index)
+        Rulepack::Common.log "\n📝 Index written: #{Rulepack::Common.paths.index_yaml_path}"
       end
 
       status = failed_platforms.empty? ? :success : :partial
@@ -214,19 +208,6 @@ module Rulepack
     end
 
     # ─── Install helpers ─────────────────────────────────────────────────────────
-
-    def load_master_index
-      index = if Rulepack::Common.index_yaml_path.exist?
-                Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
-              else
-                { version: 3.0, packages: {} }
-              end
-      index[:packages] ||= {}
-      # Migrate schema if needed (idempotent — safe on already-migrated data)
-      Rulepack::SchemaMigration.migrate!(index)
-      (index[:packages] || {}).each_value { |pkg_idx| Rulepack::InstallHelpers.migrate_installed_records(pkg_idx) }
-      index
-    end
 
     def install_single_platform(platform_id, index, build_index, options)
       Rulepack::Common.log "\n📦 Platform: #{platform_id}"
@@ -363,8 +344,7 @@ module Rulepack
     end
 
     def ensure_build_index
-      return nil unless Rulepack::Common.build_index_path.exist?
-      Rulepack::IO.load_yaml(Rulepack::Common.build_index_path)
+      Rulepack::BuildIndex.load_or_nil
     end
 
     def resolve_targets(target_arg, target_package, build_idx, registry, project_arg)
@@ -402,11 +382,7 @@ module Rulepack
       end
       Rulepack::Emitter.emit(:info, message: '')
       Rulepack::Emitter.emit(:info, message: 'Installed on:')
-      index = if Rulepack::Common.index_yaml_path.exist?
-                Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
-              else
-                { version: 3.0, packages: {} }
-              end
+      index = Rulepack::InstalledIndex.load_or_fresh
       pkg_idx = index[:packages]&.[](target_package.to_sym) || index[:packages]&.[](target_package.to_s) || {}
       installed = pkg_idx[:installed] || []
       if installed.empty?

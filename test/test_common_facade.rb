@@ -18,11 +18,14 @@ class TestCommonFacade < Minitest::Test
   # Modules whose methods are NOT re-exported by Common — callers must use
   # the owning module directly (IO, Path, Validation, InstallHelpers were
   # de-facadeted in 2026-09; a re-export must not silently reappear).
+  # InstallHelpers.migrate_installed_records was deleted entirely — the
+  # normalization lives on InstalledRecord.migrate_legacy! and runs inside
+  # InstalledIndex.load.
   DE_FACADETED = {
     'Rulepack::IO'         => %w[load_yaml write_yaml_atomic atomic_write update_marked_content deep_merge],
     'Rulepack::Path'       => %w[expand_user_path strip_frontmatter],
     'Rulepack::Validation' => %w[load_pkgbuild validate_pkgbuild validate_targets_and_packages verify_checksum],
-    'Rulepack::InstallHelpers' => %w[uninstall_packages migrate_installed_records]
+    'Rulepack::InstallHelpers' => %w[uninstall_packages]
   }.freeze
 
   def test_re_exported_methods_exist_and_delegate
