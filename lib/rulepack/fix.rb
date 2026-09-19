@@ -156,12 +156,14 @@ module Rulepack
       # Single transactional reinstall: Install.run forces the named packages
       # past the same-version short-circuit, backs up the index, and journals
       # file operations — a failure rolls both back. No disk choreography here.
+      # The options hash is positional on purpose: run declares paths:/ui:
+      # keywords, so Ruby 4 would reject keyword-style options at the call site.
       install_result = Rulepack::Install.run(
         platform_id,
-        force_packages: broken,
-        project_arg: project_arg,
-        collision_strategy: 'overwrite',
-        dry_run: false
+        { force_packages: broken,
+          project_arg: project_arg,
+          collision_strategy: 'overwrite',
+          dry_run: false }
       )
 
       # Build-index package keys are Symbols (YAML round-trip symbolizes);

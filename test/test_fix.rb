@@ -310,7 +310,7 @@ class TestFix < Minitest::Test
     install_called = false
 
     Rulepack::Common.stub(:resolve_install_path, installed_file) do
-      Rulepack::Install.stub(:run, lambda { |platform_id, **opts|
+      Rulepack::Install.stub(:run, lambda { |platform_id, opts|
         install_called = true
         assert_equal 'opencode', platform_id
         assert_equal ['test-pkg'], opts[:force_packages],
@@ -337,7 +337,7 @@ class TestFix < Minitest::Test
   def test_fix_drift_reports_failure_and_rollback
     index_before = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
 
-    Rulepack::Install.stub(:run, lambda { |_platform_id, **_opts|
+    Rulepack::Install.stub(:run, lambda { |_platform_id, _opts|
       Rulepack::Result.new(status: :failure, errors: ['install exploded'],
                            data: { installed: [] })
     }) do
