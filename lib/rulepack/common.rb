@@ -25,6 +25,8 @@ module Rulepack
   require_relative 'transform'
   require_relative 'backup'
   require_relative 'schema_migration'
+  require_relative 'installed_index'
+  require_relative 'build_index'
   require_relative 'result'
   require_relative 'reporter'
   require_relative 'platform_scanner'

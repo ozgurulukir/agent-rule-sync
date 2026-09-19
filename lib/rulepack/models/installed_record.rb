@@ -48,5 +48,23 @@ module Rulepack
     def canonical_format(target_format = nil)
       format || target_format || 'directory'
     end
+
+    # Legacy-record normalization (was Uninstaller.migrate_installed_records):
+    # ensures the installed list is an Array and every record carries the
+    # epoch/pkgrel defaults the version formatter expects. Mutates the given
+    # package index hash in place; idempotent.
+    def self.migrate_legacy!(pkg_index)
+      return if pkg_index[:installed].nil?
+
+      unless pkg_index[:installed].is_a?(Array)
+        pkg_index[:installed] = []
+        return
+      end
+
+      pkg_index[:installed].each do |rec|
+        rec[:pkgrel] ||= 1
+        rec[:epoch] ||= 0
+      end
+    end
   end
 end
