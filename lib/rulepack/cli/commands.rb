@@ -61,11 +61,32 @@ module Rulepack
           opts.merge(check_mode: true, target: target, package_name: nil, positional: [])
         },
         description: 'Verify installed state matches index'
+      },
+      'status' => {
+        backend: 'Status', method: :run,
+        description: 'Show overall system status'
+      },
+      'catalog' => {
+        backend: 'BuildCatalog', method: :run,
+        description: 'Show package catalog (JSON)'
+      },
+      'remote' => {
+        backend: 'Remote', method: :run, max_positional: 2,
+        usage: 'rulepack remote <search|list> [args]',
+        description: 'Search remote package index'
+      },
+      'lock' => {
+        backend: 'Lock', method: :run,
+        description: 'Show lockfile status'
+      },
+      'init-hooks' => {
+        backend: 'InitHooks', method: :run,
+        description: 'Install git pre-commit hook'
       }
     }.freeze
 
-    # Commands handled directly by the Runner (forwarding, local files, help).
-    LOCAL_COMMANDS = %w[query list show search status catalog platforms remote lock init-hooks help].freeze
+    # Commands handled directly by the Runner (forwarding, help).
+    LOCAL_COMMANDS = %w[query list show search platforms help].freeze
 
     VALID_COMMANDS = (COMMANDS.keys + LOCAL_COMMANDS).freeze
   end

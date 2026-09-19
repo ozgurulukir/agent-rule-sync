@@ -35,6 +35,11 @@ module Rulepack
         when :fix               then render_fix(result.data, out: out)
         when :build             then render_build(result.data, out: out)
         when :outdated          then render_outdated(result.data, out: out)
+        when :status            then render_status(result.data, out: out)
+        when :raw_json          then render_raw_json(result.data, out: out)
+        when :remote_search     then render_remote_search(result.data, out: out)
+        when :remote_list       then render_remote_list(result.data, out: out)
+        when :lock              then render_lock(result.data, out: out)
         when nil                then nil # messages-only text; data is json/yaml-only
         end
       end
@@ -172,6 +177,52 @@ module Rulepack
         if available.any?
           out.puts("  Available (#{available.size}):")
           available.each { |a| out.puts("    • #{a[:pkgname]} on #{a[:platform]} (#{a[:build_version]})") }
+        end
+      end
+
+      # ─── Local command views (byte-parity with the former runner puts) ───────────
+
+      def render_status(data, out:)
+        out.puts('📦 Rulepack Status')
+        out.puts("  Total packages: #{data[:total_packages]}")
+        out.puts("  Platforms: #{data[:platforms].size}")
+        out.puts
+        data[:platforms].each do |platform, pkgs|
+          out.puts("  #{platform}: #{pkgs.size} package(s)")
+          pkgs.each { |p| out.puts("    - #{p}") }
+        end
+      end
+
+      def render_raw_json(data, out:)
+        out.puts(data[:raw])
+      end
+
+      def render_remote_search(data, out:)
+        results = data[:results]
+        if results.empty?
+          out.puts("No packages found for '#{data[:term]}'.")
+        else
+          results.each do |pkg|
+            out.puts("  #{pkg[:name]} (#{pkg[:version]}) — #{pkg[:description]}")
+          end
+        end
+      end
+
+      def render_remote_list(data, out:)
+        data[:packages].each do |pkg|
+          out.puts("  #{pkg[:name]} (#{pkg[:version]})")
+        end
+      end
+
+      def render_lock(data, out:)
+        entries = data[:entries]
+        if entries.empty?
+          out.puts('No lockfile entries.')
+        else
+          out.puts("Lockfile entries (#{entries.size}):")
+          entries.each do |name, entry|
+            out.puts("  #{name} @ #{entry['version']}")
+          end
         end
       end
 

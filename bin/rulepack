@@ -27,6 +27,11 @@ require "lib/rulepack/fix"
 require "lib/rulepack/outdated"
 require "lib/rulepack/bump"
 require "lib/rulepack/build_all"
+require "lib/rulepack/status"
+require "lib/rulepack/build_catalog"
+require "lib/rulepack/remote"
+require "lib/rulepack/lock"
+require "lib/rulepack/init_hooks"
 require "lib/rulepack/cli/runner"
 
 # Handle SIGINT gracefully. Never emit from the trap handler — the Emitter
