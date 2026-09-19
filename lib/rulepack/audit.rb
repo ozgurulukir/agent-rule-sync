@@ -159,9 +159,9 @@ module Rulepack
       # (TextRenderer.render_audit for text; json/yaml via Reporter envelope).
       data = { audit: audit_results }
       if all_valid
-        Rulepack::Result.new(status: :success, data: data)
+        Rulepack::Result.new(status: :success, data: data, view: :audit)
       else
-        Rulepack::Result.new(status: :failure, data: data)
+        Rulepack::Result.new(status: :failure, data: data, view: :audit)
       end
     end
 

@@ -8,12 +8,31 @@ require_relative '../lib/rulepack/reporter'
 
 class TestReporter < Minitest::Test
   def test_text_rendering
-    result = Rulepack::Result.new(status: :success, data: { platforms: { opencode: { type: 'directory' } } }, messages: ['header'])
+    result = Rulepack::Result.new(status: :success, view: :platform_registry,
+                                  data: { platforms: { opencode: { type: 'directory' } } }, messages: ['header'])
     out = StringIO.new
     Rulepack::Reporter.print(result, format: :text, out: out)
     assert_match(/header/, out.string)
     assert_match(/Platforms/, out.string)
     assert_match(/opencode/, out.string)
+  end
+
+  def test_text_without_view_renders_messages_only
+    # view: nil is a declaration — data is json/yaml-only; nothing is
+    # inferred from data shape (the old sniffing ladder misrendered shapes).
+    result = Rulepack::Result.new(status: :success, data: { platforms: [:opencode] }, messages: ['narration'])
+    out = StringIO.new
+    Rulepack::Reporter.print(result, format: :text, out: out)
+    assert_equal "narration\n", out.string
+  end
+
+  def test_view_routes_to_the_declared_renderer
+    out = StringIO.new
+    result = Rulepack::Result.new(status: :success, view: :fix,
+                                  data: { platforms: ['opencode'], fixed: ['pkg'], failed: [], orphans_removed: [] })
+    Rulepack::Reporter::TextRenderer.print(result, out: out)
+    assert_match(/Fixed: pkg/, out.string)
+    refute_match(/Platforms \(0\)/, out.string)
   end
 
   def test_json_rendering

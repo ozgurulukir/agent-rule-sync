@@ -61,6 +61,7 @@ module Rulepack
 
       Rulepack::Result.new(
         status: :success,
+        view: :packages,
         data: { packages: pkgs },
         messages: ["📦 Packages (#{pkgs.size}):"]
       )
@@ -70,6 +71,7 @@ module Rulepack
       registry = Rulepack::Common.load_platform_registry
       Rulepack::Result.new(
         status: :success,
+        view: :platform_registry,
         data: { platforms: registry },
         messages: ["🎯 Platforms (#{registry.size}):"]
       )
@@ -116,6 +118,7 @@ module Rulepack
 
       Rulepack::Result.new(
         status: :success,
+        view: :package,
         data: { package: data },
         messages: ["📦 #{pkgname}"]
       )
@@ -134,6 +137,7 @@ module Rulepack
 
       Rulepack::Result.new(
         status: results.empty? ? :success : :success,
+        view: :search_results,
         data: { keyword: keyword, results: results },
         messages: results.empty? ? ["No packages found matching: #{keyword}"] : ["🔍 Search results for '#{keyword}':"]
       )
@@ -156,6 +160,7 @@ module Rulepack
       status = orphan_records.empty? ? :success : :partial
       Rulepack::Result.new(
         status: status,
+        view: :orphans,
         data: { orphans: orphan_records },
         messages: orphan_records.empty? ? ['✅ No orphaned packages.'] : ["⚠️  Orphaned packages (#{orphan_records.size}):"]
       )
@@ -176,6 +181,7 @@ module Rulepack
       deps = Array(pkg[:dependencies])
       Rulepack::Result.new(
         status: :success,
+        view: :dependencies,
         data: { pkgname: pkgname, dependencies: deps },
         messages: deps.empty? ? ["#{pkgname} has no dependencies."] : ["#{pkgname} depends on:"]
       )
@@ -190,6 +196,7 @@ module Rulepack
 
       Rulepack::Result.new(
         status: :success,
+        view: :providers,
         data: { capability: capability, providers: providers },
         messages: providers.empty? ? ["No packages provide: #{capability}"] : ["Packages providing '#{capability}':"]
       )
@@ -227,6 +234,7 @@ module Rulepack
       status = issues.empty? ? :success : :failure
       Rulepack::Result.new(
         status: status,
+        view: :issues,
         data: { issues: issues },
         messages: issues.empty? ? ['✅ Database consistency check passed.'] : ['❌ Consistency issues found:']
       )

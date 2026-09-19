@@ -35,4 +35,10 @@ class TestResult < Minitest::Test
     result = Rulepack::Result.new(status: :success, data: { x: 1 }, errors: ['e'], messages: ['m'])
     assert_equal({ status: :success, data: { x: 1 }, errors: ['e'], messages: ['m'] }, result.to_h)
   end
+
+  def test_view_defaults_to_nil_and_stays_out_of_the_envelope
+    result = Rulepack::Result.new(status: :success, data: { x: 1 }, view: :fix)
+    assert_equal :fix, result.view
+    refute result.to_h.key?(:view), 'view is a text-render directive, not envelope payload'
+  end
 end

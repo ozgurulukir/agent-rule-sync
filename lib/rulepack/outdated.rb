@@ -35,6 +35,7 @@ module Rulepack
       if targets.empty?
         return Rulepack::Result.new(
           status: :success,
+          view: :outdated,
           data: { outdated: [], available: [], targets: [] },
           messages: ['No targets to check.']
         )
@@ -82,6 +83,7 @@ module Rulepack
 
       Rulepack::Result.new(
         status: status,
+        view: :outdated,
         data: {
           targets: targets,
           outdated: outdated,

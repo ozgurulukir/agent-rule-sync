@@ -10,45 +10,32 @@ module Rulepack
       def print(result, out: $stdout)
         result.messages.each { |m| out.puts(m) }
 
-        case result.data
-        when Hash then render_hash(result.data, out: out)
-        when Array then result.data.each { |item| out.puts(item) }
-        end
+        render_view(result, out: out) if result.data.is_a?(Hash)
 
         result.errors.each { |e| out.puts("Error: #{e}") }
       end
 
-      def render_hash(data, out:)
-        return unless data.is_a?(Hash)
-
-        if data.key?(:audit)
-          render_audit(data, out: out)
-        elsif data[:platform_id] && data.key?(:items) && !data.key?(:ok)
-          render_platform_items(data, out: out)
-        elsif data.key?(:packages)
-          render_packages(data, out: out)
-        elsif data.key?(:fixed) && data.key?(:failed)
-          render_fix(data, out: out)
-        elsif data.key?(:platforms) && data[:platforms].is_a?(Array) && data[:platforms].first.is_a?(Hash)
-          render_verify_platforms(data, out: out)
-        elsif data.key?(:platforms)
-          render_platform_registry(data, out: out)
-        elsif data.key?(:package)
-          render_package(data, out: out)
-        elsif data.key?(:results)
-          render_search_results(data, out: out)
-        elsif data.key?(:orphans)
-          render_orphans(data, out: out)
-        elsif data.key?(:dependencies)
-          render_dependencies(data, out: out)
-        elsif data.key?(:providers)
-          render_providers(data, out: out)
-        elsif data.key?(:issues)
-          render_issues(data, out: out)
-        elsif data.key?(:packages_built)
-          render_build(data, out: out)
-        elsif data.key?(:outdated) && data.key?(:available)
-          render_outdated(data, out: out)
+      # The declared-view dispatch. A Result says which renderer prints its
+      # data — nothing is inferred from data shape, so a shape can never
+      # misroute into the wrong renderer (the old key-sniffing ladder turned
+      # `install --target all` and `install <pkg> --targets` into crashes).
+      def render_view(result, out:)
+        case result.view
+        when :audit             then render_audit(result.data, out: out)
+        when :platform_items    then render_platform_items(result.data, out: out)
+        when :packages          then render_packages(result.data, out: out)
+        when :platform_registry then render_platform_registry(result.data, out: out)
+        when :package           then render_package(result.data, out: out)
+        when :search_results    then render_search_results(result.data, out: out)
+        when :orphans           then render_orphans(result.data, out: out)
+        when :dependencies      then render_dependencies(result.data, out: out)
+        when :providers         then render_providers(result.data, out: out)
+        when :issues            then render_issues(result.data, out: out)
+        when :verify            then render_verify_platforms(result.data, out: out)
+        when :fix               then render_fix(result.data, out: out)
+        when :build             then render_build(result.data, out: out)
+        when :outdated          then render_outdated(result.data, out: out)
+        when nil                then nil # messages-only text; data is json/yaml-only
         end
       end
 

@@ -51,6 +51,7 @@ module Rulepack
       if targets_to_verify.empty?
         return Rulepack::Result.new(
           status: :success,
+          view: :verify,
           data: { ok: 0, drift: 0, orphans: 0, platforms: [] },
           messages: ['  No targets to verify.']
         )
@@ -86,6 +87,7 @@ module Rulepack
 
       Rulepack::Result.new(
         status: status,
+        view: :verify,
         data: {
           ok: total_ok,
           drift: total_drifts,

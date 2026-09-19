@@ -41,6 +41,7 @@ module Rulepack
 
       Rulepack::Result.new(
         status: :success,
+        view: :platform_items,
         data: {
           platform_id: platform_id,
           base_path: base_path,

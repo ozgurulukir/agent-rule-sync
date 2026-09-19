@@ -89,10 +89,13 @@ module Rulepack
       end
 
       # Multi-phase commands (build → aggregate): run in order, short-circuit
-      # on failure, flat-merge data; partial status propagates.
-      def run_phases(phases, options)        combined_data = {}
+      # on failure, flat-merge data; partial status propagates. The first
+      # data-bearing phase's view routes the merged result's text rendering.
+      def run_phases(phases, options)
+        combined_data = {}
         status = :success
         messages = []
+        view = nil
 
         phases.each do |phase|
           result = Rulepack.const_get(phase[:backend]).public_send(phase[:method], options)
@@ -101,9 +104,10 @@ module Rulepack
           combined_data.merge!(result.data || {})
           status = result.status if result.status != :success
           messages.concat(result.messages)
+          view ||= result.view
         end
 
-        Rulepack::Result.new(status: status, data: combined_data, messages: messages)
+        Rulepack::Result.new(status: status, data: combined_data, messages: messages, view: view)
       end
 
       # ─── Local commands ─────────────────────────────────────────────────────

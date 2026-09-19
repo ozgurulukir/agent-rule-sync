@@ -59,6 +59,7 @@ module Rulepack
       if targets_to_fix.empty?
         return Rulepack::Result.new(
           status: :success,
+          view: :fix,
           data: { platforms: [], fixed: [], orphans_removed: [] },
           messages: ['ℹ No fixes needed.']
         )
@@ -86,6 +87,7 @@ module Rulepack
 
       Rulepack::Result.new(
         status: status,
+        view: :fix,
         data: {
           platforms: targets_to_fix,
           fixed: fixed,

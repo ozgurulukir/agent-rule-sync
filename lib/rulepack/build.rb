@@ -144,6 +144,7 @@ module Rulepack
 
       Rulepack::Result.new(
         status: status,
+        view: :build,
         data: {
           packages_built: built,
           packages_failed: failed,
