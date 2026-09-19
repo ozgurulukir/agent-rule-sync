@@ -61,13 +61,13 @@ module Rulepack
 
       return check_platform(platform_id, project_arg: project_arg) if check_mode
 
-      unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-        msg = "Build index not found at #{Rulepack::Common::BUILD_INDEX_PATH}. Run `rulepack build` first."
+      unless Rulepack::Common.build_index_path.exist?
+        msg = "Build index not found at #{Rulepack::Common.build_index_path}. Run `rulepack build` first."
         Rulepack::Common.log_error(msg)
         return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
-      build_index = Rulepack::IO.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
+      build_index = Rulepack::IO.load_yaml(Rulepack::Common.build_index_path)
       index = if Rulepack::Common.index_yaml_path.exist?
                 Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
               else
@@ -149,14 +149,14 @@ module Rulepack
         end
       end
 
-      unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-        msg = "Build index not found at #{Rulepack::Common::BUILD_INDEX_PATH}. Run `rulepack build` first."
+      unless Rulepack::Common.build_index_path.exist?
+        msg = "Build index not found at #{Rulepack::Common.build_index_path}. Run `rulepack build` first."
         Rulepack::Common.log_error(msg)
         return Rulepack::Result.new(status: :failure, errors: [msg])
       end
 
       index = load_master_index
-      build_index = Rulepack::IO.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
+      build_index = Rulepack::IO.load_yaml(Rulepack::Common.build_index_path)
 
       backup_path = nil
       unless dry_run
@@ -363,8 +363,8 @@ module Rulepack
     end
 
     def ensure_build_index
-      return nil unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-      Rulepack::IO.load_yaml(Rulepack::Common::BUILD_INDEX_PATH)
+      return nil unless Rulepack::Common.build_index_path.exist?
+      Rulepack::IO.load_yaml(Rulepack::Common.build_index_path)
     end
 
     def resolve_targets(target_arg, target_package, build_idx, registry, project_arg)

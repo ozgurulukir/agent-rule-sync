@@ -6,6 +6,7 @@
 require_relative 'helper'
 require 'yaml'
 require 'fileutils'
+require 'digest'
 
 require 'rulepack/fix'
 
@@ -295,43 +296,65 @@ class TestFix < Minitest::Test
 
   # ─── fix_drift: Real reinstall flow ──────────────────────────────────────────
 
-  def test_fix_drift_forces_reinstall_via_single_install_run
-    # Create build artifact
+  # Sandbox registry so Common.load_platform_registry relocates: opencode is a
+  # directory-type platform whose rules install into <install>/rules. Without
+  # this the registry inherits the repo's real user paths.
+  def write_sandbox_registry
+    registry_dir = @root.join('data', 'registry')
+    registry_dir.mkpath
+    (registry_dir / 'platforms.yaml').write({
+      opencode: {
+        display_name: 'OpenCode (sandbox)',
+        type: 'directory',
+        scope: 'user',
+        base_path: @install_dir.to_s,
+        rules_dir: 'rules'
+      }
+    }.to_yaml)
+  end
+
+  def drift_the_installed_file
+    installed_file = @install_dir.join('rules', 'test-rule.md')
+    installed_file.parent.mkpath
+    installed_file.write('# Wrong drifted content')
+    installed_file
+  end
+
+  def test_fix_repairs_drift_through_real_install_run
+    write_sandbox_registry
+
     build_artifact = @build_dir.join('opencode', 'test-pkg', 'test-rule.md')
     build_artifact.parent.mkpath
     build_artifact.write('# Correct content')
+    installed_file = drift_the_installed_file
 
-    # Create installed file with wrong content (drift)
-    installed_file = @install_dir.join('test-rule.md')
-    installed_file.write('# Wrong drifted content')
+    result = run_fix(target: 'opencode')
 
-    index_before = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
+    assert result.success?, "fix failed: #{result.errors.inspect}"
+    assert_includes result.data[:fixed], 'test-pkg'
+    assert_empty result.data[:failed]
+    assert_equal '# Correct content', installed_file.read,
+                 'real Install.run must replace the drifted file from the build artifact'
 
-    install_called = false
+    index_after = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
+    record = index_after[:packages][:'test-pkg'][:installed].first
+    assert_equal Digest::SHA256.hexdigest('# Correct content'), record[:checksum],
+                 'reinstall must re-record the checksum of the restored content'
+  end
 
-    Rulepack::Common.stub(:resolve_install_path, installed_file) do
-      Rulepack::Install.stub(:run, lambda { |platform_id, opts|
-        install_called = true
-        assert_equal 'opencode', platform_id
-        assert_equal ['test-pkg'], opts[:force_packages],
-                     'broken packages must be forced past the version-compare'
-        assert_nil opts[:specific_package],
-                   'one call for all broken packages, not one per package'
+  def test_fix_reports_failed_reinstall_when_build_artifact_missing
+    write_sandbox_registry
+    installed_file = drift_the_installed_file
+    # No build/opencode/test-pkg/test-rule.md: the real Install.run cannot
+    # repair, so the package must surface as failed — not silently dropped.
 
-        # Fix must NOT have written a cleared index to disk before the call
-        disk_index = Rulepack::IO.load_yaml(Rulepack::Common.index_yaml_path)
-        refute_empty disk_index[:packages][:'test-pkg'][:installed],
-                     'no cleared-index choreography: Install.run handles reinstall'
+    result = run_fix(target: 'opencode')
 
-        Rulepack::Result.new(status: :success, data: { installed: [:'test-pkg'] })
-      }) do
-        result = Rulepack::Fix.fix_drift('opencode', nil, nil, false, index_before)
-
-        assert install_called, 'Install.run must have been called exactly once'
-        assert_includes result[:fixed], 'test-pkg'
-        assert_empty result[:failed]
-      end
-    end
+    assert result.partial?, "expected partial: #{result.errors.inspect}"
+    assert_includes result.data[:failed], 'test-pkg'
+    assert_empty result.data[:fixed]
+    assert_equal '# Wrong drifted content', installed_file.read,
+                 'failed reinstall must leave the drifted file untouched'
   end
 
   def test_fix_drift_reports_failure_and_rollback
