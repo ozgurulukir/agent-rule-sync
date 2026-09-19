@@ -51,20 +51,10 @@ module Rulepack
                    elsif (row = COMMANDS[command])
                      execute_row(command, row, argv, options)
                    else
-                     warn "\e[31m❌ Unknown command: '#{command}'\e[0m"
-                     if defined?(DidYouMean::SpellChecker)
-                       corrections = DidYouMean::SpellChecker.new(dictionary: VALID_COMMANDS).correct(command)
-                       warn "💡 Did you mean? \e[1mrulepack #{corrections.first}\e[0m" if corrections.any?
-                     end
-                     warn "\nRun \e[1mrulepack help\e[0m to see a list of available commands."
-                     1
+                     unknown_result(command)
                    end
 
-          if result.is_a?(Integer) # unknown commands return bare exit codes
-            result
-          else
-            render(result)
-          end
+          render(result)
         ensure
           renderer.unsubscribe! if renderer.respond_to?(:unsubscribe!)
         end
@@ -146,63 +136,18 @@ module Rulepack
         end
       end
 
+      def unknown_result(command)
+        messages = ["❌ Unknown command: '#{command}'"]
+        if defined?(DidYouMean::SpellChecker)
+          corrections = DidYouMean::SpellChecker.new(dictionary: VALID_COMMANDS).correct(command)
+          messages << "💡 Did you mean? rulepack #{corrections.first}" if corrections.any?
+        end
+        messages << "\nRun rulepack help to see a list of available commands."
+        Rulepack::Result.new(status: :failure, messages: messages)
+      end
+
       def print_help
-        puts <<~HELP
-          Rulepack — Single Source of Truth for Agent Rules & Skills
-
-          Usage: rulepack <command> [options]
-
-          Pacman-style commands:
-            install <platform|package>   Install packages to a platform
-            uninstall <platform>         Remove packages from a platform
-            query <cmd>                  Query package database
-            fix [platform]               Repair drift (index-disk reconciliation)
-
-          Makepkg-style commands:
-            build                        Build all packages (fetch → transform → artifacts)
-            bump [pkg] [--apply]         Check upstream for new versions; --apply to auto-update
-
-          Other commands:
-            list                         List all packages
-            show <pkgname>               Show package details
-            search <tag>                 Search packages by tag
-            status                       Show overall system status
-            audit [options]              Audit all PKGBUILD descriptors for schema compliance
-            check <platform>             Verify installed state matches index
-            verify [platform]            Comprehensive index vs disk reconciliation
-            outdated [platform]          Show installed packages older than the build
-            catalog                      Show package catalog (JSON)
-            platforms                    List all platforms
-            remote search <term>         Search remote package index
-            remote list                  List remote packages
-            lock                         Show lockfile status
-            init-hooks                   Install git pre-commit hook
-
-          Global Flags:
-            --timing                     Show operation timing
-            --verbose, -v                Show debug output
-            --format text|json|yaml|jsonl  Output format (jsonl = event stream)
-
-          Install Flags (pacman-style):
-            --target PLATFORM            Install single package to specific platform
-            --needed                     Skip already-installed packages
-            --dry-run                    Preview without changes
-            --force, -f                  Allow downgrades (pacman -f/--force)
-
-          Exit codes: 0 success, 1 partial (drift, some failures, outdated found) or failure.
-
-          Examples:
-            rulepack build && rulepack install opencode
-            rulepack install rulepkg --target opencode --needed
-            rulepack install opencode --dry-run       # dry-run preview
-            rulepack uninstall opencode
-            rulepack status
-            rulepack search security
-            rulepack verify opencode
-            rulepack fix opencode
-            rulepack outdated --target opencode
-            rulepack audit --strict
-        HELP
+        puts Rulepack::CLI::Help.text
       end
     end
   end
