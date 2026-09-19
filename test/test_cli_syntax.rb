@@ -26,10 +26,10 @@ class TestCliSyntax < Minitest::Test
      end
 
      # ── build/index.yaml (build index) ───────────────────────────────────────────
-     # The install/uninstall/verify/fix backends all check BUILD_INDEX_PATH
+     # The install/uninstall/verify/fix backends all check the build index
      # before processing any command. Without this file they fail early with
      # "Build index not found" — poisoning every CLI-syntax test.
-     @build_index_path = Rulepack::Common::BUILD_INDEX_PATH
+     @build_index_path = Rulepack::Common.build_index_path
      @created_dummy_build_index = false
      unless @build_index_path.exist?
        @build_index_path.dirname.mkpath

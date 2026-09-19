@@ -48,10 +48,6 @@ module Rulepack
   #      native here and need no re-export.
   module Common
     RULEPACK_ROOT = Pathname.new(__dir__).parent.parent.expand_path
-    BUILD_DIR = RULEPACK_ROOT.join('build')
-    BUILD_INDEX_PATH = BUILD_DIR.join('index.yaml')
-    INDEX_YAML_PATH = RULEPACK_ROOT.join('data', 'index.yaml')
-    LOG_PATH = BUILD_DIR.join('install.log')
 
     DEFAULT_PATHS = Paths.for_root(RULEPACK_ROOT)
 

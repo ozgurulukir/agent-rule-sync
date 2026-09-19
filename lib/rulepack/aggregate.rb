@@ -136,7 +136,7 @@ module Rulepack
 
         final_content = content_parts.join(section_sep)
 
-        # Determine output path: Rulepack::Common::BUILD_DIR/<agent>/skills/vendor/<agent>.md
+        # Determine output path: <build_dir>/<agent>/skills/vendor/<agent>.md
         vendor_dir = Rulepack::Common.build_dir.join(agent_id.to_s, 'skills', 'vendor')
         vendor_dir.mkpath
         vendor_file = vendor_dir.join("#{agent_id}.md")

@@ -1655,12 +1655,13 @@ end
 | P-AH | ⚪ LOW | `resolve_directory_path` missing type guard | ✅ COMPLETED |
 | P-AI | ⚪ LOW | `install_helpers.rb` pure pass-through | ✅ COMPLETED |
 | P-AJ | ⚪ LOW | `build_index_path=` no type validation | ✅ COMPLETED |
-| P-AK | 🔴 HIGH | Schema Engine for skill-bundle/agent directory builds | OPEN |
+| P-AK | 🔴 HIGH | Schema Engine for skill-bundle/agent directory builds | PARTIALLY STALE (2026-09-19): `SkillBundleLazy.ensure_materialized!` runs the agent translator + SchemaEngine per file at install/verify time; residual gap is only that post-build no normalized artifact exists (normalization latency moved to first install) |
 | P-AL | 🔴 HIGH | Dependency resolution engine (provides/dependencies) | OPEN |
-| P-AM | 🔴 HIGH | JSON/YAML surgical merge install handler | OPEN |
-| P-AN | 🟠 MEDIUM | Structured inject handler for config files | OPEN |
-| P-AO | 🟡 MEDIUM | Hybrid pkg_type support in FORMAT_MAP | OPEN |
-| P-AP | 🟡 MEDIUM | Platform format_profile validation on load | OPEN |
+| P-AM | 🔴 HIGH | JSON/YAML surgical merge install handler | ✅ IMPLEMENTED (handlers exist at `install_handlers.rb` do_json_merge/do_yaml_merge) — **test gap**: no handler tests; no key-scoped `merge_path` |
+| P-AN | 🟠 MEDIUM | Structured inject handler for config files | ✅ IMPLEMENTED + tested (`do_structured_inject`) |
+| P-AO | 🟡 MEDIUM | Hybrid pkg_type support in FORMAT_MAP | ✅ COMPLETED (verified at HEAD 2026-09-19: `build_loader.rb` FORMAT_MAP hybrid rows, `models/package.rb` VALID_TYPES, hybrid-without-targets raises) |
+| P-AP | 🟡 MEDIUM | Platform format_profile validation on load | ✅ COMPLETED (verified at HEAD 2026-09-19: `platforms.rb` validate_format_profile warns on unknown keys; warn-only, not an error) |
+| P-AQ | 🟠 HIGH | Index store ownership: InstalledIndex/BuildIndex + paths-seam leaks | ✅ COMPLETED (2026-09-19) — see below |
 | ADR-2026-07-29 | 🟠 HIGH | Source-centric build: lazy install-time skill-bundle materialization (build/ 1.3 GB → 46 MB, −96.5%) | ✅ PHASE 1 COMPLETED / PHASE 2 DEFERRED (YAGNI) |
 
 ---
