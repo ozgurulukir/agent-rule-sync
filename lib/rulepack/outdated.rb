@@ -22,10 +22,10 @@ module Rulepack
       target_arg = options[:target] || 'all'
       project_arg = options[:project_path]
 
-      build_index = Rulepack::BuildIndex.load_or_nil
-      if build_index.nil?
-        msg = "Build index not found at #{Rulepack::Common.paths.build_index_path}. Run `rulepack build` first."
-        return Rulepack::Result.new(status: :failure, errors: [msg])
+      build_index = begin
+        Rulepack::BuildIndex.load
+      rescue Rulepack::BuildIndexNotFound => e
+        return Rulepack::Result.new(status: :failure, errors: [e.message])
       end
 
       index = Rulepack::InstalledIndex.load_or_fresh

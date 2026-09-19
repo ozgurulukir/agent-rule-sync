@@ -66,11 +66,9 @@ module Rulepack
         Rulepack::Emitter.emit(:progress, message: "🎯 Filtering targets for platform(s): #{target_list.join(', ')}\n\n")
       end
 
-      index_data = {
-        version: 3.0,
-        generated: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
-        packages: {}
-      }
+      # BuildIndex.write owns the envelope (version, :generated) — this hash
+      # only accumulates the package map.
+      index_data = { packages: {} }
 
       # ─── Discover PKGBUILDs ────────────────────────────────────────────────────────
 

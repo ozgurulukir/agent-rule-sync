@@ -31,9 +31,10 @@ module Rulepack
       dry_run = options.fetch(:dry_run, false)
       auto_mode = options.fetch(:auto, false)
 
-      unless Rulepack::BuildIndex.exist?
-        msg = "Build index not found at #{Rulepack::Common.paths.build_index_path}. Run `rulepack build` first."
-        return Rulepack::Result.new(status: :failure, errors: [msg])
+      begin
+        Rulepack::BuildIndex.load
+      rescue Rulepack::BuildIndexNotFound => e
+        return Rulepack::Result.new(status: :failure, errors: [e.message])
       end
 
       index = begin
@@ -167,7 +168,8 @@ module Rulepack
 
       # Build-index package keys are Symbols (YAML round-trip symbolizes);
       # broken is built from pkgname.to_s — normalize before set arithmetic.
-      installed = (install_result.data[:installed] || []).map(&:to_s)
+      errors = install_result.errors || []
+      installed = Array(install_result.data&.[](:installed)).map(&:to_s)
       failed = broken - installed
       fixed = broken & installed
 
@@ -177,6 +179,7 @@ module Rulepack
         failed.each do |pkgname|
           Rulepack::Emitter.emit(:progress, message: "  ⚠ Reinstall failed for #{pkgname}")
         end
+        errors.each { |err| Rulepack::Emitter.emit(:progress, message: "    #{err}") }
         Rulepack::Emitter.emit(:progress, message: '  ⚠ Reinstall rolled back; index restored.')
       end
 

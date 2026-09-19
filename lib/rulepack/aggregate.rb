@@ -6,7 +6,6 @@
 # Output: <build_dir>/<agent>/skills/vendor/<agent>.md
 
 require_relative 'encoding_defaults'
-require 'yaml'
 require 'pathname'
 require 'fileutils'
 require_relative 'common'

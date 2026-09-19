@@ -7,9 +7,6 @@
 # Or as module: require "lib/rulepack/query"; Rulepack::Query.run(["list-packages"])
 
 require_relative 'encoding_defaults'
-require 'yaml'
-require 'json'
-require 'pathname'
 require_relative 'common'
 require_relative 'install_plan'
 
@@ -201,13 +198,15 @@ module Rulepack
     def check
       index = load_index
       pkgs = index[:packages] || {}
+      issues = []
       build_index = begin
         Rulepack::BuildIndex.load_or_nil
-      rescue StandardError
+      rescue Rulepack::Error, Psych::SyntaxError => e
+        # A missing build index legitimately skips checksum verification; a
+        # corrupt one must degrade loudly, not pass as a clean bill of health.
+        issues << "build index unreadable (#{e.message}); checksum verification skipped"
         nil
       end
-
-      issues = []
       pkgs.each do |name, pkg|
         Array(pkg[:installed]).each do |rec|
           platform = rec[:platform]

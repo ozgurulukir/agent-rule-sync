@@ -45,7 +45,7 @@ class TestBuildIndex < Minitest::Test
     end
   end
 
-  def test_load_normalizes_packages_and_symbolizes
+  def test_load_round_trips_existing_index
     write_build_index({ version: 3.0, generated: 'x', packages: { memory: { pkgname: 'memory' } } })
     in_scope do
       index = Rulepack::BuildIndex.load
@@ -57,6 +57,14 @@ class TestBuildIndex < Minitest::Test
     write_build_index({ version: 3.0, packages: nil })
     in_scope do
       assert_equal({}, Rulepack::BuildIndex.load[:packages])
+    end
+  end
+
+  def test_load_raises_build_index_corrupt_on_empty_file
+    (@build_dir / 'index.yaml').write('')
+    in_scope do
+      error = assert_raises(Rulepack::BuildIndexCorrupt) { Rulepack::BuildIndex.load }
+      assert_match(/empty or not a YAML mapping/, error.message)
     end
   end
 

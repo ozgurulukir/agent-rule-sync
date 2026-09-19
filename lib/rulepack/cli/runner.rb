@@ -207,12 +207,12 @@ module Rulepack
       end
 
       def print_status
-        index_path = Rulepack::Common.paths.index_yaml_path
-        unless index_path.exist?
+        index = begin
+          Rulepack::InstalledIndex.load
+        rescue Rulepack::IndexNotFound, Rulepack::IndexCorrupt
           puts '  No index found. Run `rulepack build` first.'
           return
         end
-        index = Rulepack::IO.load_yaml(index_path) || {}
         total = index[:packages]&.size || 0
         installed_platforms = {}
         index[:packages]&.each do |name, pkg|

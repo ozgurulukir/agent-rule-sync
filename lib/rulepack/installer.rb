@@ -66,7 +66,10 @@ module Rulepack
         build_index = Rulepack::BuildIndex.load
       rescue Rulepack::BuildIndexNotFound => e
         Rulepack::Common.log_error(e.message)
-        return Rulepack::Result.new(status: :failure, errors: [e.message])
+        return Rulepack::Result.new(
+          status: :failure, errors: [e.message],
+          data: { platform_id: platform_id, installed: [] }
+        )
       end
 
       index = Rulepack::InstalledIndex.load_or_fresh
@@ -148,7 +151,7 @@ module Rulepack
       rescue Rulepack::BuildIndexNotFound => e
         msg = e.message
         Rulepack::Common.log_error(msg)
-        return Rulepack::Result.new(status: :failure, errors: [msg])
+        return Rulepack::Result.new(status: :failure, errors: [msg], data: { installed: [] })
       end
 
       index = Rulepack::InstalledIndex.load_or_fresh

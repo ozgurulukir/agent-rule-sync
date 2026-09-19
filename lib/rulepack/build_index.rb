@@ -9,6 +9,7 @@
 # the returned hash — and the store is silent.
 
 require 'fileutils'
+require 'monitor'
 require_relative 'common'
 require_relative 'schema_migration'
 
@@ -20,14 +21,20 @@ module Rulepack
       Common.paths.build_index_path.exist?
     end
 
-    # Strict load. Raises Rulepack::BuildIndexNotFound when missing.
+    # Strict load. Raises Rulepack::BuildIndexNotFound when the file is
+    # missing and Rulepack::BuildIndexCorrupt when it holds no YAML mapping.
     def load
       path = Common.paths.build_index_path
       unless path.exist?
         raise Rulepack::BuildIndexNotFound,
               "Build index not found at #{path}. Run `rulepack build` first."
       end
-      (Rulepack::IO.load_yaml(path) || {}).tap { |idx| idx[:packages] ||= {} }
+      data = Rulepack::IO.load_yaml(path)
+      if data.nil?
+        raise Rulepack::BuildIndexCorrupt,
+              "Build index at #{path} is empty or not a YAML mapping. Run `rulepack build` to regenerate it."
+      end
+      data.tap { |idx| idx[:packages] ||= {} }
     end
 
     # Soft read for optional consumers (Bump.cached_commit_for, Query).
@@ -47,10 +54,9 @@ module Rulepack
       payload
     end
 
-    # Used by bump before a rebuild; idempotent.
+    # Used by bump before a rebuild; idempotent (rm_f no-ops on a missing file).
     def remove
-      path = Common.paths.build_index_path
-      FileUtils.rm_f(path) if path.exist?
+      FileUtils.rm_f(Common.paths.build_index_path)
       true
     end
   end

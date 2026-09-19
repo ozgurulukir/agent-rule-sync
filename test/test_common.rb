@@ -153,6 +153,19 @@ class TestSchemaMigration < Minitest::Test
     assert_equal 3.0, index[:version]
     assert_equal 'rule', index[:packages][:memory][:pkg_type]
   end
+
+  def test_migrate_refuses_future_version_instead_of_downgrading
+    index = { version: 4.0, packages: {} }
+    error = assert_raises(Rulepack::StateError) { Rulepack::SchemaMigration.migrate!(index) }
+    assert_match(/newer than this Rulepack supports/, error.message)
+    assert_equal 4.0, index[:version], 'a future-version index must not be rewritten'
+  end
+
+  def test_migrate_refuses_non_numeric_version_with_typed_error
+    index = { version: '2.0', packages: {} }
+    error = assert_raises(Rulepack::StateError) { Rulepack::SchemaMigration.migrate!(index) }
+    assert_match(/non-numeric schema version/, error.message)
+  end
 end
 
 # ─── format_version ──────────────────────────────────────────────────────────

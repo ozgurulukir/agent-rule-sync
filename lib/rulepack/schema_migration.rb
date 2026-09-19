@@ -15,6 +15,19 @@ module Rulepack
 
     def migrate!(index)
       v = index[:version] || 1.0
+      # A hand-edited or future index must not be silently re-stamped to the
+      # current version: every command now migrates on load AND saves after,
+      # so downgrading here would rewrite the user's state behind their back.
+      unless v.is_a?(Numeric)
+        raise Rulepack::StateError,
+              "Installed index has a non-numeric schema version (#{v.inspect}). " \
+              'Fix or remove the :version field in data/index.yaml.'
+      end
+      if v > CURRENT_VERSION
+        raise Rulepack::StateError,
+              "Installed index schema version #{v} is newer than this Rulepack supports (#{CURRENT_VERSION}). " \
+              'Upgrade Rulepack to work with this index.'
+      end
       while v < CURRENT_VERSION
         case v
         when 1.0 then migrate_1_to_2!(index); v = 2.0

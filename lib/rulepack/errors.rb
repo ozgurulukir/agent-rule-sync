@@ -37,5 +37,10 @@ module Rulepack
   class StateError < Error; end
   class IndexNotFound < StateError; end
   class BuildIndexNotFound < StateError; end
+  # The index file exists but holds no YAML mapping (truncated, 0 bytes, `~`).
+  # Distinct from *NotFound so callers can tell "nothing installed yet" from
+  # "state lost".
+  class IndexCorrupt < StateError; end
+  class BuildIndexCorrupt < StateError; end
   class UnknownPlatform < StateError; end
 end

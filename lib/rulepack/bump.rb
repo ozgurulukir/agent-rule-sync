@@ -3,6 +3,7 @@
 require_relative 'encoding_defaults'
 require 'pathname'
 require 'yaml'
+require 'fileutils'
 require 'open3'
 require_relative 'common'
 

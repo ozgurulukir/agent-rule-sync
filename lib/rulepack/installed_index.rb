@@ -14,6 +14,7 @@
 # models-everywhere refactor) and hand it back to #save.
 
 require 'fileutils'
+require 'monitor'
 require_relative 'common'
 require_relative 'schema_migration'
 require_relative 'models/installed_record'
@@ -26,7 +27,9 @@ module Rulepack
       Common.paths.index_yaml_path.exist?
     end
 
-    # Strict load. Raises Rulepack::IndexNotFound when the file is missing.
+    # Strict load. Raises Rulepack::IndexNotFound when the file is missing and
+    # Rulepack::IndexCorrupt when it holds no YAML mapping (truncated file) —
+    # an empty index must not silently read as "nothing installed".
     # Guarantees migrated data: SchemaMigration plus legacy record
     # normalization run on EVERY load, so no caller can forget them.
     def load
@@ -35,13 +38,27 @@ module Rulepack
         raise Rulepack::IndexNotFound,
               "Installed index not found at #{path}. Nothing is installed."
       end
-      migrate(Rulepack::IO.load_yaml(path) || {})
+      data = Rulepack::IO.load_yaml(path)
+      if data.nil?
+        raise Rulepack::IndexCorrupt,
+              "Installed index at #{path} is empty or not a YAML mapping. " \
+              'Restore it from a backup or delete the file.'
+      end
+      migrate(data)
     end
 
-    # Lenient load: a missing index is a fresh install, not an error.
+    # Lenient load: a missing index is a fresh install, not an error. A
+    # corrupt one degrades loudly (warn) rather than silently overwriting
+    # whatever state remained.
     def load_or_fresh
-      path = Common.paths.index_yaml_path
-      path.exist? ? migrate(Rulepack::IO.load_yaml(path) || {}) : fresh
+      return fresh unless Common.paths.index_yaml_path.exist?
+
+      begin
+        load
+      rescue Rulepack::IndexCorrupt => e
+        Rulepack::Logging.log_warn "#{e.message} Treating as a fresh install."
+        fresh
+      end
     end
 
     # Stamps :generated and writes atomically. Backup is a separate verb on
@@ -73,10 +90,17 @@ module Rulepack
       true
     end
 
+    # Best-effort by design: a backup that cannot be deleted (AV lock, busy
+    # file) must not fail the operation that already succeeded — but it is
+    # logged, not swallowed.
     def cleanup_backups
       path = Common.paths.index_yaml_path
       pattern = path.parent.join("#{path.basename}.bak.*")
-      Pathname.glob(pattern.to_s).each(&:delete) rescue nil
+      Pathname.glob(pattern.to_s).each do |backup|
+        backup.delete
+      rescue Errno::EACCES, Errno::EBUSY, Errno::EPERM, Errno::ENOENT => e
+        Common.log_warn "Could not remove index backup #{backup}: #{e.message}"
+      end
       Common.cleanup_old_backups
       true
     end

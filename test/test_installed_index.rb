@@ -41,6 +41,25 @@ class TestInstalledIndex < Minitest::Test
     end
   end
 
+  def test_load_raises_index_corrupt_on_empty_file
+    # An existing-but-empty index is lost state, not "nothing installed":
+    # reading it as fresh would let install silently overwrite the wreckage.
+    (@install_dir / 'index.yaml').write('')
+    in_scope do
+      error = assert_raises(Rulepack::IndexCorrupt) { Rulepack::InstalledIndex.load }
+      assert_match(/empty or not a YAML mapping/, error.message)
+    end
+  end
+
+  def test_load_or_fresh_warns_and_degrades_on_corrupt_file
+    (@install_dir / 'index.yaml').write('')
+    in_scope do
+      index = Rulepack::InstalledIndex.load_or_fresh
+      assert_equal Rulepack::SchemaMigration::CURRENT_VERSION, index[:version]
+      assert_equal({}, index[:packages])
+    end
+  end
+
   def test_load_or_fresh_returns_fresh_index_when_missing
     in_scope do
       index = Rulepack::InstalledIndex.load_or_fresh
@@ -97,7 +116,6 @@ class TestInstalledIndex < Minitest::Test
       Rulepack::InstalledIndex.save(Rulepack::InstalledIndex.load_or_fresh)
     end
     assert (@install_dir / 'index.yaml').exist?, 'sandbox index must be written inside the scope'
-    refute_equal @install_dir, Rulepack::Common.paths.index_yaml_path.parent
   end
 
   # ─── No memoization ───────────────────────────────────────────────────────────

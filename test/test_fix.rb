@@ -360,9 +360,32 @@ class TestFix < Minitest::Test
   def test_fix_drift_reports_failure_and_rollback
     index_before = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
 
+    # Capture narration so we can assert the install failure reason surfaces
+    events = []
+    sub_id = Rulepack::Emitter.subscribe(:progress) { |payload| events << payload[:message] }
+
     Rulepack::Install.stub(:run, lambda { |_platform_id, _opts|
       Rulepack::Result.new(status: :failure, errors: ['install exploded'],
                            data: { installed: [] })
+    }) do
+      result = Rulepack::Fix.fix_drift('opencode', nil, nil, false, index_before)
+
+      assert_includes result[:failed], 'test-pkg'
+      assert_empty result[:fixed]
+      assert events.any? { |m| m.include?('install exploded') },
+             "install errors must reach the narration, got: #{events.inspect}"
+    end
+  ensure
+    Rulepack::Emitter.unsubscribe(sub_id) if sub_id
+  end
+
+  def test_fix_drift_survives_failure_result_without_data
+    # Install.run's early failure Results carry no data: key — fix_drift must
+    # report the failure, not crash on nil data.
+    index_before = Rulepack::IO.load_yaml(@install_dir / 'index.yaml')
+
+    Rulepack::Install.stub(:run, lambda { |_platform_id, _opts|
+      Rulepack::Result.new(status: :failure, errors: ['build index vanished'])
     }) do
       result = Rulepack::Fix.fix_drift('opencode', nil, nil, false, index_before)
 
