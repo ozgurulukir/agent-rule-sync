@@ -72,42 +72,16 @@ module Rulepack
       # ─── Table dispatch ─────────────────────────────────────────────────────
 
       def execute_row(command, row, argv, options)
-        if row[:phases]
-          run_phases(row[:phases], options)
+        backend = Rulepack.const_get(row[:backend])
+        if row[:raw_argv]
+          backend.public_send(row[:method], argv)
         else
-          backend = Rulepack.const_get(row[:backend])
-          if row[:raw_argv]
-            backend.public_send(row[:method], argv)
-          else
-            options = row[:transform].call(options) if row[:transform]
-            if (max = row[:max_positional]) && options[:positional]&.size.to_i > max
-              return Rulepack::Result.new(status: :failure, errors: ["Too many positional arguments. Usage: #{row[:usage]}"])
-            end
-            backend.public_send(row[:method], options)
+          options = row[:transform].call(options) if row[:transform]
+          if (max = row[:max_positional]) && options[:positional]&.size.to_i > max
+            return Rulepack::Result.new(status: :failure, errors: ["Too many positional arguments. Usage: #{row[:usage]}"])
           end
+          backend.public_send(row[:method], options)
         end
-      end
-
-      # Multi-phase commands (build → aggregate): run in order, short-circuit
-      # on failure, flat-merge data; partial status propagates. The first
-      # data-bearing phase's view routes the merged result's text rendering.
-      def run_phases(phases, options)
-        combined_data = {}
-        status = :success
-        messages = []
-        view = nil
-
-        phases.each do |phase|
-          result = Rulepack.const_get(phase[:backend]).public_send(phase[:method], options)
-          return result if result.failure?
-
-          combined_data.merge!(result.data || {})
-          status = result.status if result.status != :success
-          messages.concat(result.messages)
-          view ||= result.view
-        end
-
-        Rulepack::Result.new(status: status, data: combined_data, messages: messages, view: view)
       end
 
       # ─── Local commands ─────────────────────────────────────────────────────

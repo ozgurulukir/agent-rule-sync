@@ -31,11 +31,6 @@ module Rulepack
 
       Rulepack::Logging.log_file = Rulepack::Common.build_dir.join('uninstall.log')
 
-      # Check positional count
-      if options[:positional]&.size.to_i > 1
-        return Rulepack::Result.new(status: :failure, errors: ["Too many positional arguments. Usage: rulepack uninstall [package] --target <platform|all>"])
-      end
-
       # ── Index required ─────────────────────────────────────────────────────────
       index = begin
         Rulepack::InstalledIndex.load

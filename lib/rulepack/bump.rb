@@ -326,8 +326,7 @@ module Rulepack
     def invoke_build
       Rulepack::BuildIndex.remove
 
-      Rulepack::Build.run
-      Rulepack::Aggregate.run
+      Rulepack::BuildAll.run
     end
   end
 end

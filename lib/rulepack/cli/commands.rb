@@ -6,9 +6,6 @@
 #   { backend:, method:, transform:, max_positional:, usage:, raw_argv: }
 #     — Runner calls backend.public_send(method, options) (the parsed CliParser
 #       hash), or (argv) when raw_argv: true (commands with private flags).
-#   { phases: [{ backend:, method: }, ...] }
-#     — Runner executes phases in order, short-circuits on failure, and
-#       flat-merges their Result data into one combined Result.
 #
 # PACMAN_ALIASES is applied by the Runner before dispatch; backends never
 # see the raw flags.
@@ -22,10 +19,7 @@ module Rulepack
 
     COMMANDS = {
       'build' => {
-        phases: [
-          { backend: 'Build', method: :run },
-          { backend: 'Aggregate', method: :run }
-        ],
+        backend: 'BuildAll', method: :run,
         description: 'Build all packages (fetch → transform → artifacts) and aggregate vendor skills'
       },
       'install' => {
