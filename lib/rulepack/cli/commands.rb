@@ -159,9 +159,7 @@ module Rulepack
       }
     }.freeze
 
-    # Commands handled directly by the Runner (help).
-    LOCAL_COMMANDS = %w[help].freeze
-
-    VALID_COMMANDS = (COMMANDS.keys + LOCAL_COMMANDS).freeze
+    # help is the one Runner meta-command — dispatched before table lookup.
+    VALID_COMMANDS = (COMMANDS.keys + %w[help]).freeze
   end
 end

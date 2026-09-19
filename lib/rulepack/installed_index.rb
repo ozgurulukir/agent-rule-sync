@@ -28,8 +28,8 @@ module Rulepack
     end
 
     # Strict load. Raises Rulepack::IndexNotFound when the file is missing and
-    # Rulepack::IndexCorrupt when it holds no YAML mapping (truncated file) —
-    # an empty index must not silently read as "nothing installed".
+    # Rulepack::IndexCorrupt when it holds no YAML mapping or is unparseable —
+    # an empty/broken index must not silently read as "nothing installed".
     # Guarantees migrated data: SchemaMigration plus legacy record
     # normalization run on EVERY load, so no caller can forget them.
     def load
@@ -38,7 +38,13 @@ module Rulepack
         raise Rulepack::IndexNotFound,
               "Installed index not found at #{path}. Nothing is installed."
       end
-      data = Rulepack::IO.load_yaml(path)
+      data = begin
+        Rulepack::IO.load_yaml(path)
+      rescue Psych::SyntaxError => e
+        raise Rulepack::IndexCorrupt,
+              "Installed index at #{path} is not valid YAML (#{e.message}). " \
+              'Restore it from a backup or delete the file.'
+      end
       if data.nil?
         raise Rulepack::IndexCorrupt,
               "Installed index at #{path} is empty or not a YAML mapping. " \

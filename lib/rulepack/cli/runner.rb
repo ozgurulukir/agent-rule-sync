@@ -8,8 +8,6 @@ require_relative '../reporter'
 require_relative '../emitter'
 require_relative '../reporter/console_renderer'
 require_relative '../reporter/jsonl_renderer'
-require_relative '../catalog/remote_catalog'
-require_relative '../lockfile'
 require_relative 'commands'
 
 module Rulepack

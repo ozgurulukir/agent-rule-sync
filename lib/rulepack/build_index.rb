@@ -22,14 +22,20 @@ module Rulepack
     end
 
     # Strict load. Raises Rulepack::BuildIndexNotFound when the file is
-    # missing and Rulepack::BuildIndexCorrupt when it holds no YAML mapping.
+    # missing and Rulepack::BuildIndexCorrupt when it holds no YAML mapping
+    # or is unparseable.
     def load
       path = Common.paths.build_index_path
       unless path.exist?
         raise Rulepack::BuildIndexNotFound,
               "Build index not found at #{path}. Run `rulepack build` first."
       end
-      data = Rulepack::IO.load_yaml(path)
+      data = begin
+        Rulepack::IO.load_yaml(path)
+      rescue Psych::SyntaxError => e
+        raise Rulepack::BuildIndexCorrupt,
+              "Build index at #{path} is not valid YAML (#{e.message}). Run `rulepack build` to regenerate it."
+      end
       if data.nil?
         raise Rulepack::BuildIndexCorrupt,
               "Build index at #{path} is empty or not a YAML mapping. Run `rulepack build` to regenerate it."

@@ -68,6 +68,14 @@ class TestBuildIndex < Minitest::Test
     end
   end
 
+  def test_load_raises_build_index_corrupt_on_unparseable_yaml
+    (@build_dir / 'index.yaml').write('{{{ not yaml')
+    in_scope do
+      error = assert_raises(Rulepack::BuildIndexCorrupt) { Rulepack::BuildIndex.load }
+      assert_match(/not valid YAML/, error.message)
+    end
+  end
+
   def test_load_returns_distinct_objects_each_call
     write_build_index({ version: 3.0, packages: {} })
     in_scope do

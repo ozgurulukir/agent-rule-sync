@@ -45,10 +45,12 @@ module Rulepack
 
       module_function
 
+      def entries_for(row)
+        row[:help_lines] || [{ synopsis: row[:synopsis], description: row[:description] }]
+      end
+
       def text
-        entries = COMMANDS.flat_map do |_name, row|
-          row[:help_lines] || [{ synopsis: row[:synopsis], description: row[:description] }]
-        end
+        entries = COMMANDS.flat_map { |_name, row| entries_for(row) }
         width = entries.map { |e| e[:synopsis].size }.max
 
         lines = [
@@ -62,7 +64,7 @@ module Rulepack
           COMMANDS.each_value do |row|
             next if row[:group] != group
 
-            (row[:help_lines] || [{ synopsis: row[:synopsis], description: row[:description] }]).each do |entry|
+            entries_for(row).each do |entry|
               lines << format("  %-#{width}s   %s", entry[:synopsis], entry[:description])
             end
           end

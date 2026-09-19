@@ -1,10 +1,9 @@
-#!/usr/bin/env ruby
 # frozen_string_literal: true
 
 # Query tool for Rulepack package database
 # P-E split: COMMANDS dispatch table + cmd_* per-command methods
-# Can be used as script: ruby lib/rulepack/query.rb <command>
-# Or as module: require "lib/rulepack/query"; Rulepack::Query.run(["list-packages"])
+# Library usage: require "rulepack/query"; Rulepack::Query.run(["list-packages"])
+# CLI usage: the `query` dispatch-table row routes through run_subcommand.
 
 require_relative 'encoding_defaults'
 require_relative 'common'
@@ -143,7 +142,7 @@ module Rulepack
       end
 
       Rulepack::Result.new(
-        status: results.empty? ? :success : :success,
+        status: :success,
         view: :search_results,
         data: { keyword: keyword, results: results },
         messages: results.empty? ? ["No packages found matching: #{keyword}"] : ["🔍 Search results for '#{keyword}':"]

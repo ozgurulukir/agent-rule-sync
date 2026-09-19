@@ -195,6 +195,35 @@ class TestCliRunner < Minitest::Test
     assert_includes err, 'Not a git repository'
   end
 
+  # ─── positional: :target routing (check, outdated) ────────────────────────────
+
+  def test_check_routes_the_positional_to_target
+    write_sandbox_indexes
+    code, out, err = run_cli('check', 'opencode')
+    assert_equal 0, code
+    # The positional must route to --target, not surface a usage error.
+    refute_match(/Please specify target platform/, err)
+  end
+
+  def test_outdated_accepts_the_platform_positionally
+    write_sandbox_indexes
+    code, out, err = run_cli('outdated', 'opencode')
+    assert_equal 0, code
+    # The positional must route to --target, not surface a usage error.
+    refute_match(/Error/, err)
+  end
+
+  def test_corrupt_installed_index_fails_loudly_through_the_runner
+    @root.join('data').mkpath
+    @root.join('build').mkpath
+    (@paths.build_index_path).write({ version: 3.0, packages: {} }.to_yaml)
+    (@paths.index_yaml_path).write("{{{ not yaml")
+
+    code, out, err = run_cli('status')
+    assert_equal 1, code, 'a corrupt index must not read as a friendly no-index hint'
+    assert_match(/not valid YAML/, err)
+  end
+
   # ─── verify / fix early returns (crash/mis-render regression) ─────────────────
 
   def test_verify_with_no_installed_packages_prints_no_spurious_platforms_line

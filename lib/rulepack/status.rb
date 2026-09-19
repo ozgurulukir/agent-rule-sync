@@ -23,12 +23,14 @@ module Rulepack
     def run_unscoped(_options = {})
       index = begin
         Rulepack::InstalledIndex.load
-      rescue Rulepack::IndexNotFound, Rulepack::IndexCorrupt
+      rescue Rulepack::IndexNotFound
         return Rulepack::Result.new(
           status: :success,
           messages: ['  No index found. Run `rulepack build` first.']
         )
       end
+      # IndexCorrupt propagates: lost state must not masquerade as a fresh
+      # install with a friendly hint and exit 0.
 
       installed_platforms = Hash.new { |h, k| h[k] = [] }
       (index[:packages] || {}).each do |name, pkg|

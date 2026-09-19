@@ -51,6 +51,15 @@ class TestInstalledIndex < Minitest::Test
     end
   end
 
+  def test_load_raises_index_corrupt_on_unparseable_yaml
+    (@install_dir / 'index.yaml').write('{{{ not yaml')
+    in_scope do
+      # Psych::SyntaxError must surface as the typed corrupt error, never raw.
+      error = assert_raises(Rulepack::IndexCorrupt) { Rulepack::InstalledIndex.load }
+      assert_match(/not valid YAML/, error.message)
+    end
+  end
+
   def test_load_or_fresh_warns_and_degrades_on_corrupt_file
     (@install_dir / 'index.yaml').write('')
     in_scope do
