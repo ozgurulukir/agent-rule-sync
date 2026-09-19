@@ -51,10 +51,16 @@ module Rulepack
                    elsif (row = COMMANDS[command])
                      execute_row(command, row, argv, options)
                    else
-                     execute_local(command, argv, options)
+                     warn "\e[31m❌ Unknown command: '#{command}'\e[0m"
+                     if defined?(DidYouMean::SpellChecker)
+                       corrections = DidYouMean::SpellChecker.new(dictionary: VALID_COMMANDS).correct(command)
+                       warn "💡 Did you mean? \e[1mrulepack #{corrections.first}\e[0m" if corrections.any?
+                     end
+                     warn "\nRun \e[1mrulepack help\e[0m to see a list of available commands."
+                     1
                    end
 
-          if result.is_a?(Integer) # local handlers may return bare exit codes
+          if result.is_a?(Integer) # unknown commands return bare exit codes
             result
           else
             render(result)
@@ -73,46 +79,35 @@ module Rulepack
 
       def execute_row(command, row, argv, options)
         backend = Rulepack.const_get(row[:backend])
-        if row[:raw_argv]
-          backend.public_send(row[:method], argv)
-        else
-          options = row[:transform].call(options) if row[:transform]
-          if (max = row[:max_positional]) && options[:positional]&.size.to_i > max
-            return Rulepack::Result.new(status: :failure, errors: ["Too many positional arguments. Usage: #{row[:usage]}"])
+        options = options.merge(row[:defaults]) if row[:defaults]
+        options = apply_positional(row, options) if row[:positional]
+        if (max = row[:max_positional]) && options[:positional]&.size.to_i > max
+          return Rulepack::Result.new(status: :failure, errors: ["Too many positional arguments. Usage: #{row[:usage]}"])
+        end
+
+        if row[:call] == :args
+          # Scalar-API rows (Query data methods). ArgumentError converts to a
+          # failure Result so a missing positional renders like any other
+          # usage error ("Missing package name", "Missing search keyword").
+          begin
+            backend.public_send(row[:method], *row[:args].map { |key| options[key] })
+          rescue ArgumentError => e
+            Rulepack::Result.new(status: :failure, errors: [e.message])
           end
+        else
           backend.public_send(row[:method], options)
         end
       end
 
-      # ─── Local commands ─────────────────────────────────────────────────────
-
-      def execute_local(command, argv, options)
-        case command
-        when 'query'
-          render_query_result(Rulepack::Query.run(argv))
-        when 'list'
-          render_query_result(Rulepack::Query.run(['list-packages'] + argv))
-        when 'show'
-          render_query_result(Rulepack::Query.run(['show'] + argv))
-        when 'search'
-          render_query_result(Rulepack::Query.run(['search'] + argv))
-        when 'platforms'
-          render_query_result(Rulepack::Query.run(['list-platforms']))
-        else
-          warn "\e[31m❌ Unknown command: '#{command}'\e[0m"
-          if defined?(DidYouMean::SpellChecker)
-            corrections = DidYouMean::SpellChecker.new(dictionary: VALID_COMMANDS).correct(command)
-            warn "💡 Did you mean? \e[1mrulepack #{corrections.first}\e[0m" if corrections.any?
-          end
-          warn "\nRun \e[1mrulepack help\e[0m to see a list of available commands."
-          1
-        end
+      # positional: :target — the first CLI positional is a platform, not a
+      # package (check, outdated). CliParser already mapped it to package_name;
+      # the mapping is moved to target and the package resolution disabled.
+      def apply_positional(row, options)
+        options[:target] ||= options[:positional]&.first
+        options[:package_name] = nil
+        options
       end
 
-      # Query arms used to let Query.run self-render; now the CLI renders.
-      def render_query_result(result)
-        render(result)
-      end
 
       # ─── Rendering & exit code ──────────────────────────────────────────────
 

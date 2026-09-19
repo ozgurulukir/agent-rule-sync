@@ -37,6 +37,13 @@ module Rulepack
       Rulepack::Result.new(status: :failure, errors: [e.message])
     end
 
+    # Adapter for the CLI spine's `query` row: dispatches the internal
+    # subcommand table from the parsed positionals. Library callers keep
+    # using run(argv); the subcommand surface itself is unchanged.
+    def run_subcommand(options = {}, paths: nil, ui: nil)
+      run(Array(options[:positional]), paths: paths, ui: ui)
+    end
+
     def dispatch(command, argv)
       meth = COMMANDS[command]
       if meth

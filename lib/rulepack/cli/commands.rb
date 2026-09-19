@@ -41,7 +41,8 @@ module Rulepack
         description: 'Repair drift (index-disk reconciliation)'
       },
       'outdated' => {
-        backend: 'Outdated', method: :run,
+        backend: 'Outdated', method: :run, positional: :target, max_positional: 1,
+        usage: 'rulepack outdated [platform]',
         description: 'Show installed packages older than the build'
       },
       'audit' => {
@@ -55,12 +56,34 @@ module Rulepack
       },
       'check' => {
         backend: 'Install', method: :dispatch,
-        transform: lambda { |opts|
-          # check <platform> positional maps to --target
-          target = opts[:target] || opts[:positional]&.first
-          opts.merge(check_mode: true, target: target, package_name: nil, positional: [])
-        },
+        defaults: { check_mode: true }, positional: :target, max_positional: 1,
+        usage: 'rulepack check <platform>',
         description: 'Verify installed state matches index'
+      },
+      'query' => {
+        backend: 'Query', method: :run_subcommand,
+        usage: 'rulepack query <subcommand> [args]',
+        description: 'Query package database'
+      },
+      'list' => {
+        backend: 'Query', method: :packages, call: :args, args: [], max_positional: 0,
+        usage: 'rulepack list',
+        description: 'List all packages'
+      },
+      'show' => {
+        backend: 'Query', method: :show, call: :args, args: [:package_name], max_positional: 1,
+        usage: 'rulepack show <pkgname>',
+        description: 'Show package details'
+      },
+      'search' => {
+        backend: 'Query', method: :search, call: :args, args: [:package_name], max_positional: 1,
+        usage: 'rulepack search <tag>',
+        description: 'Search packages by tag'
+      },
+      'platforms' => {
+        backend: 'Query', method: :platforms, call: :args, args: [], max_positional: 0,
+        usage: 'rulepack platforms',
+        description: 'List all platforms'
       },
       'status' => {
         backend: 'Status', method: :run,
@@ -85,8 +108,8 @@ module Rulepack
       }
     }.freeze
 
-    # Commands handled directly by the Runner (forwarding, help).
-    LOCAL_COMMANDS = %w[query list show search platforms help].freeze
+    # Commands handled directly by the Runner (help).
+    LOCAL_COMMANDS = %w[help].freeze
 
     VALID_COMMANDS = (COMMANDS.keys + LOCAL_COMMANDS).freeze
   end
