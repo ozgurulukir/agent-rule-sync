@@ -14,7 +14,13 @@ require 'rulepack/cli_parser'
 
 class TestRulepackLibrarySpine < Minitest::Test
   def test_library_root_loads_without_cli_side_effects
-    refute defined?(Rulepack::CLI), 'library load must not define Rulepack::CLI'
+    # Checked in a fresh subprocess: the suite itself legitimately loads the
+    # CLI elsewhere (runner tests), so the invariant is what an external
+    # consumer experiences — a clean `require 'rulepack'` defines no CLI.
+    script = "require 'rulepack'; abort 'Rulepack::CLI defined' if defined?(Rulepack::CLI)"
+    lib_dir = File.expand_path('..', __dir__) + '/lib'
+    success = system(RbConfig.ruby, '-I', lib_dir, '-e', script)
+    assert success, 'library load must not define Rulepack::CLI'
   end
 
   def test_base_error_is_defined_by_the_library
