@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
 # Aggregate skills for skill-based agents
-# Reads built skill fragments from Rulepack::Common::BUILD_DIR and combines them with common/agent-specific skills
-# Output: Rulepack::Common::BUILD_DIR/<agent>/skills/vendor/<agent>.md
+# Reads built skill fragments from the scoped build dir (Common.build_dir)
+# and combines them with common/agent-specific skills
+# Output: <build_dir>/<agent>/skills/vendor/<agent>.md
 
 require_relative 'encoding_defaults'
 require 'yaml'
@@ -27,13 +28,8 @@ module Rulepack
     def run_unscoped(options = {})
       target_filter = options[:target]
 
-      unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-        msg = "Build index not found: #{Rulepack::Common::BUILD_INDEX_PATH}. Run build first."
-        raise Rulepack::BuildIndexNotFound, msg
-      end
-
       # Load build index (package metadata) with symbol keys
-      index = YAML.safe_load(Rulepack::Common::BUILD_INDEX_PATH.read, permitted_classes: [Symbol], symbolize_names: true)
+      index = Rulepack::BuildIndex.load
       platforms = Rulepack::Common.load_platform_registry
 
       # Identify skill-based agents

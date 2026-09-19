@@ -12,15 +12,10 @@ module Rulepack
     module_function
 
     def write_build_index(index_data)
-      build_index_data = {
-        version: 3.0,
-        generated: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
-        packages: index_data[:packages]
-      }
       begin
-        Rulepack::IO.write_yaml_atomic(Rulepack::Common::BUILD_INDEX_PATH, build_index_data)
-        Rulepack::Common.log "📝 Build index written: #{Rulepack::Common::BUILD_INDEX_PATH}"
-        puts "\n📝 Build index written: #{Rulepack::Common::BUILD_INDEX_PATH}"
+        Rulepack::BuildIndex.write(index_data)
+        Rulepack::Common.log "📝 Build index written: #{Rulepack::Common.paths.build_index_path}"
+        puts "\n📝 Build index written: #{Rulepack::Common.paths.build_index_path}"
         true
       rescue StandardError => e
         Rulepack::Common.log_error "Failed to write build index: #{e.message}"

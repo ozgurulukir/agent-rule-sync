@@ -16,13 +16,14 @@ module Rulepack
     module_function
 
     def main
-      unless Rulepack::Common::BUILD_INDEX_PATH.exist?
-    abort 'Build index not found. Run `ruby lib/rulepack/build.rb` first.'
-  end
+      index = begin
+        Rulepack::BuildIndex.load
+      rescue Rulepack::BuildIndexNotFound => e
+        abort e.message
+      end
 
-  index = load_index
-  packages = index[:packages] || {}
-  return puts 'No packages in build index.' if packages.empty?
+      packages = index[:packages] || {}
+      return puts 'No packages in build index.' if packages.empty?
 
   catalog_pkgs = packages.map { |name, data| build_package_entry(name, data) }.compact
 
@@ -40,19 +41,6 @@ module Rulepack
   output_path = Rulepack::Common.build_dir.join('catalog.json')
   File.write(output_path, "#{JSON.pretty_generate(catalog)}\n")
   puts "Catalog written: #{output_path} (#{catalog_pkgs.size} packages, #{platforms.size} platforms)"
-end
-
-def load_index
-  raw = YAML.safe_load(Rulepack::Common::BUILD_INDEX_PATH.read, permitted_classes: [Symbol])
-  deep_symbolize_keys(raw)
-end
-
-def deep_symbolize_keys(obj)
-  case obj
-  when Hash then obj.each_with_object({}) { |(k, v), h| h[k.to_sym] = deep_symbolize_keys(v) }
-  when Array then obj.map { |v| deep_symbolize_keys(v) }
-  else obj
-  end
 end
 
 def build_package_entry(name, data)
