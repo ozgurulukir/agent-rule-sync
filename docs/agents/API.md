@@ -2,10 +2,15 @@
 
 Developer reference for extending and integrating with Rulepack.
 
+> Entry points and runtime behavior live in [USAGE.md](USAGE.md); this document
+> covers the library surface. Architecture and module responsibilities:
+> [ARCHITECTURE.md](ARCHITECTURE.md) and the root [AGENTS.md](../../AGENTS.md).
+
 ## Table of Contents
 
 - [Library Modules](#library-modules)
 - [Common Module](#common-module)
+- [Index Store API](#index-store-api)
 - [Build API](#build-api)
 - [Install API](#install-api)
 - [Query API](#query-api)
@@ -13,7 +18,9 @@ Developer reference for extending and integrating with Rulepack.
 - [Transformers API](#transformers-api)
 - [Translators API](#translators-api)
 - [Platform Registry](#platform-registry)
+- [Results & Rendering](#results--rendering)
 - [Version Comparison](#version-comparison)
+- [Error Handling](#error-handling)
 
 ---
 
@@ -23,48 +30,85 @@ Rulepack is organized into modular components under `lib/rulepack/`:
 
 | Module | Purpose | Key Classes/Functions |
 |--------|---------|----------------------|
-| `common.rb` | Shared utilities, config, constants | `Rulepack::Common`, `Rulepack::Config` |
-| `cli/commands.rb` | CLI dispatch table + pacman aliases | `Rulepack::CLI::COMMANDS`, `PACMAN_ALIASES` |
-| `cli/runner.rb` | CLI runner (parse -> dispatch -> render -> exit code) | `Rulepack::CLI::Runner.run(argv)` |
+| `common.rb` | Explicit composition root: scoped Paths/UI contexts | `Rulepack::Common.with_paths`, `with_ui`, `paths`, `ui` |
+| `paths.rb` | Runtime paths value object (the sole layout authority) | `Rulepack::Paths.for_root(root)`, `#merge` |
+| `cli/commands.rb` | CLI dispatch table — one fully-declared row per command | `Rulepack::CLI::COMMANDS`, `PACMAN_ALIASES` |
+| `cli/runner.rb` | CLI runner: parse → dispatch → render → exit code | `Rulepack::CLI::Runner.run(argv)` |
+| `cli/help.rb` | Help text generated from the dispatch table | `Rulepack::CLI::Help.text` |
 | `cli_parser.rb` | Unified CLI argument parsing | `Rulepack::CliParser.parse` |
-| `logging.rb` | Centralized logging | `Rulepack::Common.log`, `log_error`, `log_warn` |
-| `cache.rb` | HTTP/Git caching | `Rulepack::Common.cache_fetch`, `cache_store` |
-| `backup.rb` | Backup/rollback support | `backup_index`, `restore_index` |
+| `installed_index.rb` | Single owner of `data/index.yaml` | `Rulepack::InstalledIndex.load`, `load_or_fresh`, `save`, `backup` |
+| `build_index.rb` | Single owner of `build/index.yaml` | `Rulepack::BuildIndex.load`, `load_or_nil`, `write` |
+| `installed_state.rb` | "Is this installed record intact?" dispatch | `Rulepack::InstalledState.check` (typed `Verdict`) |
+| `models/*.rb` | Immutable `Data.define` value objects | `Package`, `Target`, `BuildRecord`, `InstalledRecord` |
+| `logging.rb` | Centralized logging | `Rulepack::Logging.log`, `log_error`, `log_warn` |
+| `cache.rb` | HTTP/Git caching with LRU eviction | `cached_fetch_url`, `cached_fetch_git_file`, `cached_fetch_git_dir` |
+| `backup.rb` | File-journal session backups (index backups live in `InstalledIndex`) | `Rulepack::Common.backup_file` |
 | `version.rb` | Version comparison | `Rulepack::Common.compare_versions` |
-| `source.rb` | Source fetching | `fetch_git_source`, `fetch_url_source` |
-| `translate.rb` | Translator loading/dispatch | `apply_translator` |
-| `transform.rb` | Content transformation | `apply_transformer` |
-| `processor_loader.rb` | Translator/transformer loading | `ProcessorLoader.load_translator`, `ProcessorLoader.load_transformer` |
-| `schema_engine.rb` | Centralized Dynamic Schema Engine | `SchemaEngine.apply` (frontmatter, emoji, bullets, headings) |
-| `build_pipeline.rb` | 4-stage build pipeline | `BuildPipeline.run` (fetch → translate → schema → transform) |
-| `validation.rb` | PKGBUILD validation | `validate_pkgbuild`, `validate_target` |
+| `source.rb` | Source fetching (git + HTTP fallback, hardened tar extraction) | `fetch_git_source`, `fetch_with_redirects`, `read_source` |
+| `transform.rb` | Translator/transformer dispatch | `apply_translator`, `apply_transformer` |
+| `processor_loader.rb` | Translator/transformer loading | `ProcessorLoader.load_translator`, `load_transformer` |
+| `schema_engine.rb` | Centralized Schema Engine | `SchemaEngine.apply` (frontmatter, emoji, bullets, headings) |
+| `build_loader.rb` | PKGBUILD discovery, validation, target expansion | `BuildLoader.discover_pkgbuilds` |
+| `build_per_pkg.rb` | Per-package pipeline (content passes, store writes) | `BuildPerPkg.run_content_passes` |
+| `build_writer.rb` | Build index + catalog output | `BuildWriter.write_build_index`, `generate_catalog` |
+| `build_all.rb` | Composite: Build → Aggregate (short-circuit, flat-merge) | `Rulepack::BuildAll.run` |
+| `validation.rb` | PKGBUILD validation | `validate_pkgbuild`, `load_pkgbuild` |
 | `platform.rb` | Platform path resolution | `resolve_install_path`, `platform_config` |
 | `platforms.rb` | Platform registry (per-root memoized) | `Rulepack::Platforms.load(root)`, `clear_cache!` |
-| `paths.rb` | Runtime paths value object | `Rulepack::Paths.for_root(root)` |
-| `ui.rb` | Interactive terminal I/O | `Rulepack::UI#spin`, `#confirm`, `#collision_prompt` |
-| `installer.rb` | Installation engine | `Rulepack::Install`, `install_package` |
-| `uninstaller.rb` | Uninstallation logic | `uninstall_package_from_platform` |
-| `build.rb` | Build orchestrator | Main build loop, per-package processing |
-| `aggregate.rb` | Vendor skill aggregation | `aggregate_skills` |
-| `query.rb` | Package database queries | `list_packages`, `show_package`, `search_packages` |
-| `verify.rb` | Installation verification | `verify_platform`, `detect_drift` |
-| `fix.rb` | Drift repair | `fix_platform`, `repair_drift` |
+| `ui.rb` | Interactive terminal I/O | `Rulepack::UI#spin`, `#confirm`, `#collision_prompt`; `UI::Null` |
+| `emitter.rb` | Event substrate — all backend narration | `Rulepack::Emitter.emit`, `subscribe` |
+| `result.rb` | Structured backend result | `Rulepack::Result` (`status`, `data`, `errors`, `messages`, `view`) |
+| `errors.rb` | Typed error hierarchy | `Rulepack::Error` + subclasses (see [Error Handling](#error-handling)) |
+| `installer.rb` | Installation orchestrator | `Rulepack::Install.dispatch`, `Install.run` |
+| `install_plan.rb` | Install decision logic | `InstallPlan.should_install_or_upgrade?` |
+| `install_execute.rb` | Install execution + check command | `InstallExecute.install_platform`, `check_platform` |
+| `uninstaller.rb` | Uninstallation (marker-aware excision) | `Rulepack::Uninstaller.dispatch` |
+| `fix.rb` | Drift repair via transactional reinstall | `Rulepack::Fix.run` |
+| `verify.rb` | Index vs disk reconciliation | `Rulepack::Verify.check` |
+| `outdated.rb` | Installed-vs-build version comparison | `Rulepack::Outdated.run` |
+| `bump.rb` | Upstream version tracking | `Rulepack::Bump.run` |
 | `audit.rb` | PKGBUILD descriptor auditing | `Rulepack::Audit.run` |
+| `build.rb` / `aggregate.rb` | Build orchestration / vendor skill aggregation | `Rulepack::Build.run`, `Aggregate.run` |
+| `status.rb` | Installed-index summary (the `status` command) | `Rulepack::Status.run` |
+| `build_catalog.rb` | Reads `build/catalog.json` (the `catalog` command) | `Rulepack::BuildCatalog.run` |
+| `remote.rb` | Remote registry search/list (the `remote` command) | `Rulepack::Remote.run` |
+| `lock.rb` | Lockfile report (the `lock` command) | `Rulepack::Lock.run` |
+| `init_hooks.rb` | Pre-commit hook installer (the `init-hooks` command) | `Rulepack::InitHooks.run` |
+| `query.rb` | Package database queries | `Rulepack::Query.run`, data methods (`packages`, `show`, …) |
+| `lockfile.rb` | Lockfile store (pin/verify tuples) | `Rulepack::Lockfile#add`, `#enforce!` |
+| `catalog/` | Source-repository abstraction | `LocalCatalog`, `RemoteCatalog` |
 
 **Sub-modules** under `lib/rulepack/lib/`:
 
 | Module | Purpose |
 |--------|---------|
-| `transaction.rb` | Atomic transaction logs, backup, and filesystem rollback |
-| `install_handlers.rb` | Low-level copy, symlink, and injection routines (marker-aware) |
-| `skill_bundle.rb` | Complex directory skill-bundle resolution |
+| `transaction.rb` | Journal + filesystem rollback (install records ops; uninstall runs inside the index-restore safety net) |
+| `install_handlers.rb` | symlink / copy / inject / append / json_merge / yaml_merge / structured_inject (marker-aware) |
+| `skill_bundle.rb` | Directory skill-bundle install with lazy materialization |
+| `skill_bundle_lazy.rb` | Install-time materialization gated by `source_sha256` |
 | `tui_selector.rb` | Terminal keyboard UI for interactive sub-skill selection |
 
 ---
 
 ## Common Module
 
-`lib/rulepack/common.rb` — Shared utilities used across all modules.
+`lib/rulepack/common.rb` — composition root: owns `RULEPACK_ROOT` and the
+scoped Paths/UI contexts. Deep layers read `Common.paths` / `Common.ui`;
+only entry points open a scope.
+
+### Scoped Contexts
+
+```ruby
+# Entry points accept paths:/ui: keywords and open the scope internally.
+# Internal backend-to-backend calls pass the options hash POSITIONALLY —
+# Ruby 4 does not convert positional hashes to keyword arguments, so
+# keyword-style options would collide with the paths:/ui: keywords.
+Rulepack::Fix.run({ target: 'opencode' }, paths: sandbox_paths)
+Rulepack::Uninstaller.dispatch(opts, ui: Rulepack::UI::Null.new)
+
+# Tests open partial scopes directly (merged onto the current Paths):
+Rulepack::Common.with_paths(build_index_path: tmp.join('index.yaml')) { ... }
+```
 
 ### Configuration
 
@@ -73,30 +117,12 @@ module Rulepack
   module Config
     module_function
 
-    # Maximum HTTP redirects for URL fetches
-    def max_redirects
-      Integer(ENV.fetch('RULEPACK_MAX_REDIRECTS', '3'))
-    end
-
-    # HTTP read timeout in seconds
-    def read_timeout
-      Integer(ENV.fetch('RULEPACK_READ_TIMEOUT', '30'))
-    end
-
-    # Cache directory name under project root
-    def cache_dir_name
-      ENV.fetch('RULEPACK_CACHE_DIR', 'cache')
-    end
-
-    # Git shallow clone depth
-    def git_clone_depth
-      Integer(ENV.fetch('RULEPACK_GIT_DEPTH', '1'))
-    end
-
-    # Log level (:error, :warn, :info, :debug)
-    def log_level
-      ENV.fetch('RULEPACK_LOG_LEVEL', 'info').to_sym
-    end
+    def max_redirects   # RULEPACK_MAX_REDIRECTS (default 3)
+    def read_timeout    # RULEPACK_READ_TIMEOUT (default 30s)
+    def cache_dir_name  # RULEPACK_CACHE_DIR (default 'cache')
+    def git_clone_depth # RULEPACK_GIT_DEPTH (default 1)
+    def cache_max_size_mb # RULEPACK_CACHE_MAX_MB (default 500)
+    def log_level       # RULEPACK_LOG_LEVEL (default :info)
   end
 end
 ```
@@ -104,23 +130,25 @@ end
 ### Logging
 
 ```ruby
-# Set log file for current operation
-Rulepack::Common.log_file = BUILD_DIR.join('install.log')
+Rulepack::Logging.log_file = Rulepack::Common.build_dir.join('install.log')
 
-# Log at different levels
-Rulepack::Common.log("Processing #{pkgname}...", level: :info)
-Rulepack::Common.log_error("Failed to fetch #{url}: #{e.message}")
-Rulepack::Common.log_warn("Cache miss for #{key}")
+Rulepack::Logging.log("Processing #{pkgname}...", level: :info)
+Rulepack::Logging.log_error("Failed to fetch #{url}: #{e.message}")
+Rulepack::Logging.log_warn("Cache miss for #{key}")
 ```
+
+Backend narration is Emitter events (`:progress`, `:info`, `:warn`, `:error`,
+`:stage_start`, `:stage_done`, `:package_built`, `:target_built`) — never raw
+`puts`. `Logging.log` is for operation logs.
 
 ### YAML/JSON I/O
 
 ```ruby
-# Load YAML with safe_load
-data = Rulepack::IO.load_yaml(path)
-
-# Write YAML atomically (temp file + rename)
-Rulepack::IO.write_yaml_atomic(path, data)
+data = Rulepack::IO.load_yaml(path)            # safe_load, symbolize_names
+Rulepack::IO.write_yaml_atomic(path, data)     # temp file + rename
+Rulepack::IO.deep_merge(base, override)        # hash deep merge (arrays union)
+Rulepack::IO.update_marked_content(path, pkgname, content)  # marker blocks
+Rulepack::IO.remove_marked_content(path, pkgname)           # surgical excision
 ```
 
 ### File Utilities
@@ -133,158 +161,161 @@ Rulepack::Validation.validate_output_filename("00-memory.md", :memory)
 expanded = Rulepack::Path.expand_user_path("~/.config/opencode/")
 ```
 
-### Checksum Utilities
+---
+
+## Index Store API
+
+`installed_index.rb` / `build_index.rb` — the only readers/writers of the two
+YAML stores. Both resolve the scoped `Paths` and never memoize (callers mutate
+the returned hash in place, then save).
 
 ```ruby
-# Compute SHA256 of file
-checksum = Rulepack::Common.checksum_file(path)
+# Installed index — data/index.yaml
+Rulepack::InstalledIndex.exist?
+index = Rulepack::InstalledIndex.load           # raises IndexNotFound / IndexCorrupt
+index = Rulepack::InstalledIndex.load_or_fresh  # missing → { version: 3.0, packages: {} }
+# load ALWAYS migrates: SchemaMigration + InstalledRecord.migrate_legacy!
+Rulepack::InstalledIndex.save(index)            # stamps :generated, atomic write
+backup_path = Rulepack::InstalledIndex.backup   # nil when nothing to back up
+Rulepack::InstalledIndex.restore(backup_path)
+Rulepack::InstalledIndex.cleanup_backups
 
-# Compute SHA256 of string
-checksum = Rulepack::Common.checksum_content(content)
+# Build index — build/index.yaml
+Rulepack::BuildIndex.load                       # raises BuildIndexNotFound / BuildIndexCorrupt
+index = Rulepack::BuildIndex.load_or_nil
+Rulepack::BuildIndex.write(packages: pkg_map)   # the single writer (BuildWriter)
+Rulepack::BuildIndex.remove                     # bump's pre-rebuild primer
 ```
+
+Schema ownership: record shape lives in `InstalledRecord`
+(`models/installed_record.rb`, `from_h`/`to_h`/`migrate_legacy!`); build-entry
+shape in `BuildRecord`; schema versions in `SchemaMigration.migrate!` (refuses
+future or non-numeric versions). Disk-state verdicts: `InstalledState.check`.
 
 ---
 
 ## Build API
 
-`lib/rulepack/build.rb` — Main build orchestrator.
+`bin/rulepack build` runs the `BuildAll` composite: `Build.run` →
+`Aggregate.run`, short-circuiting on failure and flat-merging Results.
 
 ### Build Flow
 
-1. **Discover PKGBUILDs**: `Dir.glob('data/packages/*/PKGBUILD')`
+1. **Discover PKGBUILDs**: `BuildLoader.discover_pkgbuilds` (flat + `upstream/` namespaces; `local/` overrides by name)
 2. **Load registry**: `Rulepack::Common.load_platform_registry`
-3. **Process each package** via `BuildPipeline.run`:
-   - **Fetch**: read local file, fetch URL (SHA256 verify), or clone git repo
-   - **Translate**: platform-specific format conversion (e.g., rule → skill, agent → platform format)
-   - **Schema Engine**: centralized formatting (frontmatter, emoji, bullets, headings)
-   - **Transform**: structural changes (copy or custom transformer)
-4. **Write build index**: `write_yaml_atomic(BUILD_INDEX_PATH, build_index_data)`
-5. **Generate catalog**: `load generate-catalog.rb`
+3. **Per package** (`BuildPerPkg`): fetch source (content-addressed cache, SHA256 verify) → per-target content passes
+4. **Write build index**: `BuildIndex.write` via `BuildWriter.write_build_index`
+5. **Generate catalog**: `build/catalog.json` via `BuildWriter.generate_catalog`
 
-### 4-Stage Build Pipeline
+### Content Passes
 
-`lib/rulepack/build_pipeline.rb` orchestrates:
-
-```
-:fetch → :translate → :schema_engine → :transform
-```
-
-Each stage validates completion before transitioning to the next.
+`BuildPerPkg.run_content_passes` (translate → Schema Engine → transform).
+Targets sharing identical translators/rulesets/transformers are collapsed by
+`union_key` and reuse cached output. Skill-bundle/agent targets are
+**materializable**: build records metadata (`source_sha256`), and
+`build/<plat>/<pkg>/` is materialized lazily at install/verify time
+(`skill_bundle_lazy.rb`).
 
 ### Schema Engine
 
-`lib/rulepack/schema_engine.rb` — Centralized formatting based on `data/platforms/<agent>.yaml` profiles:
-
-- `frontmatter`: strip or preserve YAML frontmatter
-- `emoji_policy`: strip or preserve emoji characters
-- `heading_style`: ATX heading normalization
-- `bullet_style`: dash bullet normalization
+`lib/rulepack/schema_engine.rb` — formatting driven by
+`data/platforms/<agent>.yaml` profiles: `frontmatter`, `emoji_policy`,
+`heading_style`, `bullet_style`. Profiles are validated on registry load
+(unknown keys warn).
 
 ---
 
 ## Install API
 
-`lib/rulepack/installer.rb` — Installation engine.
+`lib/rulepack/installer.rb` — `Install.dispatch` (CLI row) →
+`Install.run(platform, options, paths:, ui:)` per platform.
 
 ### Install Flow
 
-1. Load `build/index.yaml` and platform registry
-2. For project-level platforms, resolve `--project` dir
-3. For each package with target matching platform:
-   - Resolve install path (`rules_dir`, `skills_dir`, `agents_dir`, `config_file`, `skill_file`)
-   - `--rules-to <file>` redirects rules to a single file instead of `rules_dir`
-   - Perform install (symlink, copy, inject, append)
-   - Record installation in `data/index.yaml`
+1. `BuildIndex.load` + `InstalledIndex.load_or_fresh` (both scoped)
+2. `InstalledIndex.backup` before mutating; one transactional scope
+3. Per package: `InstallPlan.should_install_or_upgrade?` decision (version
+   compare, `--needed`, forced reinstall) → `install_single_target`
+4. Handlers (`install_handlers.rb`): symlink / copy / inject / append /
+   json_merge / yaml_merge / structured_inject — each journals into
+   `Transaction` for rollback
+5. `InstalledIndex.save` at exit; on any raise,
+   `Transaction.transaction_rollback` restores the index and replays the
+   journal in reverse
 
-### Transaction Support
-
-```ruby
-def install_with_transaction(index, &block)
-  backup_path = backup_index(index)  # Copy index to temp file
-
-  begin
-    block.call  # Perform installs
-
-    # Write final index
-    Rulepack::IO.write_yaml_atomic(INDEX_PATH, index)
-    cleanup_backups(backup_path)
-  rescue => e
-    # Rollback: restore index + undo filesystem changes via journal
-    Rulepack::Transaction.transaction_rollback(e, backup_path, ctx.journal)
-    raise e
-  end
-end
-```
+`Fix.run` reuses this exact path (`Install.run` with `force_packages:`),
+passed positionally per the Ruby 4 rule.
 
 ---
 
 ## Query API
 
-`lib/rulepack/query.rb` — Package database queries.
-
-### Commands
+`lib/rulepack/query.rb` — two layers:
 
 ```ruby
-module Rulepack
-  module Query
-    def self.run(argv)
-      argv.shift if argv.first == '-Q'  # Pacman-style flag
-      command = argv.shift
+# Data API (used by the CLI rows and as library):
+result = Rulepack::Query.packages        # view: :packages
+result = Rulepack::Query.platforms       # view: :platform_registry
+result = Rulepack::Query.show('memory')  # raises ArgumentError without a name
+result = Rulepack::Query.search('sec')
+result = Rulepack::Query.installed('opencode')
+result = Rulepack::Query.orphans         # status: :partial when orphans exist
+result = Rulepack::Query.depends('memory')
+result = Rulepack::Query.provides('capability')
+result = Rulepack::Query.check           # consistency; failure on issues
 
-      case command
-      when 'list-packages', 'ls'
-        list_packages
-      when 'show', 'info'
-        show_package(argv.first)
-      when 'search', 's'
-        search_packages(argv.first)
-      when 'installed', 'i'
-        list_installed(argv)
-      when 'list-platforms', 'lp'
-        list_platforms
-      end
-    end
-  end
-end
+# Subcommand dispatch (the `query` CLI row):
+Rulepack::Query.run(['show', 'memory'], paths:, ui:)
+Rulepack::Query.run_subcommand(options)  # positional → internal COMMANDS table
 ```
+
+All data methods return `Rulepack::Result` with a declared `view:`. The
+internal `COMMANDS` table maps names/aliases (`ls`, `info`, `s`, …) to
+`cmd_*` wrappers; unknown subcommands return a failure Result whose messages
+carry the query help text.
 
 ---
 
 ## Cache API
 
-`lib/rulepack/cache.rb` — HTTP/Git caching.
+`lib/rulepack/cache.rb` — content-addressed source cache with LRU eviction
+(`RULEPACK_CACHE_MAX_MB`, default 500).
 
-- **HTTP fetches**: cached by SHA256 of URL
-- **Git clones**: cached by commit hash
-- Cache directory: `cache/` under project root (configurable via `RULEPACK_CACHE_DIR`)
+- `cached_fetch_url(url, expected_sha256)` — HTTP with redirect following
+- `cached_fetch_git_file(url, ref, git_path, depth:)` — single-file git fetch
+- `cached_fetch_git_dir(url, ref, git_path, depth:, on_clone:)` — directory fetch
+- `cache_source(key, content_or_path, source_type:)` / `get_cached_source(key)`
+- Cache location: `<build>/cache` (naming via `Config.cache_dir_name`)
+
+Git is optional: when the `git` binary is unavailable, tarball fallback via
+`source.rb` (`translate_git_to_tarball`, hardened against path traversal).
 
 ---
 
 ## Transformers API
 
-`lib/rulepack/transform.rb` — Content transformation.
-
-### Custom Transformer Interface
+`lib/rulepack/transform.rb` — content transformation.
 
 ```ruby
 # data/transformers/example.rb
 module RulepackTransformer
   module Example
     def self.transform(content, pkgname:)
-      # Transform @content and return new string
       content
     end
   end
 end
 ```
 
+Loaded by `ProcessorLoader.load_transformer('custom:transformers/example.rb')`;
+the path must resolve inside the repository (`SecurityError` otherwise).
+
 ---
 
 ## Translators API
 
-`lib/rulepack/translate.rb` — Content translation (runs before transform).
-
-### Custom Translator Interface
+`lib/rulepack/transform.rb` (`apply_translator`) — content translation (runs
+before transform and the Schema Engine).
 
 ```ruby
 # data/translators/example.rb
@@ -292,8 +323,7 @@ module RulepackTranslator
   module Example
     def self.translate(content, args: {})
       pkgname = args[:pkgname]
-      extra_args = args[:extra_args] || {}  # e.g., pkgdesc, tags, agent_config
-      # Transform content
+      extra_args = args[:extra_args] || {}  # e.g. pkgdesc, tags, agent_config
       content
     end
   end
@@ -312,9 +342,7 @@ end
 
 ## Platform Registry
 
-`data/registry/platforms.yaml` — Platform definitions.
-
-### Loading Registry
+`data/registry/platforms.yaml` — platform definitions.
 
 ```ruby
 # Merge order: data/registry/platforms.yaml <- <root>/.rulepack.local.yaml
@@ -327,108 +355,80 @@ Rulepack::Platforms.clear_cache!            # drop one or all cached roots
 registry = Rulepack::Common.load_platform_registry
 ```
 
-### Scoped Paths / UI Contexts
+Platform configs are validated on load (required keys per `type`);
+`format_profile` (from `data/platforms/<id>.yaml`) unknown keys warn.
 
-Every backend entry point (Build, Aggregate, Install, Uninstall, Verify,
-Query, Audit, Fix, Outdated, Bump) accepts a `paths:` keyword (a
-`Rulepack::Paths`) and interactive ones accept `ui:` (a `Rulepack::UI`).
-Internally they open a thread-scoped context so deep layers resolve paths and
-prompts through it. Internal backend calls pass the options hash positionally:
-Ruby 4 no longer converts positional hashes to keyword arguments, so
-keyword-style calls would collide with the `paths:`/`ui:` keywords.
+---
+
+## Results & Rendering
+
+Every backend returns a `Rulepack::Result`:
 
 ```ruby
-Rulepack::Fix.run({ target: 'opencode' }, paths: sandbox_paths)
-Rulepack::Uninstaller.dispatch(opts, ui: Rulepack::UI::Null.new)
+Result.new(status:, data:, errors:, messages:, view:)
+# status: :success | :partial | :failure  (CLI exit rule: success → 0, else 1)
+# view:   declares the TextRenderer route for text mode; nil = messages-only.
+#         Excluded from to_h — json/yaml/jsonl stay {status, data, errors, messages}.
 ```
+
+The CLI (`cli/runner.rb`) parses once, dispatches the table row, renders once.
+Text rendering dispatches on `result.view` — nothing is inferred from data
+shape. Narration streams via Emitter events to ConsoleRenderer (default) or,
+under `--format jsonl`, JsonlRenderer plus a final `{"event":"result",...}`
+line.
+
+Adding a command is one row in `cli/commands.rb`
+(`backend:`/`method:`, optional `call: :args`, `defaults:`/`positional:`,
+`max_positional:`, and `group:`/`synopsis:`/`description:` for the generated
+help).
 
 ---
 
 ## Version Comparison
 
-`lib/rulepack/version.rb` — Pacman-style version comparison: `epoch:pkgver-pkgrel`.
+`lib/rulepack/version.rb` — Pacman-style `epoch:pkgver-pkgrel`.
 
 ```ruby
-# Compare two version strings
-# Returns: 1 if a > b, -1 if a < b, 0 if equal
-result = Rulepack::Common.compare_versions('1:2.0-1', '1:1.9-1')
-# => 1
-
-# Format version to string
-version_str = Rulepack::Common.format_version(0, '1.0.0', 1)
-# => '1.0.0-1'
+Rulepack::Common.compare_versions('1:2.0-1', '1:1.9-1')  # => 1
+Rulepack::Common.format_version(0, '1.0.0', 1)            # => '1.0.0-1'
 ```
 
 ---
 
 ## Error Handling
 
-All errors use `Rulepack::Error`:
+All library errors derive from `Rulepack::Error` (`errors.rb`); the CLI
+rescues it, warns, and exits 1.
 
 ```ruby
-module Rulepack
-  class Error < StandardError; end
-end
+Rulepack::Error
+├── ConfigError            # CliError, MissingOptionValue, InvalidOptionValue
+├── PkgbuildError          # PkgbuildNotFound, InvalidPkgbuild
+├── SecurityError          # PathTraversalError
+└── StateError             # IndexNotFound, IndexCorrupt,
+                           # BuildIndexNotFound, BuildIndexCorrupt,
+                           # UnknownPlatform
 ```
 
-Raised for build failures, install failures, validation errors, checksum mismatches, and path traversal attempts.
+`SchemaMigration.migrate!` raises `StateError` for future/non-numeric index
+versions instead of rewriting them. `Psych::SyntaxError` from a corrupt store
+is wrapped as the typed corrupt error by the stores.
 
 ---
 
 ## Testing
 
-### Running Tests
-
 ```bash
-rake test                    # All tests (357 tests, 1097 assertions)
+bundle exec rake test      # full suite
+bundle exec rake summary   # dynamic test/assertion count (scans test files)
 ```
 
-### Test Helpers
+### Test Seams
 
-```ruby
-# test/helper.rb provides:
-module TestHelpers
-  def with_tmpdir
-    Dir.mktmpdir do |tmpdir|
-      yield Pathname.new(tmpdir)
-    end
-  end
-
-  def mock_git_packages(packages_dir, mock_repos_dir)
-    # Creates local git repos for all git-sourced packages
-    # Rewrites PKGBUILDs to use file:// URLs
-    # Enables 100% offline E2E testing
-  end
-end
-```
-
----
-
-## Extension Points
-
-### Adding a New Transformer
-
-1. Create `data/transformers/my_transform.rb`
-2. Define `RulepackTransformer::MyTransform` module with a `.transform(content, pkgname:)` method
-3. Set the platform's `default_transformer` in `data/registry/platforms.yaml`, or reference in PKGBUILD as advanced override: `transformer: custom:transformers/my_transform.rb`
-
-### Adding a New Translator
-
-1. Create `data/translators/my_translate.rb`
-2. Define `RulepackTranslator::MyTranslate` module with a `.translate(content, args: {})` class method
-3. Set the platform's `default_translator` in `data/registry/platforms.yaml`, or reference in PKGBUILD as advanced override: `translate: custom:translators/my_translate.rb`
-
-### Adding a New Platform
-
-1. Add to `data/registry/platforms.yaml`
-2. Add platform format profile in `data/platforms/<agent>.yaml`
-3. Add agent guide in `docs/agents/platforms/<agent>.md`
-
----
-
-## See Also
-
-- [Architecture](ARCHITECTURE.md) — System design
-- [Reference](REFERENCE.md) — PKGBUILD schema, index format
-- [Usage](USAGE.md) — User guide
-- [Transforms](TRANSFORMS.md) — Transformer/translator docs
+- **In-process backend tests**: build a `Rulepack::Paths` sandbox and pass
+  `paths:` (see `test/test_outdated.rb`, `test/test_fix.rb`).
+- **In-process runner tests**: `Rulepack::Common.with_paths(paths) { Rulepack::CLI::Runner.run(argv) }`
+  returns the exit code; clear the Emitter first (the helper wires a global
+  renderer) — see `test/test_cli_runner.rb`.
+- **E2E**: `test/helper.rb#mock_git_packages` creates local git repos and
+  rewrites PKGBUILDs to `file://` URLs for offline subprocess runs.
