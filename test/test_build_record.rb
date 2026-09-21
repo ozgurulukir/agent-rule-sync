@@ -98,4 +98,49 @@ class TestBuildRecord < Minitest::Test
     pkg = build_package(targets: [t])
     assert pkg.materializable_only?
   end
+
+  def test_from_package_seeds_skill_exclude
+    pkg = Rulepack::Package.from_hash(
+      pkgname: 'test-pkg',
+      pkgver: '1.0.0',
+      pkg_type: 'skill',
+      pkgdesc: 'test package',
+      source: [{ type: 'local', path: 'src/memory.md' }],
+      skill_exclude: ['in-progress', 'deprecated']
+    )
+    record = Rulepack::BuildRecord.from_package(pkg)
+
+    assert_equal ['in-progress', 'deprecated'], record.skill_exclude
+  end
+
+  def test_to_h_includes_skill_exclude_when_non_empty
+    pkg = Rulepack::Package.from_hash(
+      pkgname: 'test-pkg',
+      pkgver: '1.0.0',
+      pkg_type: 'skill',
+      pkgdesc: 'test package',
+      source: [{ type: 'local', path: 'src/memory.md' }],
+      skill_exclude: ['in-progress']
+    )
+    record = Rulepack::BuildRecord.from_package(pkg)
+
+    h = record.to_h
+    assert h.key?(:skill_exclude), 'to_h should include skill_exclude when non-empty'
+    assert_equal ['in-progress'], h[:skill_exclude]
+  end
+
+  def test_to_h_omits_skill_exclude_when_empty
+    pkg = Rulepack::Package.from_hash(
+      pkgname: 'test-pkg',
+      pkgver: '1.0.0',
+      pkg_type: 'skill',
+      pkgdesc: 'test package',
+      source: [{ type: 'local', path: 'src/memory.md' }],
+      skill_exclude: []
+    )
+    record = Rulepack::BuildRecord.from_package(pkg)
+
+    h = record.to_h
+    refute h.key?(:skill_exclude), 'to_h should omit skill_exclude when empty'
+  end
 end

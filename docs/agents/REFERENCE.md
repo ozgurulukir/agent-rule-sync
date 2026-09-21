@@ -30,6 +30,19 @@ Technical reference for PKGBUILD format, transformer API, index schema, and vali
 | `pkgver_func` | string | no | Shell command to auto-derive `pkgver` from upstream source (makepkg `pkgver()` parallel). Runs inside the fetched source directory. Example: `"git log -1 --format=%cd --date=short 2>/dev/null | tr -d '-'"` |
 | `maintainer` | string | no | Maintainer identifier |
 | `license` | string | no | License (default: MIT) |
+| `skill_exclude` | array | no | Path prefixes (relative to source root) of sub-skills to exclude from the skill-bundle manifest. Entries are normalized by stripping trailing `/` and dropping empties. Entries containing `..` (path traversal) or absolute paths are rejected at validation time. When omitted, all discoverable sub-skills are included. See "skill_exclude" below for sub-skill discovery semantics. |
+
+### `skill_exclude`
+
+**Top-Level Field**: `skill_exclude: [in-progress, deprecated]` — YAML list of path prefixes relative to the source `path:` dir (i.e. relative to `skills/` in a git source). Each entry is normalized: `to_s`, trailing `/` stripped, empties dropped. Entries containing `..` (path traversal) or absolute paths are rejected as invalid PKGBUILD.
+
+**Sub-skill Discovery Semantics**: The skill-bundle engine discovers sub-skills as any directory containing a `SKILL.md` (recursively). A file's "owner" is the deepest `SKILL.md`-bearing ancestor directory. Files with no such ancestor (including a root-level `SKILL.md`) belong to the `.` (root) group. The root directory is NEVER treated as a sub-skill dir — a root-level `SKILL.md` always goes to the `.` group.
+
+Exclusion filtering is applied after discovery: a sub-skill whose relative path (from the source root) starts with any `skill_exclude` prefix (matched exactly or as a parent prefix, e.g. `rel == p` or `rel.start_with?(p + '/')`) is omitted from the manifest entirely. An excluded `SKILL.md` never creates a sub-skill.
+
+**Backward Compatibility**: The 5 flat upstream packages (anthropics-skills, antigravity-skills, cc-skills-golang, ruby-agent-skills, vibe-security) each have their `SKILL.md` at `<topdir>/SKILL.md` with no deeper `SKILL.md`. The recursive detector yields identical `path`/`name`/`files` to the previous top-level-dir grouping, so these packages are unaffected.
+
+**build/index.yaml Schema Note**: The `skill_exclude` field is stored in the `Package` model and threaded through to the `BuildRecord` (via `from_package` / conditional `to_h`). It appears in `build/index.yaml` when non-empty, and is passed through `pkg_index` at install/materialization time so `generate_skill_bundle_manifest` can filter sub-skills accordingly. The `materialization_up_to_date?` check also compares `manifest['skill_exclude']` with `pkg_index[:skill_exclude]` (nil-safe), so editing `skill_exclude` in the PKGBUILD at an unchanged source commit triggers re-materialization.
 
 ### Package Types
 

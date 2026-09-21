@@ -43,6 +43,7 @@ module Rulepack
     #   1. The build/<plat>/<pkg>/ directory exists.
     #   2. manifest.json exists.
     #   3. manifest's source_sha matches pkg_index[:source_sha256].
+    #   4. manifest's skill_exclude matches pkg_index[:skill_exclude] (nil-safe).
     def materialization_up_to_date?(build_pkg_dir, pkg_index)
       return false unless build_pkg_dir.directory?
       return false unless build_pkg_dir.join('manifest.json').exist?
@@ -53,7 +54,9 @@ module Rulepack
         return false
       end
 
-      manifest['source_sha256'] == pkg_index[:source_sha256]
+      sha_match = manifest['source_sha256'] == pkg_index[:source_sha256]
+      exclude_match = manifest['skill_exclude'] == pkg_index[:skill_exclude]
+      sha_match && exclude_match
     end
 
     # Idempotent: ensures build/<plat>/<pkg>/ exists and is up-to-date with
@@ -99,12 +102,15 @@ module Rulepack
       # Apply Schema Engine to .md files.
       apply_schema_engine_to_directory(build_pkg_dir, tgt, platforms, tgt[:format])
 
-      # Write manifest.json with source_sha256 so subsequent materialization
-      # can detect staleness cheaply.
+      # Write manifest.json with source_sha256 and skill_exclude so subsequent
+      # materialization can detect staleness cheaply.
       manifest_data = Rulepack::Common.generate_skill_bundle_manifest(
-        build_pkg_dir, pkgname, platform_id
+        build_pkg_dir, pkgname, platform_id, skill_exclude: pkg_index[:skill_exclude]
       )
       manifest_data['source_sha256'] = pkg_index[:source_sha256]
+      # Persist the exclusion list so materialization_up_to_date? can detect a
+      # PKGBUILD skill_exclude edit at an unchanged source commit (nil-safe).
+      manifest_data['skill_exclude'] = pkg_index[:skill_exclude]
       manifest_data['generated_at'] = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
       manifest_path = build_pkg_dir.join('manifest.json')
       manifest_path.write(JSON.pretty_generate(manifest_data))

@@ -24,8 +24,19 @@ class TestProcessorLoader < Minitest::Test
   end
 
   def test_load_custom_rejects_path_outside_repo
-    assert_raises(Rulepack::SecurityError) do
-      Rulepack::ProcessorLoader.load_custom('custom:/etc/passwd', kind: :translator)
+    root = Rulepack::Common::RULEPACK_ROOT.realpath
+    home = Pathname.new(Rulepack::Path.expand_user_path('~')).realpath
+    skip 'home dir is inside the repo root; outside-repo rejection not testable here' if home.to_s.start_with?(root.to_s + File::SEPARATOR) || home == root
+
+    fname = "rulepack_outside_test_#{Process.pid}.rb"
+    outside = home.join(fname)
+    outside.write('# fixture for outside-repo rejection')
+    begin
+      assert_raises(Rulepack::SecurityError) do
+        Rulepack::ProcessorLoader.load_custom("custom:~/#{fname}", kind: :translator)
+      end
+    ensure
+      outside.unlink if outside.exist?
     end
   end
 

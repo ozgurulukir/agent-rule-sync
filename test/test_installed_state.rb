@@ -335,4 +335,36 @@ class TestInstalledState < Minitest::Test
     verdict = check({}, target: { platform: 'testplat', format: 'skill-bundle', output: '.' })
     assert_equal 'test-pkg: missing: gone.md', verdict.to_error_s('test-pkg')
   end
+
+  def test_skill_bundle_nested_file_paths
+    # Set up a bundle with nested file paths (e.g. engineering/ask-matt/SKILL.md
+    # and engineering/ask-matt/agents/openai.yaml).
+    bundle = Rulepack::Common.resolve_install_path(@platform_cfg,
+                                                   { platform: 'testplat', format: 'skill-bundle', output: '.' },
+                                                   @base_path)
+    bundle.mkpath
+
+    # Create nested sub-skill directory with files at multiple depths
+    sub_dir = bundle.join('engineering', 'ask-matt')
+    sub_dir.mkpath
+    agents_dir = sub_dir.join('agents')
+    agents_dir.mkpath
+    (sub_dir / 'SKILL.md').write('# Ask Matt Skill')
+    (agents_dir / 'openai.yaml').write('openai: config')
+
+    # Create manifest with nested file paths relative to bundle root.
+    # check_skill_bundle uses bundle_path.join(rel_path) for each file key.
+    make_bundle([{ 'path' => 'engineering/ask-matt',
+                   'files' => {
+                     'engineering/ask-matt/SKILL.md' => Digest::SHA256.hexdigest('# Ask Matt Skill'),
+                     'engineering/ask-matt/agents/openai.yaml' => Digest::SHA256.hexdigest('openai: config')
+                   } } ])
+
+    verdict = check({}, target: { platform: 'testplat', format: 'skill-bundle', output: '.' })
+  assert_predicate verdict, :ok?
+  assert_equal 2, verdict.files.size
+  assert_match /engineering\/ask-matt\/SKILL\.md/, verdict.files.first[:path]
+  assert_match /engineering\/ask-matt\/agents\/openai\.yaml/, verdict.files.map { |f| f[:path] }.join('; ')
+  assert_match /skill-bundle, 1 sub-skill\(s\), 2 file\(s\)/, verdict.messages.first
+  end
 end

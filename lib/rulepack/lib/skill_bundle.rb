@@ -29,8 +29,20 @@ module Rulepack
       # build/<plat>/<pkg>/. Materialize lazily from pkgdata[:source_dir].
       unless build_src_dir.exist? && build_src_dir.directory?
         if dry_run
-          # In dry-run we don't materialize; report what would happen.
-          Rulepack::Common.log "    [DRY-RUN] Would materialize #{pkgname} from source for #{platform_id}" unless quiet
+          source_dir = pkgdata[:source_dir]
+          if source_dir && Pathname.new(source_dir).directory?
+            # Compute sub-skills for dry-run reporting (pure, no writes).
+            sub_skills = Rulepack::Common.skill_bundle_sub_skills(
+              source_dir, skill_exclude: pkgdata[:skill_exclude] || []
+            )
+            sub_skills.each do |ss|
+              unless quiet
+                Rulepack::Common.log "    [DRY-RUN] Would copy sub-skill: #{ss['path']}"
+              end
+            end
+          else
+            Rulepack::Common.log "    [DRY-RUN] Would materialize #{pkgname} from source for #{platform_id}" unless quiet
+          end
           return false
         end
 
@@ -168,12 +180,13 @@ module Rulepack
             FileUtils.cp(src_file, dst_file)
           end
           Rulepack::Common.log "    ✓ Copied sub-skill: . (#{files.size} file(s))" unless quiet
-        else
-          src_sub = build_src_dir.join(ss['path'])
-          dst_sub = dest_dir.join(ss['path'])
-          FileUtils.cp_r(src_sub, dst_sub)
-          Rulepack::Common.log "    ✓ Copied sub-skill: #{ss['path']}" unless quiet
-        end
+      else
+        src_sub = build_src_dir.join(ss['path'])
+        dst_sub = dest_dir.join(ss['path'])
+        FileUtils.mkpath(dst_sub.parent)
+        FileUtils.cp_r(src_sub, dst_sub)
+        Rulepack::Common.log "    ✓ Copied sub-skill: #{ss['path']}" unless quiet
+      end
       end
       :copied
     rescue StandardError => e

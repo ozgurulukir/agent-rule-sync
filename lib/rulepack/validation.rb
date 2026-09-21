@@ -41,6 +41,7 @@ module Rulepack
       validate_descriptive_fields(pkg, errors)
       validate_pkg_type_field(pkg, errors)
       validate_source_entries(pkg, errors)
+      validate_skill_exclude(pkg, errors)
       validate_target_entries(pkg, errors)
       errors.empty? || errors.join('; ')
     end
@@ -98,6 +99,30 @@ module Rulepack
           errors << "source[#{i}] git depth must be integer" if src.key?(:depth) && !src[:depth].is_a?(Integer)
         else
           errors << "source[#{i}] unknown type: #{src[:type]}"
+        end
+      end
+    end
+
+    # Validate skill_exclude field — must be an array of non-empty strings,
+    # reject entries containing '..' (path traversal) and absolute paths.
+    def validate_skill_exclude(pkg, errors)
+      return unless pkg.skill_exclude.is_a?(Array)
+
+      pkg.skill_exclude.each_with_index do |entry, i|
+        next if entry.is_a?(String) && !entry.empty?
+
+        errors << "skill_exclude[#{i}] must be a non-empty string"
+      end
+
+      # Reject path traversal and absolute paths
+      pkg.skill_exclude.each_with_index do |entry, i|
+        next unless entry.is_a?(String)
+
+        if entry.include?('..')
+          errors << "skill_exclude[#{i}] must not contain '..' (path traversal not allowed)"
+        end
+        if Pathname.new(entry).absolute?
+          errors << "skill_exclude[#{i}] must not be an absolute path"
         end
       end
     end
@@ -176,6 +201,13 @@ module Rulepack
 
       data[:source].each do |src|
         raise Rulepack::InvalidPkgbuild, "Invalid source entry: #{src.inspect}" unless src[:type] && (src[:path] || src[:url])
+      end
+
+      # Normalize skill_exclude: strip trailing /, drop empties.
+      # Kept as an Array (possibly empty) — never nil — so downstream
+      # consumers (Package.from_hash, BuildRecord) see a stable shape.
+      if data.key?(:skill_exclude) && data[:skill_exclude].is_a?(Array)
+        data[:skill_exclude] = data[:skill_exclude].map { |e| e.to_s.sub(/\/$/, '') }.reject(&:empty?)
       end
 
       # Validate targets array (optional — auto-expanded when omitted)

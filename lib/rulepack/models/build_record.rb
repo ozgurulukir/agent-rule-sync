@@ -14,7 +14,7 @@ module Rulepack
     :pkgver, :pkgrel, :epoch, :pkgdesc, :pkg_type, :order,
     :dependencies, :conflicts, :provides, :tags,
     :targets, :available_targets, :checksums,
-    :source_dir, :source_sha256
+    :source_dir, :source_sha256, :skill_exclude
   )
     # rubocop:disable Lint/StructNewOverride
 
@@ -30,7 +30,8 @@ module Rulepack
         targets: package.targets || [],
         available_targets: [],
         checksums: { source: nil, built: {} },
-        source_dir: nil, source_sha256: nil
+        source_dir: nil, source_sha256: nil,
+        skill_exclude: package.skill_exclude
       )
       record
     end
@@ -81,6 +82,7 @@ module Rulepack
       }
       h[:source_dir] = source_dir if source_dir
       h[:source_sha256] = source_sha256 if source_sha256
+      h[:skill_exclude] = skill_exclude if !skill_exclude.nil? && !skill_exclude.empty?
       h
     end
   end

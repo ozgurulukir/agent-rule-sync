@@ -213,12 +213,177 @@ class TestLoadPkgbuild < Minitest::Test
           transformer: copy
           install:
             type: copy
-            target_dir: my-bundle/
+            target_dir: bundle/
     YAML
 
     data = Rulepack::Validation.load_pkgbuild(@pkgdir)
     assert_equal 'my-bundle', data[:pkgname]
     assert_equal '.', data[:targets].first[:output]
+  end
+
+  def test_skill_exclude_absent_is_valid
+    # Absent skill_exclude field should be valid (defaults to empty array)
+    write_pkgbuild(<<~YAML)
+      ---
+      pkgname: my-pkg
+      pkgver: '1.0.0'
+      pkgrel: 1
+      epoch: 0
+      pkgdesc: Test package
+      arch: any
+      pkg_type: skill
+      order: 0
+      source:
+        - type: local
+          path: src/file.md
+      targets:
+        - platform: opencode
+          format: directory
+          output: file.md
+    YAML
+
+    data = Rulepack::Validation.load_pkgbuild(@pkgdir)
+    assert_nil data[:skill_exclude], 'skill_exclude should default to nil when absent'
+  end
+
+  def test_skill_exclude_empty_array_is_valid
+    # Empty skill_exclude array should be valid
+    write_pkgbuild(<<~YAML)
+      ---
+      pkgname: my-pkg
+      pkgver: '1.0.0'
+      pkgrel: 1
+      epoch: 0
+      pkgdesc: Test package
+      arch: any
+      pkg_type: skill
+      order: 0
+      source:
+        - type: local
+          path: src/file.md
+      targets:
+        - platform: opencode
+          format: directory
+          output: file.md
+      skill_exclude: []
+    YAML
+
+    data = Rulepack::Validation.load_pkgbuild(@pkgdir)
+    assert_equal [], data[:skill_exclude], 'skill_exclude should be empty array'
+  end
+
+  def test_skill_exclude_with_valid_entries
+    # Valid skill_exclude entries should be accepted
+    write_pkgbuild(<<~YAML)
+      ---
+      pkgname: my-pkg
+      pkgver: '1.0.0'
+      pkgrel: 1
+      epoch: 0
+      pkgdesc: Test package
+      arch: any
+      pkg_type: skill
+      order: 0
+      source:
+        - type: local
+          path: src/file.md
+      targets:
+        - platform: opencode
+          format: directory
+          output: file.md
+      skill_exclude:
+        - in-progress
+        - deprecated
+    YAML
+
+    data = Rulepack::Validation.load_pkgbuild(@pkgdir)
+    assert_equal ['in-progress', 'deprecated'], data[:skill_exclude], 'skill_exclude should match'
+  end
+
+  def test_skill_exclude_traversal_rejected
+    # skill_exclude entries containing '..' should be rejected
+    write_pkgbuild(<<~YAML)
+      ---
+      pkgname: my-pkg
+      pkgver: '1.0.0'
+      pkgrel: 1
+      epoch: 0
+      pkgdesc: Test package
+      arch: any
+      pkg_type: skill
+      order: 0
+      source:
+        - type: local
+          path: src/file.md
+      targets:
+        - platform: opencode
+          format: directory
+          output: file.md
+      skill_exclude:
+        - ../etc/passwd
+    YAML
+
+    data = Rulepack::Validation.load_pkgbuild(@pkgdir)
+    result = Rulepack::Validation.validate_pkgbuild(data, @pkgdir)
+    refute_equal true, result, 'skill_exclude containing .. should be rejected'
+    assert_match(/skill_exclude.*\.\./, result)
+  end
+
+  def test_skill_exclude_absolute_rejected
+    # skill_exclude entries that are absolute paths should be rejected
+    write_pkgbuild(<<~YAML)
+      ---
+      pkgname: my-pkg
+      pkgver: '1.0.0'
+      pkgrel: 1
+      epoch: 0
+      pkgdesc: Test package
+      arch: any
+      pkg_type: skill
+      order: 0
+      source:
+        - type: local
+          path: src/file.md
+      targets:
+        - platform: opencode
+          format: directory
+          output: file.md
+      skill_exclude:
+        - /etc/passwd
+    YAML
+
+    data = Rulepack::Validation.load_pkgbuild(@pkgdir)
+    result = Rulepack::Validation.validate_pkgbuild(data, @pkgdir)
+    refute_equal true, result, 'skill_exclude with an absolute path should be rejected'
+    assert_match(/skill_exclude.*absolute/, result)
+  end
+
+  def test_skill_exclude_trailing_slash_stripped
+    # skill_exclude entries with trailing / should have it stripped;
+    # in-progress/ becomes in-progress (non-empty, kept).
+    write_pkgbuild(<<~YAML)
+      ---
+      pkgname: my-pkg
+      pkgver: '1.0.0'
+      pkgrel: 1
+      epoch: 0
+      pkgdesc: Test package
+      arch: any
+      pkg_type: skill
+      order: 0
+      source:
+        - type: local
+          path: src/file.md
+      targets:
+        - platform: opencode
+          format: directory
+          output: file.md
+      skill_exclude:
+        - in-progress/
+    YAML
+
+    data = Rulepack::Validation.load_pkgbuild(@pkgdir)
+    assert_equal ['in-progress'], data[:skill_exclude], 'skill_exclude trailing / should be stripped'
   end
 end
 

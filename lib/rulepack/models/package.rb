@@ -8,13 +8,18 @@ module Rulepack
   class Package < Data.define(
     :pkgname, :pkgver, :pkgrel, :epoch, :pkgdesc, :pkg_type, :order,
     :arch, :source, :targets, :dependencies, :conflicts, :provides,
-    :tags, :pkgver_func, :output
+    :tags, :pkgver_func, :output, :skill_exclude
   )
     # rubocop:disable Lint/StructNewOverride
 
     VALID_TYPES = %w[rule skill skill-bundle agent hybrid].freeze
 
     def self.from_hash(hash)
+      exclude = hash.fetch(:skill_exclude, [])
+      # Normalize: to_s, strip trailing /, drop empties.
+      # Always an Array (possibly empty) so #to_h can call #empty? safely.
+      skill_exclude = exclude.map { |e| e.to_s.sub(/\/$/, '') }.reject(&:empty?)
+
       new(
         pkgname:       hash[:pkgname],
         pkgver:        hash[:pkgver],
@@ -31,7 +36,8 @@ module Rulepack
         provides:      hash.fetch(:provides, []),
         tags:          hash.fetch(:tags, []),
         pkgver_func:   hash[:pkgver_func],
-        output:        hash[:output]
+        output:        hash[:output],
+        skill_exclude: skill_exclude
       )
     end
 
@@ -45,6 +51,7 @@ module Rulepack
       h[:targets] = targets if targets
       h[:pkgver_func] = pkgver_func if pkgver_func
       h[:output] = output if output
+      h[:skill_exclude] = skill_exclude if skill_exclude && !skill_exclude.empty?
       h
     end
 

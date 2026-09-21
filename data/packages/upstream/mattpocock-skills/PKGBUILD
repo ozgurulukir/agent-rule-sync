@@ -1,0 +1,38 @@
+---
+pkgname: mattpocock-skills
+pkgver: '2026.09'
+pkgrel: 1
+epoch: 0
+pkgdesc: Skills collection by Matt Pocock — 29 stable skills for coding agents
+arch: any
+pkg_type: skill
+order: 30
+
+source:
+- type: git
+  url: https://github.com/mattpocock/skills.git
+  ref: main
+  path: skills/
+  depth: 1
+
+skill_exclude:
+  - in-progress
+  - deprecated
+
+pkgver_func: "git log -1 --format=%cd --date=short 2>/dev/null | tr -d '-' || date +%Y.%m.%d"
+
+provides:
+  - engineering
+  - misc
+  - productivity
+
+tags:
+  - mattpocock
+  - skills
+  - engineering
+  - misc
+  - productivity
+  - stable
+
+maintainer: Matt Pocock
+license: MIT
