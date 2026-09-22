@@ -1655,14 +1655,14 @@ end
 | P-AH | ⚪ LOW | `resolve_directory_path` missing type guard | ✅ COMPLETED |
 | P-AI | ⚪ LOW | `install_helpers.rb` pure pass-through | ✅ COMPLETED |
 | P-AJ | ⚪ LOW | `build_index_path=` no type validation | ✅ COMPLETED |
-| P-AK | 🔴 HIGH | Schema Engine for skill-bundle/agent directory builds | PARTIALLY STALE (2026-09-19): `SkillBundleLazy.ensure_materialized!` runs the agent translator + SchemaEngine per file at install/verify time; residual gap is only that post-build no normalized artifact exists (normalization latency moved to first install) |
-| P-AL | 🔴 HIGH | Dependency resolution engine (provides/dependencies) | OPEN |
-| P-AM | 🔴 HIGH | JSON/YAML surgical merge install handler | ✅ IMPLEMENTED (handlers exist at `install_handlers.rb` do_json_merge/do_yaml_merge) — **test gap**: no handler tests; no key-scoped `merge_path` |
+| P-AK | 🔴 HIGH | Schema Engine for skill-bundle/agent directory builds | ✅ CLOSED — RESOLVED-BY-DESIGN (2026-09-22): `lib/rulepack/lib/skill_bundle_lazy.rb:159` applies SchemaEngine per file at materialization; the "no post-build normalized artifact" residual is the accepted ADR-2026-07-29 tradeoff (build/ −96.5%), not debt |
+| P-AL | 🔴 HIGH | Dependency resolution engine (provides/dependencies) | ✅ CLOSED — DEFERRED (YAGNI, 2026-09-22): static-content installer has no install-ordering semantics; `dependencies:` is declared by 1/18 packages, `provides:` is informational-only, and append/inject order is already governed by the `order:` field. Reopen trigger + minimal slice documented in the Re-scope section below |
+| P-AM | 🔴 HIGH | JSON/YAML surgical merge install handler | ✅ CLOSED (2026-09-22): smoke tests added for `do_json_merge`/`do_yaml_merge` (merge semantics, backup+journal, Transaction rollback, error paths); `merge_path` dropped (YAGNI, 0 consumers) |
 | P-AN | 🟠 MEDIUM | Structured inject handler for config files | ✅ IMPLEMENTED + tested (`do_structured_inject`) |
 | P-AO | 🟡 MEDIUM | Hybrid pkg_type support in FORMAT_MAP | ✅ COMPLETED (verified at HEAD 2026-09-19: `build_loader.rb` FORMAT_MAP hybrid rows, `models/package.rb` VALID_TYPES, hybrid-without-targets raises) |
 | P-AP | 🟡 MEDIUM | Platform format_profile validation on load | ✅ COMPLETED (verified at HEAD 2026-09-19: `platforms.rb` validate_format_profile warns on unknown keys; warn-only, not an error) |
 | P-AQ | 🟠 HIGH | Index store ownership: InstalledIndex/BuildIndex + paths-seam leaks | ✅ COMPLETED (2026-09-19) — see below |
-| P-AR | 🟡 MEDIUM | Silent partial failures found during the 2026-09-19 review (pre-existing shapes, deliberately deferred) | OPEN — (a) uninstall skips packages absent from the build index with exit 0 (`uninstaller.rb` uninstall_single_package → nil); (b) catalog-generation and post-uninstall vendor re-aggregation failures never affect exit codes (`build_writer.rb#generate_catalog`, `uninstaller.rb#reaggregate_vendor_skills`); (c) `bump.rb#invoke_build` removes the build index before `Build.run` and ignores both Results — a failed rebuild leaves no build index; (d) `Common.backup_file` anchors journal backups at the repo `RULEPACK_ROOT` rather than the scoped Paths |
+| P-AR | 🟡 MEDIUM | Silent partial failures found during the 2026-09-19 review (pre-existing shapes, deliberately deferred) | OPEN — **(c) ✅ FIXED 2026-09-22**: `BuildIndex.backup/restore/cleanup_backups` added (backup stored under the scoped root, outside the `build/` wipe); `Bump.invoke_build` is exception-safe and the rebuild Result now downgrades bump's status to `:failure` (exit 1). Remaining: (a) uninstall skips packages absent from the build index with exit 0 (`uninstaller.rb` uninstall_single_package → nil); (b) catalog-generation and post-uninstall vendor re-aggregation failures never affect exit codes (`build_writer.rb#generate_catalog`, `uninstaller.rb#reaggregate_vendor_skills`); (c) `bump.rb#invoke_build` removes the build index before `Build.run` and ignores both Results — a failed rebuild leaves no build index; (d) `Common.backup_file` anchors journal backups at the repo `RULEPACK_ROOT` rather than the scoped Paths |
 | ADR-2026-07-29 | 🟠 HIGH | Source-centric build: lazy install-time skill-bundle materialization (build/ 1.3 GB → 46 MB, −96.5%) | ✅ PHASE 1 COMPLETED / PHASE 2 DEFERRED (YAGNI) |
 
 ---
@@ -1673,11 +1673,11 @@ end
 |---|---|---|---|---|
 | 1 | Upstream/local sources | 9/10 | 9/10 | (already met) |
 | 2 | Content as skills/rules (pkg_type) | 8.5/10 | 9/10 | ✅ P-AO completed (2026-09-19) |
-| 3 | Universal canonical format + aliases | 7.5/10 | 9/10 | P-AL |
-| 4 | Schema Engine drives formatting | 8/10 | 9/10 | P-AK (partially stale — see table) |
+| 3 | Universal canonical format + aliases | 7.5/10 | 9/10 | P-AL deferred (YAGNI, 2026-09-22) — score accepted as-is until a real use case appears |
+| 4 | Schema Engine drives formatting | 8/10 | 9/10 | ✅ P-AK closed 2026-09-22 (resolved by lazy-materialization design) |
 | 5 | Symlink/copy install | 9.5/10 | 9.5/10 | (already met) |
 | 6 | Append/inject (marker-based) | 9/10 | 9.5/10 | ✅ P-AN implemented |
-| 7 | Surgical JSON/YAML config injection | 3/10 → 8/10 | 9/10 | P-AM implemented; remaining: handler tests + key-scoped merge |
+| 7 | Surgical JSON/YAML config injection | 3/10 → 8/10 | 9/10 | ✅ P-AM closed 2026-09-22 (handler smoke tests added; `merge_path` dropped as YAGNI) |
 
 ---
 
@@ -1691,6 +1691,40 @@ Deepening scan (`/feature-dev` + improve-codebase-architecture) verified and clo
 Review hardening (same date): corrupt (empty) index files raise typed `IndexCorrupt`/`BuildIndexCorrupt` instead of reading as fresh; `SchemaMigration.migrate!` refuses future/non-numeric versions with typed errors; `fix_drift` propagates install errors and tolerates data-less failure Results; `cleanup_backups` logs per-file failures instead of `rescue nil`.
 
 Test gate: `rake test` 501 runs / 1534 assertions / 1 pre-existing Windows-only failure (`test_processor_loader` `/etc/passwd` path resolution), `audit --strict` 18/18.
+
+---
+
+## 🔁 Re-scope Review (2026-09-22) — debt vs. real usage
+
+**Source**: User-requested review-rescope of the remaining OPEN items, on the thesis that a dependency-resolution engine exceeds the scope of a static-content installer.
+**Method**: every OPEN item re-verified at HEAD by direct source inspection plus usage greps over `data/`. All four P-AR sub-items confirmed still valid (see below).
+
+### Usage evidence (greps at HEAD)
+
+| Feature | Declared/used in `data/` | Verdict |
+|---|---|---|
+| `dependencies:` | 1/18 packages (`ruby-update-signatures` → `ruby-agent-skills`) | informational only today |
+| `provides:` | ~14 packages | informational only (`query show` prints it) |
+| `install type: json_merge` | 0 packages | implemented, unused |
+| `install type: yaml_merge` | 0 packages | implemented, unused |
+| `install type: structured_inject` | 0 packages | implemented, unused |
+
+### Decisions
+
+| ID | Old status | New status | Rationale |
+|---|---|---|---|
+| P-AL | OPEN (HIGH) | **CLOSED — DEFERRED (YAGNI)** | Dependency ordering solves a problem this installer does not have: packages are independent static files with no runtime linking and no shared-file interaction, and append/inject ordering is already governed by the existing `order:` field. A TSort resolver + virtual-package resolution + install ordering is speculative generality. **Reopen trigger**: a real package pair where install order changes the on-disk outcome. **Minimal slice if reopened**: an audit-time warning when a declared dependency does not resolve to a known package (~10 lines in validation/audit) — not a resolver. |
+| P-AK | PARTIALLY STALE | **CLOSED — RESOLVED-BY-DESIGN** | `lib/rulepack/lib/skill_bundle_lazy.rb:159` applies SchemaEngine per file at materialization time; the only residual is "no normalized artifact exists post-build", which is the accepted ADR-2026-07-29 tradeoff (build/ −96.5%), not debt. |
+| P-AM | OPEN (no tests, no `merge_path`) | **OPEN — NARROWED** | `merge_path` is dropped: zero consumers in `data/`, so key-scoped merging is YAGNI. The remaining scope is 2 smoke tests (one `json_merge`, one `yaml_merge`, including the rollback backup) — these handlers rewrite user config files, so leaving them untested is the one part of the descope that is not safe. |
+| P-AR | OPEN | **OPEN — RE-PRIORITIZED** | All four sub-items re-verified at HEAD (below). New order: **(c) HIGH** — the only data-loss path; **(a)(b) MEDIUM** — wrong exit codes break scripting; **(d) LOW** — impact limited to relocated-`Paths` scenarios (E2E sandboxes copy the tree, so `RULEPACK_ROOT` resolves inside the sandbox). |
+| LocalCatalog injection seam (AGENTS.md inline note) | noted as debt | **ACCEPTED AS-IS** | No consumer needs constructor-injected paths today; all real call paths resolve through scoped `Common.paths`. Adding the seam now would be a wider refactor with zero callers. |
+
+### P-AR re-verification (2026-09-22)
+
+- **(a)** `uninstaller.rb:249-251` — package missing from build index → `log_error` + `return nil`; caller drops it (`uninstalled << result if result`, line 226) → exit 0. ✅ still valid
+- **(b)** `build_writer.rb:26-33` (`generate_catalog` rescues → log only) and `uninstaller.rb:203-211` (`reaggregate_vendor_skills` rescues → progress event only); neither affects exit codes. ✅ still valid
+- **(c)** `bump.rb:326-330` — `BuildIndex.remove` runs before `BuildAll.run` and the Result is ignored; a failed rebuild leaves the repo with no build index. ✅ still valid
+- **(d)** `backup.rb:21` — `RULEPACK_ROOT.join('data', 'backups', ...)`; 10+ call sites across `install_execute.rb`, `uninstaller.rb`, `lib/install_handlers.rb`. ✅ still valid
 
 ---
 
