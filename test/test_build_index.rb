@@ -108,6 +108,54 @@ class TestBuildIndex < Minitest::Test
     end
   end
 
+  # ─── Backup / restore / cleanup ───────────────────────────────────────────────
+
+  def test_backup_returns_nil_when_no_index_exists
+    in_scope do
+      assert_nil Rulepack::BuildIndex.backup
+    end
+  end
+
+  def test_backup_copies_the_index_under_the_scoped_root
+    write_build_index({ version: 3.0, packages: { memory: { pkgname: 'memory' } } })
+    in_scope do
+      backup = Rulepack::BuildIndex.backup
+      assert backup.exist?
+      assert_match(/index\.yaml\.bak\.\d+\z/, backup.basename.to_s)
+      refute backup.to_s.start_with?(@build_dir.to_s),
+             'the backup must live outside build/ — Build.run wipes that directory on rebuild'
+      assert_equal({ version: 3.0, packages: { memory: { pkgname: 'memory' } } }, Rulepack::IO.load_yaml(backup))
+    end
+  end
+
+  def test_restore_puts_the_backup_back
+    write_build_index({ version: 3.0, packages: { memory: { pkgname: 'memory' } } })
+    in_scope do
+      backup = Rulepack::BuildIndex.backup
+      assert Rulepack::BuildIndex.remove
+      assert Rulepack::BuildIndex.restore(backup)
+      assert_equal 'memory', Rulepack::BuildIndex.load[:packages][:memory][:pkgname]
+    end
+  end
+
+  def test_restore_is_false_for_a_missing_backup
+    in_scope do
+      refute Rulepack::BuildIndex.restore(nil)
+      refute Rulepack::BuildIndex.restore(@build_dir.join('index.yaml.bak.999'))
+    end
+  end
+
+  def test_cleanup_backups_removes_all_backups
+    write_build_index({ version: 3.0, packages: {} })
+    in_scope do
+      Rulepack::BuildIndex.backup
+      Rulepack::BuildIndex.backup
+      assert_equal 2, Pathname.glob((@root / 'index.yaml.bak.*').to_s).count
+      assert Rulepack::BuildIndex.cleanup_backups
+      assert_empty Pathname.glob((@root / 'index.yaml.bak.*').to_s)
+    end
+  end
+
   # ─── Scope override ───────────────────────────────────────────────────────────
 
   def test_scope_override_redirects_the_store

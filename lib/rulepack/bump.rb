@@ -20,11 +20,13 @@ module Rulepack
     end
 
     # Returns a Rulepack::Result:
-    #   status: :failure if any upstream check errored, :partial if any
-    #   package changed upstream, else :success (→ exit 1/1/0 via the CLI's
-    #   unified rule).
+    #   status: :failure if any upstream check errored or the post-apply
+    #   rebuild failed, :partial if any package changed upstream, else
+    #   :success (→ exit 1/1/0 via the CLI's unified rule).
     #   data: { bump: { packages:, summary: } } for --format json/yaml.
-    #   messages: the human report (verbatim former print_report output).
+    #   messages: the human report (verbatim former print_report output)
+    #   plus the rebuild's narration; a failed rebuild also surfaces its
+    #   errors (with the build-index recovery guidance) in errors.
     # options come from the CLI spine's single CliParser parse (--apply,
     # package_name positional).
     def run_unscoped(options = {})
@@ -45,16 +47,15 @@ module Rulepack
       results = check_upstream(packages)
       messages = build_report_messages(results)
 
-      if options[:apply]
-        apply_changes(results, packages)
-      end
+      # nil when there was nothing to apply, otherwise the rebuild Result.
+      rebuild_result = options[:apply] ? apply_changes(results, packages) : nil
 
       changed = results.count { |_, r| r[:status] == :changed }
       current = results.count { |_, r| r[:status] == :current }
       unknown = results.count { |_, r| r[:status] == :unknown }
       errors = results.count { |_, r| r[:status] == :error }
 
-      status = if errors.positive?
+      status = if errors.positive? || rebuild_result&.failure?
                  :failure
                elsif changed.positive?
                  :partial
@@ -71,7 +72,8 @@ module Rulepack
             applied: options[:apply]
           }
         },
-        messages: messages
+        errors: rebuild_result ? rebuild_result.errors : [],
+        messages: messages + (rebuild_result ? rebuild_result.messages : [])
       )
     end
 
@@ -245,7 +247,6 @@ module Rulepack
       puts "\n  Rebuilding changed packages..."
       invoke_build
     end
-
     def compute_new_version(info, _result)
       if info[:pkgver_func]
         run_pkgver_func(info)
@@ -323,10 +324,38 @@ module Rulepack
       FileUtils.rm_rf(new_cache) if new_cache.exist?
     end
 
+    # Rebuild after applying version bumps. Build.run wipes build/ and only
+    # writes the new index at the very end, so a failed rebuild would leave
+    # no build index at all — back the old one up first and restore it on
+    # failure, whether that failure is a failure Result or a raised
+    # exception. Returns the BuildAll Result either way; exceptions are
+    # recovered around, then re-raised — never suppressed.
     def invoke_build
-      Rulepack::BuildIndex.remove
+      backup_path = Rulepack::BuildIndex.backup
 
-      Rulepack::BuildAll.run
+      result = Rulepack::BuildAll.run
+
+      if result.failure?
+        guidance = if Rulepack::BuildIndex.restore(backup_path)
+                     FileUtils.rm_f(backup_path)
+                     'build/index.yaml restored from backup; build/ artifacts are stale — run `rulepack build` to recover.'
+                   else
+                     'no build index backup existed — run `rulepack build` to regenerate build/index.yaml.'
+                   end
+        return Rulepack::Result.new(
+          status: :failure,
+          data: result.data,
+          errors: result.errors + [guidance],
+          messages: result.messages + ["Rebuild failed. #{guidance}"],
+          view: :build
+        )
+      end
+
+      Rulepack::BuildIndex.cleanup_backups
+      result
+    rescue StandardError
+      Rulepack::BuildIndex.restore(backup_path)
+      raise
     end
   end
 end

@@ -2,6 +2,7 @@
 
 require 'helper'
 require 'rulepack/bump'
+require 'rulepack/build_all'
 require 'rulepack/cli_parser'
 
 class TestBump < Minitest::Test
@@ -113,6 +114,123 @@ class TestBump < Minitest::Test
     assert_equal 42, result['num']
     assert_equal true, result['flag']
     assert_equal 'ok', result['text']
+  end
+
+  def test_invoke_build_restores_index_when_rebuild_fails
+    with_tmpdir do |dir|
+      index_path = dir.join('build', 'index.yaml')
+      index_path.parent.mkpath
+      index_path.write({ version: 3.0, packages: { 'pkg' => { source_sha256: 'keep' } } }.to_yaml)
+
+      failure = Rulepack::Result.new(status: :failure, errors: ['build exploded'])
+      result = Rulepack::Common.with_paths(Rulepack::Paths.new(root: dir, build_dir: dir.join('build'))) do
+        Rulepack::BuildAll.stub(:run, failure) { Rulepack::Bump.invoke_build }
+      end
+
+      assert result.failure?, 'a failed rebuild must surface as a failure Result'
+      assert_includes result.errors.join(' '), 'restored from backup'
+      assert_includes result.errors.join(' '), 'rulepack build'
+      assert index_path.exist?, 'the old build index must survive a failed rebuild'
+      assert_includes index_path.read, 'keep'
+    end
+  end
+
+  def test_invoke_build_backup_survives_the_build_dir_wipe
+    with_tmpdir do |dir|
+      index_path = dir.join('build', 'index.yaml')
+      index_path.parent.mkpath
+      index_path.write({ version: 3.0, packages: { 'pkg' => { source_sha256: 'keep' } } }.to_yaml)
+
+      # Simulate what the real Build.run does on failure: wipe build/ (where
+      # the index lived) before reporting failure. A backup stored inside
+      # build/ could not survive this — regression guard for P-AR(c).
+      wipe_and_fail = lambda do
+        FileUtils.rm_rf(dir.join('build'))
+        Rulepack::Result.new(status: :failure, errors: ['build exploded'])
+      end
+      result = Rulepack::Common.with_paths(Rulepack::Paths.new(root: dir, build_dir: dir.join('build'))) do
+        Rulepack::BuildAll.stub(:run, wipe_and_fail) { Rulepack::Bump.invoke_build }
+      end
+
+      assert result.failure?
+      assert_includes result.errors.join(' '), 'restored from backup'
+      assert index_path.exist?, 'the index must be restored from a backup that survived the wipe'
+      assert_includes index_path.read, 'keep'
+    end
+  end
+
+  def test_invoke_build_re_raises_and_restores_when_rebuild_raises
+    with_tmpdir do |dir|
+      index_path = dir.join('build', 'index.yaml')
+      index_path.parent.mkpath
+      index_path.write({ version: 3.0, packages: { 'pkg' => { source_sha256: 'keep' } } }.to_yaml)
+
+      Rulepack::Common.with_paths(Rulepack::Paths.new(root: dir, build_dir: dir.join('build'))) do
+        Rulepack::BuildAll.stub(:run, lambda { raise RuntimeError, 'kaboom' }) do
+          assert_raises(RuntimeError) { Rulepack::Bump.invoke_build }
+        end
+      end
+
+      assert index_path.exist?, 'an exception mid-rebuild must still restore the old index'
+      assert_includes index_path.read, 'keep'
+    end
+  end
+
+  def test_invoke_build_without_prior_index_reports_build_guidance
+    with_tmpdir do |dir|
+      failure = Rulepack::Result.new(status: :failure, errors: ['build exploded'])
+      result = Rulepack::Common.with_paths(Rulepack::Paths.new(root: dir, build_dir: dir.join('build'))) do
+        Rulepack::BuildAll.stub(:run, failure) { Rulepack::Bump.invoke_build }
+      end
+
+      assert result.failure?
+      assert_includes result.errors.join(' '), 'no build index backup existed'
+    end
+  end
+
+  def test_invoke_build_returns_build_result_and_cleans_backups
+    with_tmpdir do |dir|
+      index_path = dir.join('build', 'index.yaml')
+      index_path.parent.mkpath
+      index_path.write({ version: 3.0, packages: {} }.to_yaml)
+
+      success = Rulepack::Result.new(status: :success, data: { packages_built: 3 }, view: :build)
+      result = Rulepack::Common.with_paths(Rulepack::Paths.new(root: dir, build_dir: dir.join('build'))) do
+        Rulepack::BuildAll.stub(:run, success) { Rulepack::Bump.invoke_build }
+      end
+
+      assert result.success?
+      assert_equal 3, result.data[:packages_built]
+      assert index_path.exist?
+      assert_empty Pathname.glob((dir / 'index.yaml.bak.*').to_s),
+                   'backups must be cleaned up after a successful rebuild'
+    end
+  end
+
+  def test_apply_with_failed_rebuild_downgrades_status_to_failure
+    info = { url: 'https://example.git', ref: 'main', path: '.', depth: 1,
+             pkgver: '0.1.0', pkgver_func: nil,
+             pkgbuild_path: Pathname.new('dummy'), pkg_data: {} }
+    upstream = { testpkg: { status: :changed, remote: 'a' * 40, cached: 'b' * 40, message: 'changed' } }
+    rebuild = Rulepack::Result.new(status: :failure, errors: ['boom'])
+
+    result = Rulepack::Bump.stub(:discover_git_packages, { testpkg: info }) do
+      Rulepack::Bump.stub(:check_upstream, ->(_packages) { upstream }) do
+        Rulepack::Bump.stub(:compute_new_version, '9.9.9') do
+          Rulepack::Bump.stub(:update_pkgbuild, nil) do
+            Rulepack::Bump.stub(:invalidate_cache, nil) do
+              Rulepack::Bump.stub(:invoke_build, rebuild) do
+                Rulepack::Bump.run_unscoped(apply: true)
+              end
+            end
+          end
+        end
+      end
+    end
+
+    assert_equal :failure, result.status, 'a failed rebuild must fail the bump, not exit 0'
+    assert_includes result.errors, 'boom'
+    assert result.data[:bump][:applied]
   end
 
   def test_cli_parses_apply_flag
