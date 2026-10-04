@@ -11,7 +11,6 @@
 # memoized — Query mutates the returned hash — and the store is silent.
 
 require 'fileutils'
-require 'monitor'
 require_relative 'common'
 require_relative 'schema_migration'
 
@@ -70,27 +69,15 @@ module Rulepack
     end
 
     # Returns the backup Pathname, or nil when there is nothing to back up.
-    # Stored under the scoped root, NOT next to the index: Build.run wipes
-    # the whole build/ directory at the start of a rebuild, which would
-    # destroy a sibling backup before it could ever be restored.
+    # Anchored at the scoped root, NOT next to the index: Build.run wipes the
+    # whole build/ directory at the start of a rebuild, which would destroy a
+    # sibling backup before it could ever be restored.
     def backup
-      path = Common.paths.build_index_path
-      return nil unless path.exist?
-
-      @_backup_mutex ||= Monitor.new
-      @_backup_mutex.synchronize { @_backup_counter ||= 0; @_backup_counter += 1 }
-      backup_path = Common.paths.root.join("#{path.basename}.bak.#{@_backup_counter}")
-      FileUtils.cp(path, backup_path)
-      backup_path
+      FileBackups.numbered_backup(Common.paths.build_index_path, Common.paths.root)
     end
 
     def restore(backup_path)
-      path = Common.paths.build_index_path
-      return false unless backup_path&.exist?
-
-      path.parent.mkpath
-      FileUtils.cp(backup_path, path)
-      true
+      FileBackups.restore(backup_path, Common.paths.build_index_path)
     end
 
     # Best-effort by design: a backup that cannot be deleted (AV lock, busy
@@ -98,12 +85,7 @@ module Rulepack
     # logged, not swallowed.
     def cleanup_backups
       path = Common.paths.build_index_path
-      pattern = Common.paths.root.join("#{path.basename}.bak.*")
-      Pathname.glob(pattern.to_s).each do |backup|
-        backup.delete
-      rescue Errno::EACCES, Errno::EBUSY, Errno::EPERM, Errno::ENOENT => e
-        Common.log_warn "Could not remove build-index backup #{backup}: #{e.message}"
-      end
+      FileBackups.cleanup(Common.paths.root.join("#{path.basename}.bak.*"), label: 'build-index')
       true
     end
   end

@@ -12,8 +12,9 @@ class TestInstallHandlers < Minitest::Test
 
   def teardown
     FileUtils.rm_rf(@tmpdir)
-    # backup_file anchors at the repo RULEPACK_ROOT (see P-AR(d)) — drop this
-    # test session's backups so the repo tree stays clean.
+    # These tests run unscoped, so Common.backup_file still anchors at the
+    # repo root (Paths defaults to RULEPACK_ROOT). Scoped runs keep backups
+    # inside their scope — pinned by test/test_file_backups.rb.
     FileUtils.rm_rf(Rulepack::Common::RULEPACK_ROOT.join('data', 'backups', "session-#{$$}"))
   end
 

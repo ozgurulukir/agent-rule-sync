@@ -14,7 +14,6 @@
 # models-everywhere refactor) and hand it back to #save.
 
 require 'fileutils'
-require 'monitor'
 require_relative 'common'
 require_relative 'schema_migration'
 require_relative 'models/installed_record'
@@ -79,21 +78,11 @@ module Rulepack
     # Returns the backup Pathname, or nil when there is nothing to back up.
     def backup
       path = Common.paths.index_yaml_path
-      return nil unless path.exist?
-
-      @_backup_mutex ||= Monitor.new
-      @_backup_mutex.synchronize { @_backup_counter ||= 0; @_backup_counter += 1 }
-      backup_path = path.parent.join("#{path.basename}.bak.#{@_backup_counter}")
-      FileUtils.cp(path, backup_path)
-      backup_path
+      FileBackups.numbered_backup(path, path.parent)
     end
 
     def restore(backup_path)
-      path = Common.paths.index_yaml_path
-      return false unless backup_path&.exist?
-
-      FileUtils.cp(backup_path, path)
-      true
+      FileBackups.restore(backup_path, Common.paths.index_yaml_path)
     end
 
     # Best-effort by design: a backup that cannot be deleted (AV lock, busy
@@ -101,12 +90,7 @@ module Rulepack
     # logged, not swallowed.
     def cleanup_backups
       path = Common.paths.index_yaml_path
-      pattern = path.parent.join("#{path.basename}.bak.*")
-      Pathname.glob(pattern.to_s).each do |backup|
-        backup.delete
-      rescue Errno::EACCES, Errno::EBUSY, Errno::EPERM, Errno::ENOENT => e
-        Common.log_warn "Could not remove index backup #{backup}: #{e.message}"
-      end
+      FileBackups.cleanup(path.parent.join("#{path.basename}.bak.*"), label: 'index')
       Common.cleanup_old_backups
       true
     end

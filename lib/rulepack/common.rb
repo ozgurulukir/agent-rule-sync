@@ -24,6 +24,7 @@ module Rulepack
   require_relative 'version'
   require_relative 'transform'
   require_relative 'backup'
+  require_relative 'file_backups'
   require_relative 'schema_migration'
   require_relative 'installed_index'
   require_relative 'build_index'
