@@ -70,7 +70,7 @@ graph TD
 
 ## Modular Architecture
 
-The implementation is split across ~66 Ruby files under `lib/rulepack/`. Key modules:
+The implementation is split across 77 Ruby files under `lib/` (76 under `lib/rulepack/` plus the `lib/rulepack.rb` entry point). Key modules:
 
 - `common.rb` — explicit composition root: owns `RULEPACK_ROOT`, the scoped Paths/UI contexts (`with_paths` / `with_ui`), and the remaining stateless Logging re-exports. The stateful delegators (IO/Path/Validation/InstallHelpers) were deleted — callers use the owning modules directly. No metaprogrammed flattening.
 - `paths.rb` — `Rulepack::Paths` frozen value object (root, build_dir, build_index_path, index_yaml_path); every backend entry point accepts `paths:`, tests build sandbox instances.
@@ -408,7 +408,7 @@ data/packages/
 - **Schema Profile Union**: `BuildPerPkg` computes SHA256 transform signatures (`union_key`) and caches pipeline outputs in memory. Targets sharing identical translators, schema rulesets, and transformers reuse transformed content without re-running passes.
 - **Target-scoped builds**: `bin/rulepack build -t <plat>` filters target platforms, building artifacts exclusively for active platform(s).
 - **Transactional fix**: `bin/rulepack fix` detects broken packages via `InstalledState` and reinstalls them in **one transactional `Install.run` call** with `force_packages:` — Install backs up the index and journals file operations, so a failure rolls both back.
-- **Event substrate (2026-08-01)**: `Rulepack::Emitter` provides a lightweight subscribe/emit/unsubscribe pattern. **All backends narrate via events** — no raw `puts` in `lib/`. Renderers: `ConsoleRenderer` (default, byte-identical text) and `JsonlRenderer` (`--format jsonl`: one JSON object per event plus a final `:result` line). See `lib/rulepack/emitter.rb` and `lib/rulepack/reporter/`.
+- **Event substrate (2026-08-01)**: `Rulepack::Emitter` provides a lightweight subscribe/emit/unsubscribe pattern. **Structured output flows through events** — backends emit, renderers render. Legacy `Logging` narration (`Common.log*`) echoes to console + logfile; machine formats (`--format json|yaml|jsonl` set `Logging.console_silent`) suppress only its **stdout echo** — stderr diagnostics and the log file remain — so stdout stays parseable. Renderers: `ConsoleRenderer` (default, byte-identical text) and `JsonlRenderer` (`--format jsonl`: one JSON object per event plus a final `:result` line). See `lib/rulepack/emitter.rb` and `lib/rulepack/reporter/`.
 - **Immutable domain models (2026-08-01)**: `Rulepack::Package`, `Rulepack::Platform`, `Rulepack::Target`, `Rulepack::BuildRecord`, and `Rulepack::InstalledRecord` are frozen `Data.define` value objects. `BuildRecord` owns the build-index entry schema; `InstalledRecord` (`models/installed_record.rb`) owns the installed-record schema of `data/index.yaml` at the `from_h`/`to_h` boundary — disk format unchanged. Don't write installed-record keys anywhere else. See `lib/rulepack/models/`.
 - **Catalog abstraction (2026-08-01)**: `Rulepack::Catalog::SourceRepository` interface with `LocalCatalog` (wrapping existing primitives; takes `paths:` via constructor) and `RemoteCatalog` (HTTP-based remote index with `search`, `list`, `fetch_package`). See `lib/rulepack/catalog/`.
 - **Lockfile (2026-08-01)**: `Rulepack::Lockfile` pins `(pkgname, version, source_sha256)` tuples for reproducible installs. Supports `enforce!` for `install --locked`. See `lib/rulepack/lockfile.rb`.

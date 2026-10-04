@@ -1726,6 +1726,28 @@ Test gate: `rake test` 501 runs / 1534 assertions / 1 pre-existing Windows-only 
 - **(c)** `bump.rb:326-330` — `BuildIndex.remove` runs before `BuildAll.run` and the Result is ignored; a failed rebuild leaves the repo with no build index. ✅ still valid
 - **(d)** `backup.rb:21` — `RULEPACK_ROOT.join('data', 'backups', ...)`; 10+ call sites across `install_execute.rb`, `uninstaller.rb`, `lib/install_handlers.rb`. ✅ still valid
 
+## 🔁 Narration Cleanup Review (2026-10-04) — machine-format envelope gaps (pre-existing)
+
+Found by the silent-failure-hunter review of the narration dedup change (dual `puts` removal +
+`Logging.console_silent`). None are regressions of that change — with stderr diagnostics kept
+unconditional, every path below is exactly as visible as before it — but they are Result-envelope
+gaps that predate it and matter for `--format json|yaml|jsonl` consumers:
+
+- **Downgrade skip reports success**: `install_plan.rb` `handle_downgrade` (else branch) returns
+  `false` → caller `next unless` — a skipped downgrade leaves Result `:success`, exit 0; the only
+  signal is `log_error` (stderr + logfile). **Act**: fold downgrade skips into `failed` with a
+  reason, or emit a typed Emitter event (model: the collision path in `install_execute.rb:270`).
+- **Vendor aggregation failures discarded**: `install_execute.rb:279,282` — `log_error`-only sites
+  whose caller ignores the return value; install reports success. **Act**: propagate into the
+  Result `errors`/`failed`.
+- **Unknown install type silently skipped**: `lib/install_handlers.rb:52` — `log_error` + skip;
+  install reports success. **Act**: same as above; PKGBUILD typos (`install.type`) become invisible
+  to machine consumers otherwise.
+- **Rollback restore outcome is narration-only**: `lib/transaction.rb` `transaction_rollback` —
+  whether `data/index.yaml` was restored from backup is critical recovery information but lives
+  only in `log_error` text. **Act**: add `data: { index_restored:, backup: }` in the failure
+  Results of `installer.rb`'s rescue blocks.
+
 ---
 
 ## Methodology
