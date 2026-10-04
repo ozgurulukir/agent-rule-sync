@@ -107,6 +107,62 @@ class TestUninstallPackages < Minitest::Test
     end
   end
 
+  def test_uninstall_collects_packages_missing_from_build_index
+    # A package in the installed index but absent from the build index cannot
+    # be uninstalled — it must surface in the failures collector instead of
+    # evaporating as a dropped nil (P-AR a).
+    @index[:packages][:ghost] = {
+      pkgver: '1.0.0',
+      pkgdesc: 'Ghost package',
+      order: 1,
+      installed: [
+        { platform: 'opencode', version: '1.0.0', output: 'ghost.md', checksum: 'deadbeef', installed_at: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ'), pkgrel: 1, epoch: 0 }
+      ]
+    }
+    with_build_index_override do
+      failed = []
+      uninstalled = Rulepack::InstallHelpers.uninstall_packages(@index, 'opencode', dry_run: false, failures: failed)
+      entry = failed.find { |f| f[:package] == :ghost }
+      refute_nil entry, 'ghost package should be reported as failed'
+      assert_equal :missing_from_build_index, entry[:reason]
+      refute_includes uninstalled, :ghost, 'ghost package must not count as uninstalled'
+      assert_includes uninstalled, :memory, 'healthy package still uninstalls'
+    end
+  end
+
+  def test_uninstall_collects_outputs_missing_from_build_index
+    # Installed output has no matching build-index target (stale index after
+    # an output rename): the record is kept, the package is NOT reported as
+    # uninstalled, and the skip surfaces as a structured failure.
+    stale_build_index = {
+      version: 3.0,
+      packages: {
+        memory: {
+          pkgname: 'memory',
+          pkgver: '1.0.0',
+          targets: [
+            { platform: 'opencode', format: 'directory', output: 'renamed-memory.md', transformer: 'copy', install: { type: 'symlink' } }
+          ]
+        }
+      }
+    }
+    with_build_index_override do
+      Rulepack::Common.with_paths(build_index_path: @build_dir.join('stale.yaml')) do
+        @build_dir.join('stale.yaml').write(stale_build_index.to_yaml)
+        failed = []
+        uninstalled = Rulepack::InstallHelpers.uninstall_packages(@index, 'opencode', dry_run: false, failures: failed)
+        entry = failed.find { |f| f[:package] == :memory }
+        refute_nil entry, 'skipped record should be reported as failed'
+        assert_equal :records_skipped, entry[:reason]
+        assert_equal ['00-memory.md'], entry[:outputs]
+        assert_equal false, entry[:removed_any]
+        assert_empty uninstalled, 'nothing was actually removed'
+        # The installed record survives — nothing was removed.
+        assert_equal 1, @index[:packages][:memory][:installed].size
+      end
+    end
+  end
+
   def test_uninstall_does_not_write_index_to_disk
     # Verify uninstall only modifies in-memory index
     with_build_index_override do

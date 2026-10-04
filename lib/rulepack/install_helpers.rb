@@ -11,12 +11,13 @@ module Rulepack
 
     # Uninstall packages from a platform (thin wrapper around Uninstaller)
     def uninstall_packages(index, platform_id, dry_run: false, project_root: nil,
-                           specific_packages: nil, ctx: nil)
+                           specific_packages: nil, ctx: nil, failures: nil)
       Rulepack::Uninstaller.uninstall_packages(index, platform_id,
-                                                dry_run: dry_run,
-                                                project_root: project_root,
-                                                specific_packages: specific_packages,
-                                                ctx: ctx)
+                                               dry_run: dry_run,
+                                               project_root: project_root,
+                                               specific_packages: specific_packages,
+                                               ctx: ctx,
+                                               failures: failures)
     end
   end
 end

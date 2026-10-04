@@ -136,11 +136,12 @@ module Rulepack
           messages: ['❌ Build failed: Could not write build index.']
         )
       end
-      BuildWriter.generate_catalog
+      catalog_ok = BuildWriter.generate_catalog
 
-      status = failed.empty? ? :success : :partial
+      status = failed.any? || !catalog_ok ? :partial : :success
       messages = ['✅ Build complete. Run `rulepack install <platform>` to install packages.']
       messages << "⚠ #{failed.size} package(s) failed: #{failed.join(', ')}" if failed.any?
+      messages << '⚠ Catalog generation failed — build/catalog.json was not refreshed.' unless catalog_ok
 
       Rulepack::Result.new(
         status: status,

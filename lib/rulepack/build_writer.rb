@@ -23,13 +23,16 @@ module Rulepack
       end
     end
 
+    # Returns true when the catalog was written, false when the generator
+    # skipped it (empty build index) or failed. The caller folds this into
+    # the build Result — a stale or missing catalog.json must not ride a
+    # clean exit 0.
     def generate_catalog
-      begin
-        require_relative 'generate-catalog'
-        Rulepack::CatalogGenerator.main
-      rescue StandardError => e
-        Rulepack::Common.log_error "Failed to generate catalog: #{e.message}"
-      end
+      require_relative 'generate-catalog'
+      Rulepack::CatalogGenerator.main ? true : false
+    rescue StandardError => e
+      Rulepack::Common.log_error "Failed to generate catalog: #{e.message}"
+      false
     end
   end
 end

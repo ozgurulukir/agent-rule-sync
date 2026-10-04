@@ -85,8 +85,11 @@ module Rulepack
       backup_path = Rulepack::InstalledIndex.backup unless dry_run
 
       uninstalled_total = []
+      failed_total = []
+      aggregation_failed = []
       begin
-        uninstalled_total = execute_uninstall(targets_to_uninstall, index, registry, target_package, project_arg, dry_run)
+        uninstalled_total, failed_total, aggregation_failed =
+          execute_uninstall(targets_to_uninstall, index, registry, target_package, project_arg, dry_run)
 
         # Pacman-R mimic: drop ghost packages with no remaining installed platforms
         index[:packages].reject! { |_, pkg| (pkg[:installed] || []).empty? }
@@ -111,14 +114,42 @@ module Rulepack
         Rulepack::InstalledIndex.cleanup_backups rescue nil
       end
 
-      messages = uninstall_messages(uninstalled_total, dry_run)
+      missing = failed_total.select { |f| f[:reason] == :missing_from_build_index }
+      skipped = failed_total.select { |f| f[:reason] == :records_skipped }
+
+      status =
+        if failed_total.any? && uninstalled_total.empty?
+          :failure
+        elsif failed_total.any? || aggregation_failed.any?
+          :partial
+        else
+          :success
+        end
+
+      errors = []
+      unless missing.empty?
+        errors << "Package(s) absent from the build index were not uninstalled: " \
+                  "#{missing.map { |f| f[:package] }.join(', ')}. Run `rulepack build` to refresh it."
+      end
+      unless skipped.empty?
+        errors << "Outputs absent from the build index were left in place: " \
+                  "#{skipped.map { |f| "#{f[:package]} (#{f[:outputs].join(', ')})" }.join(', ')}."
+      end
+      unless aggregation_failed.empty?
+        errors << "Vendor-skill re-aggregation failed for: #{aggregation_failed.uniq.join(', ')}."
+      end
+
+      messages = uninstall_messages(uninstalled_total, failed_total, aggregation_failed, dry_run)
       Rulepack::Result.new(
-        status: :success,
+        status: status,
         data: {
           uninstalled: uninstalled_total.uniq,
+          failed: failed_total.uniq,
+          aggregation_failed: aggregation_failed.uniq,
           targets: targets_to_uninstall,
           dry_run: dry_run
         },
+        errors: errors,
         messages: messages
       )
     end
@@ -154,6 +185,8 @@ module Rulepack
 
     def execute_uninstall(targets, index, registry, target_package, project_arg, dry_run)
       uninstalled_total = []
+      failed_total = []
+      aggregation_failed = []
 
       targets.each do |platform_id|
         Rulepack::Emitter.emit(:progress, message: "\u{1f9f9} Uninstalling from platform: #{platform_id} #{'(dry-run)' if dry_run}")
@@ -171,16 +204,17 @@ module Rulepack
         uninstalled = uninstall_packages(index, platform_id,
                                          dry_run: dry_run,
                                          project_root: project_root,
-                                         specific_packages: specific_list)
+                                         specific_packages: specific_list,
+                                         failures: failed_total)
         uninstalled_total.concat(uninstalled)
 
         # Skill platforms: re-aggregate vendor skills after removals
         if platform_cfg[:type] == 'skill' && !dry_run
-          reaggregate_vendor_skills(platform_id)
+          aggregation_failed << platform_id unless reaggregate_vendor_skills(platform_id)
         end
       end
 
-      uninstalled_total
+      [uninstalled_total, failed_total, aggregation_failed]
     end
 
     # ─── Remove vendor skill for skill-type platforms ────────────────────────────
@@ -200,20 +234,27 @@ module Rulepack
 
     # ─── Re-aggregate vendor skills via direct API call ──────────────────────────
 
+    # Returns true when the platform's vendor skill was regenerated. A failure
+    # is emitted here but NOT swallowed: the caller records it and downgrades
+    # the uninstall Result, so a stale vendor skill never rides a clean exit 0.
     def reaggregate_vendor_skills(platform_id)
-      Rulepack::Emitter.emit(:progress, message: "  \u{1f9f1} Re-aggregating vendor skills for #{platform_id}...")
-      begin
-        Rulepack::Aggregate.run({ target: platform_id })
-        Rulepack::Emitter.emit(:progress, message: '    \u{2713} Vendor skill regenerated')
-      rescue StandardError => e
-        Rulepack::Emitter.emit(:progress, message: "    \u{26a0} Aggregation error: #{e.message}")
-      end
+      Rulepack::Emitter.emit(:progress, message: "  \u{1f3f1} Re-aggregating vendor skills for #{platform_id}...")
+      Rulepack::Aggregate.run({ target: platform_id })
+      Rulepack::Emitter.emit(:progress, message: '    \u{2713} Vendor skill regenerated')
+      true
+    rescue StandardError => e
+      Rulepack::Emitter.emit(:progress, message: "    \u{26a0} Aggregation error: #{e.message}")
+      false
     end
 
     # ─── Core: uninstall packages from a platform (modifies index in-place) ──────
 
+    # failures: optional collector Array. A package that cannot be uninstalled
+    # (absent from the build index) is appended there instead of evaporating
+    # as a dropped nil — callers that surface failures pass a collector;
+    # best-effort callers keep the original return shape.
     def uninstall_packages(index, platform_id, dry_run: false, project_root: nil,
-                           specific_packages: nil, ctx: nil)
+                           specific_packages: nil, ctx: nil, failures: nil)
       platform_cfg = Rulepack::Common.platform_config(platform_id, Rulepack::Common.load_platform_registry)
       base_path = project_root || Pathname.new(Rulepack::Path.expand_user_path(platform_cfg[:base_path]))
       build_index = Rulepack::BuildIndex.load
@@ -223,7 +264,19 @@ module Rulepack
       pkg_names.each do |pkgname|
         result = uninstall_single_package(pkgname, index, build_index, platform_id,
                                           platform_cfg, base_path, dry_run, ctx)
-        uninstalled << result if result
+        case result
+        when :missing_from_build_index
+          Rulepack::Common.log_error "Package not found in build index: #{pkgname}"
+          failures << { package: pkgname, reason: :missing_from_build_index } if failures
+        when Hash
+          # Some records were skipped: partially uninstalled at best.
+          uninstalled << pkgname if result[:removed_any]
+          failures << result if failures
+        when nil
+          Rulepack::Emitter.emit(:progress, message: "  \u{26a0} #{pkgname} is not installed on #{platform_id}, skipping")
+        else
+          uninstalled << result
+        end
       end
       uninstalled.uniq
     end
@@ -246,18 +299,24 @@ module Rulepack
       return nil if platform_records.empty?
 
       pkgdata = build_index[:packages][pkgname.to_sym] || build_index[:packages][pkgname.to_s]
-      unless pkgdata
-        Rulepack::Common.log_error "Package not found in build index: #{pkgname}"
-        return nil
-      end
+      return :missing_from_build_index unless pkgdata
       targets = pkgdata[:targets]&.select { |t| t[:platform] == platform_id } || []
       target_by_output = targets.to_h { |t| [t[:output], t] }
 
+      skipped_outputs = []
       platform_records.each do |rec|
         removed = uninstall_record(rec, target_by_output, platform_cfg, base_path, pkgname, dry_run, ctx)
+        skipped_outputs << rec[:output] unless removed || dry_run
         records.delete(rec) if removed && !dry_run
       end
-      pkgname
+      return pkgname if skipped_outputs.empty?
+
+      # Records whose output has no build-index target (stale index after an
+      # output rename): the files stay on disk and the records stay in the
+      # index. Surface it — a silently skipped removal must not ride a clean
+      # exit 0.
+      { package: pkgname, reason: :records_skipped, outputs: skipped_outputs,
+        removed_any: skipped_outputs.size < platform_records.size }
     end
 
     def uninstall_record(rec, target_by_output, platform_cfg, base_path, pkgname, dry_run, ctx = nil)
@@ -352,10 +411,23 @@ module Rulepack
       end
     end
 
-    def uninstall_messages(uninstalled_total, dry_run)
+    def uninstall_messages(uninstalled_total, failed_total, aggregation_failed, dry_run)
       msgs = []
       msgs << "\n[DRY-RUN] Index write skipped" if dry_run
       msgs << "\n📝 Index updated" unless dry_run
+      missing = failed_total.select { |f| f[:reason] == :missing_from_build_index }
+      skipped = failed_total.select { |f| f[:reason] == :records_skipped }
+      unless missing.empty?
+        msgs << "\n⚠ #{missing.size} package(s) not found in build index, not uninstalled:"
+        missing.each { |f| msgs << "   • #{f[:package]}" }
+      end
+      unless skipped.empty?
+        msgs << "\n⚠ #{skipped.size} package(s) had outputs missing from the build index (left in place):"
+        skipped.each { |f| msgs << "   • #{f[:package]}: #{f[:outputs].join(', ')}" }
+      end
+      aggregation_failed.uniq.each do |platform_id|
+        msgs << "  ⚠ Vendor-skill re-aggregation failed for #{platform_id}"
+      end
       if uninstalled_total.empty?
         msgs << '  No packages were uninstalled.'
       else

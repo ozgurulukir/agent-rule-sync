@@ -15,15 +15,17 @@ module Rulepack
   module CatalogGenerator
     module_function
 
+    # Returns true when catalog.json was written, false when the write was
+    # skipped (empty build index). Raises the typed store errors — no abort:
+    # SystemExit must never escape a Result-producing backend.
     def main
-      index = begin
-        Rulepack::BuildIndex.load
-      rescue Rulepack::BuildIndexNotFound => e
-        abort e.message
-      end
+      index = Rulepack::BuildIndex.load
 
       packages = index[:packages] || {}
-      return puts 'No packages in build index.' if packages.empty?
+      if packages.empty?
+        puts 'No packages in build index.'
+        return false
+      end
 
   catalog_pkgs = packages.map { |name, data| build_package_entry(name, data) }.compact
 
@@ -41,6 +43,7 @@ module Rulepack
   output_path = Rulepack::Common.build_dir.join('catalog.json')
   File.write(output_path, "#{JSON.pretty_generate(catalog)}\n")
   puts "Catalog written: #{output_path} (#{catalog_pkgs.size} packages, #{platforms.size} platforms)"
+  true
 end
 
 def build_package_entry(name, data)
