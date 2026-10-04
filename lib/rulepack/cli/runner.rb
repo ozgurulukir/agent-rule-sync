@@ -18,6 +18,9 @@ module Rulepack
     # Render rule: narration reaches stdout via Emitter events (ConsoleRenderer
     # or JsonlRenderer); the Result payload renders once via Reporter —
     # except :jsonl, where the result is a single :result event line.
+    # Machine formats (:json/:yaml/:jsonl) also silence legacy Logging's
+    # stdout echo so stdout stays parseable; stderr diagnostics and the log
+    # file still record every line.
     class Runner
       def self.run(argv)
         new.run(argv)
@@ -35,6 +38,7 @@ module Rulepack
 
         options = Rulepack::CliParser.parse(argv)
         @format = options[:format] || :text
+        Rulepack::Logging.console_silent = %i[json yaml jsonl].include?(@format)
         # Hold the reference: renderers exist by their subscription side
         # effect. Without the ensure-unsubscribe, two Runner.run invocations
         # in one process (tests, embedding) stack duplicate renderers.

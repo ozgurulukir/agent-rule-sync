@@ -10,6 +10,7 @@ module Rulepack
     @_default_log_file = Pathname.new(__dir__).parent.parent.join('build', 'install.log')
     @_log_level = nil
     @_show_timing = false
+    @_console_silent = false
 
     def log_file
       @_default_log_file
@@ -35,6 +36,19 @@ module Rulepack
       @_show_timing = val
     end
 
+    # When true, the stdout echo of log() is skipped — narration goes to the
+    # log file only. log_error/log_warn keep their stderr diagnostics: stderr
+    # is not part of the machine-readable stdout stream (--format
+    # json|yaml|jsonl sets this from the CLI runner), so silencing it would
+    # only hide information.
+    def console_silent
+      @_console_silent
+    end
+
+    def console_silent=(val)
+      @_console_silent = val
+    end
+
     # ─── Logging Methods ────────────────────────────────────────────────────────
 
     # Log a message with level filtering.
@@ -45,7 +59,7 @@ module Rulepack
       line = "[#{timestamp}] #{msg}"
       level_order = { error: 0, warn: 1, info: 2, debug: 3 }
 
-      if level_order[level] <= level_order[log_level]
+      if !@_console_silent && level_order[level] <= level_order[log_level]
         if Thread.current[:in_spinner] && Thread.current[:spinner_thread]
           print "\r\e[K"
           puts line

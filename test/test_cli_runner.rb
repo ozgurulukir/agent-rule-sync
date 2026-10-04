@@ -42,6 +42,7 @@ class TestCliRunner < Minitest::Test
   def teardown
     Rulepack::Emitter.clear!
     Rulepack::Reporter::ConsoleRenderer.new
+    Rulepack::Logging.console_silent = false
     FileUtils.rm_rf(@tmpdir)
   end
 
@@ -118,6 +119,24 @@ class TestCliRunner < Minitest::Test
     last = JSON.parse(out.lines.last)
     assert_equal 'result', last['event']
     assert_equal 'success', last['payload']['status']
+  end
+
+  def test_machine_formats_silence_legacy_console_logging
+    write_sandbox_indexes
+    %w[json yaml jsonl].each do |format|
+      run_cli('status', '--format', format)
+      assert Rulepack::Logging.console_silent, "--format #{format} must silence Logging console output"
+    end
+    run_cli('status')
+    refute Rulepack::Logging.console_silent, 'text mode must restore Logging console output'
+  end
+
+  def test_jsonl_stream_is_parseable_line_by_line
+    write_sandbox_indexes
+    code, out, = run_cli('status', '--format', 'jsonl')
+    assert_equal 0, code
+    refute_empty out
+    out.each_line { |line| JSON.parse(line) }
   end
 
   # ─── status ───────────────────────────────────────────────────────────────────
