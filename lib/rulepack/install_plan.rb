@@ -23,7 +23,6 @@ module Rulepack
       return if missing.empty?
 
       Rulepack::Common.log_warn "Platform #{platform_id} may require: #{missing.join(', ')}" unless quiet
-      puts "  ⚠️  Platform #{platform_id} may require: #{missing.join(', ')}" unless quiet
     end
 
     def resolve_install_base_path(platform_cfg, project_arg)
@@ -135,11 +134,9 @@ module Rulepack
       vendor_path = base_path.join(platform_cfg[:skill_file])
       unless vendor_path.exist?
         Rulepack::Common.log_error "Vendor skill missing: #{vendor_path}"
-        puts "  ❌ Vendor skill missing: #{vendor_path}"
         raise Rulepack::StateError, 'Vendor skill missing'
       end
-      Rulepack::Common.log "  ✓ Vendor skill present: #{vendor_path}"
-      puts '  ✅ Vendor skill present and readable'
+      Rulepack::Common.log "  ✓ Vendor skill present and readable: #{vendor_path}"
     end
 
     # ─── Uninstall helper ─────────────────────────────────────────────────────────

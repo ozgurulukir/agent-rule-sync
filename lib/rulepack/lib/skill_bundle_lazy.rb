@@ -164,7 +164,6 @@ module Rulepack
       end
 
       Rulepack::Common.log "    ✓ Schema Engine applied to #{applied} file(s) in directory build" if applied > 0
-      puts "    ✓ Schema Engine applied to #{applied} file(s) in directory build" if applied > 0
     end
   end
 end

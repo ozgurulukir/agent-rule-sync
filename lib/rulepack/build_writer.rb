@@ -12,15 +12,12 @@ module Rulepack
     module_function
 
     def write_build_index(index_data)
-      begin
-        Rulepack::BuildIndex.write(index_data)
-        Rulepack::Common.log "📝 Build index written: #{Rulepack::Common.paths.build_index_path}"
-        puts "\n📝 Build index written: #{Rulepack::Common.paths.build_index_path}"
-        true
-      rescue StandardError => e
-        Rulepack::Common.log_error "Failed to write build index: #{e.message}"
-        false
-      end
+      Rulepack::BuildIndex.write(index_data)
+      Rulepack::Common.log "📝 Build index written: #{Rulepack::Common.paths.build_index_path}"
+      true
+    rescue StandardError => e
+      Rulepack::Common.log_error "Failed to write build index: #{e.message}"
+      false
     end
 
     # Returns true when the catalog was written, false when the generator

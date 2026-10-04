@@ -76,7 +76,6 @@ module Rulepack
 
             unless match
               Rulepack::Common.log_warn "Tool version mismatch for #{tool}: active #{active_version}, required #{version_req}"
-              puts "  ⚠️  Tool version mismatch for #{tool}: active #{active_version}, required #{version_req}"
             end
           end
         end

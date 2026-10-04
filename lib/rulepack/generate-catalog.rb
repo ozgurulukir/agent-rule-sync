@@ -23,7 +23,7 @@ module Rulepack
 
       packages = index[:packages] || {}
       if packages.empty?
-        puts 'No packages in build index.'
+        Rulepack::Common.log 'No packages in build index.'
         return false
       end
 
@@ -42,7 +42,7 @@ module Rulepack
 
   output_path = Rulepack::Common.build_dir.join('catalog.json')
   File.write(output_path, "#{JSON.pretty_generate(catalog)}\n")
-  puts "Catalog written: #{output_path} (#{catalog_pkgs.size} packages, #{platforms.size} platforms)"
+  Rulepack::Common.log "Catalog written: #{output_path} (#{catalog_pkgs.size} packages, #{platforms.size} platforms)"
   true
 end
 
