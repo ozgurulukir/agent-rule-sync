@@ -18,7 +18,7 @@ module Rulepack
       end
 
       def subscribe!
-        %i[stage_start stage_done package_built target_built warn error info progress].each do |event_type|
+        %i[log stage_start stage_done package_built target_built warn error info progress].each do |event_type|
           @subscriptions << Rulepack::Emitter.subscribe(event_type) do |payload|
             emit_out.puts JSON.generate({ event: event_type.to_s, **payload })
           end

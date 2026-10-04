@@ -8,6 +8,7 @@
 require_relative 'helper'
 require 'stringio'
 require 'json'
+require 'yaml'
 require 'fileutils'
 require 'rulepack/cli/runner'
 require 'rulepack/cli/help'
@@ -42,7 +43,6 @@ class TestCliRunner < Minitest::Test
   def teardown
     Rulepack::Emitter.clear!
     Rulepack::Reporter::ConsoleRenderer.new
-    Rulepack::Logging.console_silent = false
     FileUtils.rm_rf(@tmpdir)
   end
 
@@ -121,22 +121,44 @@ class TestCliRunner < Minitest::Test
     assert_equal 'success', last['payload']['status']
   end
 
-  def test_machine_formats_silence_legacy_console_logging
+  # Seeds a buildable package so a dry-run install actually narrates
+  # (:progress events + :log narration) — the machine-format purity cases.
+  def write_sandbox_package
     write_sandbox_indexes
-    %w[json yaml jsonl].each do |format|
-      run_cli('status', '--format', format)
-      assert Rulepack::Logging.console_silent, "--format #{format} must silence Logging console output"
-    end
-    run_cli('status')
-    refute Rulepack::Logging.console_silent, 'text mode must restore Logging console output'
+    build_index = {
+      version: 3.0,
+      packages: {
+        memory: {
+          pkgname: 'memory', pkgver: '1.0.0', pkgrel: 1, epoch: 0, pkg_type: 'rule',
+          targets: [{ platform: 'opencode', format: 'rules', output: 'memory.md',
+                      install: { type: 'symlink' } }]
+        }
+      }
+    }
+    (@paths.build_index_path).write(build_index.to_yaml)
+    artifact = @paths.build_dir.join('opencode', 'memory')
+    artifact.mkpath
+    artifact.join('memory.md').write('# memory rules')
   end
 
-  def test_jsonl_stream_is_parseable_line_by_line
-    write_sandbox_indexes
-    code, out, = run_cli('status', '--format', 'jsonl')
+  def test_json_and_yaml_envelope_formats_stay_clean_when_backends_narrate
+    write_sandbox_package
+    code, out, = run_cli('install', 'memory', '-t', 'opencode', '--dry-run', '--format', 'json')
+    assert_equal 0, code
+    JSON.parse(out) # narration must not mix into the envelope stream
+    code, out, = run_cli('install', 'memory', '-t', 'opencode', '--dry-run', '--format', 'yaml')
+    assert_equal 0, code
+    assert_equal 'success', YAML.safe_load(out)['status']
+  end
+
+  def test_jsonl_stream_is_parseable_line_by_line_and_streams_log_events
+    write_sandbox_package
+    code, out, = run_cli('install', 'memory', '-t', 'opencode', '--dry-run', '--format', 'jsonl')
     assert_equal 0, code
     refute_empty out
-    out.each_line { |line| JSON.parse(line) }
+    events = out.lines.map { |line| JSON.parse(line) }
+    assert events.any? { |e| e['event'] == 'log' }, 'narration must stream as :log events'
+    assert events.any? { |e| e['event'] == 'result' }
   end
 
   # ─── status ───────────────────────────────────────────────────────────────────

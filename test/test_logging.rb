@@ -1,58 +1,83 @@
 # frozen_string_literal: true
 
-# Console silencing for machine-readable output. The CLI runner flips this
-# flag for --format json|yaml|jsonl so legacy Logging narration never breaks
-# the structured stdout stream; the log file must still receive every line.
+# Logging contract after the Emitter migration: every log line is emitted as
+# a :log Emitter event (level-filtered) and appended to the log file
+# unconditionally. log_error/log_warn keep their stderr echo at the source.
+# Console rendering of :log events is the renderers' job (test_reporter).
 
 require_relative 'helper'
 require 'fileutils'
+require 'rulepack/emitter'
 
 class TestLogging < Minitest::Test
   def setup
     @tmpdir = Dir.mktmpdir('rulepack-logging-test-')
     @log_file = File.join(@tmpdir, 'test.log')
     @original_file = Rulepack::Logging.log_file
+    @original_log_level_env = ENV['RULEPACK_LOG_LEVEL']
+    ENV.delete('RULEPACK_LOG_LEVEL')
   end
 
   def teardown
-    Rulepack::Logging.console_silent = false
     Rulepack::Logging.log_file = @original_file
+    if @original_log_level_env.nil?
+      ENV.delete('RULEPACK_LOG_LEVEL')
+    else
+      ENV['RULEPACK_LOG_LEVEL'] = @original_log_level_env
+    end
     FileUtils.rm_rf(@tmpdir)
   end
 
-  def test_console_silent_defaults_to_off
-    refute Rulepack::Logging.console_silent
+  def collect_log_events
+    events = []
+    sub = Rulepack::Emitter.subscribe(:log) { |payload| events << payload }
+    yield events
+  ensure
+    Rulepack::Emitter.unsubscribe(sub)
   end
 
-  def test_log_prints_to_console_and_file_by_default
+  def test_log_emits_a_levelled_event_and_appends_the_file_line
     Rulepack::Logging.log_file = @log_file
-    out, err = capture_io do
+    collect_log_events do |events|
       Rulepack::Logging.log 'hello'
-      Rulepack::Logging.log_warn 'careful'
-      Rulepack::Logging.log_error 'boom'
+      assert_equal 1, events.size
+      assert_equal 'hello', events.first[:message]
+      assert_equal 'info', events.first[:level]
+      assert_match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/, events.first[:time])
     end
-    assert_includes out, 'hello'
-    assert_includes err, 'careful'
-    assert_includes err, 'boom'
     assert_includes File.read(@log_file), 'hello'
   end
 
-  def test_console_silent_keeps_the_log_file_and_stderr_but_drops_stdout
+  def test_log_file_append_is_unconditional_even_without_subscribers
     Rulepack::Logging.log_file = @log_file
-    Rulepack::Logging.console_silent = true
-    out, err = capture_io do
-      Rulepack::Logging.log 'hello'
-      Rulepack::Logging.log_warn 'careful'
-      Rulepack::Logging.log_error 'boom'
+    Rulepack::Logging.log 'recorded-anyway'
+    assert_includes File.read(@log_file), 'recorded-anyway'
+  end
+
+  def test_warn_and_error_keep_stderr_echo_and_reach_event_and_file
+    Rulepack::Logging.log_file = @log_file
+    collect_log_events do |events|
+      _out, err = capture_io do
+        Rulepack::Logging.log_warn 'careful'
+        Rulepack::Logging.log_error 'boom'
+      end
+      assert_includes err, 'careful'
+      assert_includes err, 'boom'
+      assert_equal %w[warn error], events.map { |e| e[:level] }
     end
-    # stdout must stay parseable for machine formats; stderr diagnostics and
-    # the log file remain the observability surfaces.
-    assert_empty out
-    assert_includes err, 'careful'
-    assert_includes err, 'boom'
     contents = File.read(@log_file)
-    assert_includes contents, 'hello'
     assert_includes contents, 'WARN: careful'
     assert_includes contents, 'ERROR: boom'
+  end
+
+  def test_debug_events_are_level_filtered_but_still_written_to_the_file
+    Rulepack::Logging.log_file = @log_file
+    collect_log_events do |events|
+      capture_io do
+        Rulepack::Logging.log_debug 'quiet'
+      end
+      assert_empty events, 'debug must not surface at the default info level'
+    end
+    assert_includes File.read(@log_file), 'DEBUG: quiet'
   end
 end

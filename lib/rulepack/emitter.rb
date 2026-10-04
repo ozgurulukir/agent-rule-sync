@@ -10,6 +10,7 @@
 #   Rulepack::Emitter.subscribe(:stage_start) { |payload| ... }
 #
 # Built-in event types:
+#   :log           — a narration line from Common.log* (payload: {message:, level:, time:})
 #   :stage_start   — a pipeline stage begins (payload: {stage:, platform:})
 #   :stage_done    — a pipeline stage completes (payload: {stage:, platform:})
 #   :package_built — a package finished building (payload: {pkgname:, status:})

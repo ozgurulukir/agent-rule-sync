@@ -2,9 +2,14 @@
 
 require 'json'
 require 'yaml'
+require 'stringio'
 require_relative 'helper'
 require_relative '../lib/rulepack/result'
 require_relative '../lib/rulepack/reporter'
+require_relative '../lib/rulepack/emitter'
+require_relative '../lib/rulepack/reporter/console_renderer'
+require_relative '../lib/rulepack/reporter/jsonl_renderer'
+require_relative '../lib/rulepack/reporter/null_renderer'
 
 class TestReporter < Minitest::Test
   def test_text_rendering
@@ -63,5 +68,46 @@ class TestReporter < Minitest::Test
     result = Rulepack::Result.new(status: :success, data: {})
     e = assert_raises(Rulepack::InvalidOptionValue) { Rulepack::Reporter.print(result, format: :jsonl) }
     assert_match(/jsonl/, e.message)
+  end
+
+  # ─── :log event rendering (Emitter migration) ────────────────────────────────
+
+  def test_console_renderer_renders_log_events_with_timestamp
+    out = StringIO.new
+    renderer = Rulepack::Reporter::ConsoleRenderer.new(out: out)
+    Rulepack::Emitter.emit(:log, message: 'hello narration', level: 'info', time: '2026-10-04 10:00:00')
+    renderer.unsubscribe!
+    assert_includes out.string, '[2026-10-04 10:00:00] hello narration'
+  end
+
+  def test_console_renderer_log_stdout_gate_suppresses_only_log_lines
+    out = StringIO.new
+    renderer = Rulepack::Reporter::ConsoleRenderer.new(out: out, log_stdout: false)
+    Rulepack::Emitter.emit(:log, message: 'hidden', level: 'info', time: 't')
+    Rulepack::Emitter.emit(:info, message: 'visible')
+    renderer.unsubscribe!
+    refute_includes out.string, 'hidden'
+    assert_includes out.string, 'visible'
+  end
+
+  def test_jsonl_renderer_streams_log_events_as_json
+    out = StringIO.new
+    renderer = Rulepack::Reporter::JsonlRenderer.new(out: out)
+    Rulepack::Emitter.emit(:log, message: 'n', level: 'info', time: '2026-10-04 10:00:00')
+    renderer.unsubscribe!
+    line = JSON.parse(out.string.lines.first)
+    assert_equal 'log', line['event']
+    assert_equal 'n', line['message']
+    assert_equal 'info', line['level']
+  end
+
+  def test_null_renderer_subscribes_to_nothing
+    out = StringIO.new
+    renderer = Rulepack::Reporter::NullRenderer.new
+    renderer.subscribe!
+    Rulepack::Emitter.emit(:log, message: 'dropped', level: 'info', time: 't')
+    Rulepack::Emitter.emit(:info, message: 'dropped too')
+    renderer.unsubscribe!
+    assert_empty out.string
   end
 end

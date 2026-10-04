@@ -8,6 +8,7 @@ require_relative '../reporter'
 require_relative '../emitter'
 require_relative '../reporter/console_renderer'
 require_relative '../reporter/jsonl_renderer'
+require_relative '../reporter/null_renderer'
 require_relative 'commands'
 
 module Rulepack
@@ -15,12 +16,12 @@ module Rulepack
     # The CLI runner: single parse → table/local dispatch → render → exit code.
     #
     # Exit-code rule (global): success → 0, partial/failure → 1.
-    # Render rule: narration reaches stdout via Emitter events (ConsoleRenderer
-    # or JsonlRenderer); the Result payload renders once via Reporter —
-    # except :jsonl, where the result is a single :result event line.
-    # Machine formats (:json/:yaml/:jsonl) also silence legacy Logging's
-    # stdout echo so stdout stays parseable; stderr diagnostics and the log
-    # file still record every line.
+    # Render rule: narration reaches stdout via Emitter events. Text uses the
+    # ConsoleRenderer (log narration renders timestamped, like the former
+    # Logging echo); jsonl streams every event — including :log — as one JSON
+    # object per line plus a final :result line; json/yaml render the Result
+    # envelope only (NullRenderer: no event output on stdout). stderr
+    # diagnostics fire at the source in every format.
     class Runner
       def self.run(argv)
         new.run(argv)
@@ -38,7 +39,6 @@ module Rulepack
 
         options = Rulepack::CliParser.parse(argv)
         @format = options[:format] || :text
-        Rulepack::Logging.console_silent = %i[json yaml jsonl].include?(@format)
         # Hold the reference: renderers exist by their subscription side
         # effect. Without the ensure-unsubscribe, two Runner.run invocations
         # in one process (tests, embedding) stack duplicate renderers.
@@ -104,8 +104,11 @@ module Rulepack
       # ─── Rendering & exit code ──────────────────────────────────────────────
 
       def wire_renderer
-        if @format == :jsonl
+        case @format
+        when :jsonl
           Rulepack::Reporter::JsonlRenderer.new
+        when :json, :yaml
+          Rulepack::Reporter::NullRenderer.new
         else
           Rulepack::Reporter::ConsoleRenderer.new
         end
