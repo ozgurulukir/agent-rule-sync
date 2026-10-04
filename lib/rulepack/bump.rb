@@ -11,8 +11,13 @@ module Rulepack
   module Bump
     module_function
 
-    def run(options = {}, paths: nil)
-      if paths
+    # Same scoped seam every backend honors: run(options, paths:, ui:) opens
+    # the given scopes and runs unscoped inside them — a consumer passing
+    # ui: must not trip Ruby 4's unknown-keyword ArgumentError.
+    def run(options = {}, paths: nil, ui: nil)
+      if ui
+        Rulepack::Common.with_ui(ui) { run(options, paths: paths) }
+      elsif paths
         Rulepack::Common.with_paths(paths) { run_unscoped(options) }
       else
         run_unscoped(options)
@@ -24,6 +29,10 @@ module Rulepack
     #   rebuild failed, :partial if any package changed upstream, else
     #   :success (→ exit 1/1/0 via the CLI's unified rule).
     #   data: { bump: { packages:, summary: } } for --format json/yaml.
+    #   With --apply, each applied package's entry additionally carries
+    #   applied_version and version_source (:pkgver_func | :date_fallback |
+    #   :date_default, plus fallback_reason for fallbacks) — a fabricated
+    #   date must be distinguishable from a real upstream version.
     #   messages: the human report (verbatim former print_report output)
     #   plus the rebuild's narration; a failed rebuild also surfaces its
     #   errors (with the build-index recovery guidance) in errors.
@@ -230,60 +239,91 @@ module Rulepack
     def apply_changes(results, packages)
       changed = results.select { |_, r| r[:status] == :changed }
       if changed.empty?
-        puts "\n  No changes to apply."
+        Rulepack::Emitter.emit(:progress, message: "\n  No changes to apply.")
         return
       end
 
-      puts "\n🔨 Applying upstream changes..."
+      Rulepack::Emitter.emit(:progress, message: "\n🔨 Applying upstream changes...")
 
       changed.each do |pkgname, result|
         info = packages[pkgname]
-        new_ver = compute_new_version(info, result)
-        update_pkgbuild(info, new_ver)
+        new_ver, version_source, fallback_reason, fallback_detail = compute_new_version(info)
+        written = update_pkgbuild(info, new_ver)
         invalidate_cache(pkgname, info, result)
-        puts "  ✓ #{pkgname}: pkgver updated to '#{new_ver}'"
+
+        # Provenance rides the Result: a fabricated date must be
+        # distinguishable from a version the upstream script produced, and
+        # `written` separates "version decided" from "PKGBUILD actually
+        # changed" (update_pkgbuild skips an identical version).
+        result[:applied_version] = new_ver
+        result[:version_source] = version_source
+        result[:fallback_reason] = fallback_reason if fallback_reason
+        result[:written] = written
+
+        unchanged = written ? '' : ' (pkgbuild unchanged)'
+        case version_source
+        when :date_fallback, :date_default
+          detail = fallback_detail ? ": #{fallback_detail}" : ''
+          reason = case fallback_reason
+                   when :script_failed then "pkgver_func failed#{detail}"
+                   when :empty_output  then 'pkgver_func produced no output'
+                   else                     'no pkgver_func declared'
+                   end
+          Rulepack::Emitter.emit(:progress, message: "  ⚠ #{pkgname}: pkgver set to date fallback '#{new_ver}' (#{reason})#{unchanged}")
+        else
+          Rulepack::Emitter.emit(:progress, message: "  ✓ #{pkgname}: pkgver updated to '#{new_ver}'#{unchanged}")
+        end
       end
 
-      puts "\n  Rebuilding changed packages..."
+      Rulepack::Emitter.emit(:progress, message: "\n  Rebuilding changed packages...")
       invoke_build
     end
-    def compute_new_version(info, _result)
+    # Returns [version, version_source, fallback_reason, fallback_detail].
+    # version_source: :pkgver_func (the script produced it), :date_fallback
+    # (the script failed or produced nothing), :date_default (no
+    # pkgver_func declared). The provenance rides the Result so a
+    # fabricated date is distinguishable from a real upstream version.
+    def compute_new_version(info)
       if info[:pkgver_func]
         run_pkgver_func(info)
       else
-        date_based_version
+        [date_based_version, :date_default, nil, nil]
       end
     end
 
+    # Shell execution mirrors BuildPerPkg.run_pkgver_shell (P-J): `sh -c`
+    # with a pinned locale, so pipes/||/redirects in pkgver_func behave the
+    # same at bump time as at build time. capture3 keeps stdout clean — a
+    # script chattering on stderr must not leak into the version.
     def run_pkgver_func(info)
       Dir.mktmpdir('rulepack-bump-') do |tmp|
         Rulepack::Common.fetch_git_source(info[:url], info[:ref], tmp, depth: info[:depth] || 1)
         stdout, stderr, status = Dir.chdir(tmp) do
-          Open3.capture2e(info[:pkgver_func])
+          Open3.capture3({ 'LC_ALL' => 'C.UTF-8' }, 'sh', '-c', info[:pkgver_func])
         end
         unless status.success?
-          warn "  ⚠ pkgver_func failed for #{info[:url]}: #{stderr.strip}"
-          return date_based_version
+          return [date_based_version, :date_fallback, :script_failed, stderr.strip]
         end
-        ver = stdout.strip
-        ver.empty? ? date_based_version : ver
+        ver = stdout.force_encoding(Encoding::UTF_8).scrub.strip
+        ver.empty? ? [date_based_version, :date_fallback, :empty_output, nil] : [ver, :pkgver_func, nil, nil]
       end
     rescue StandardError => e
-      warn "  ⚠ pkgver_func error: #{e.message}"
-      date_based_version
+      [date_based_version, :date_fallback, :script_failed, "#{e.class}: #{e.message}"]
     end
 
     def date_based_version
       Time.now.utc.strftime('%Y.%m.%d')
     end
 
+    # Rewrites pkgver/pkgrel in the descriptor. Returns true when the file
+    # was written, false when the version was already current (no write).
     def update_pkgbuild(info, new_ver)
       path = info[:pkgbuild_path]
       raw = path.read
       pkg = YAML.safe_load(raw, permitted_classes: [Symbol, Pathname], symbolize_names: true) || {}
 
       old_ver = pkg[:pkgver]
-      return if old_ver == new_ver
+      return false if old_ver == new_ver
 
       pkg[:pkgver] = new_ver
       pkg[:pkgrel] = 1
@@ -291,6 +331,7 @@ module Rulepack
       stringified = deep_stringify_keys(pkg)
       path.write("#{stringified.to_yaml}\n")
       Rulepack::Common.log "  Updated #{path.basename}: #{old_ver} → #{new_ver}"
+      true
     end
 
     def deep_stringify_keys(obj)

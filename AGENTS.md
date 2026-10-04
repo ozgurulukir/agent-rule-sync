@@ -220,7 +220,7 @@ All backend modules return `Rulepack::Result`:
 | `Rulepack::Install.dispatch` | `{ installed, failed, targets, dry_run }` |
 | `Rulepack::Fix.run` | `{ platforms, fixed, failed, orphans_removed, dry_run }` |
 | `Rulepack::Uninstaller.dispatch` | `{ uninstalled, failed: [{ package, reason, outputs? }], aggregation_failed, targets, dry_run }` |
-| `Rulepack::Bump.run` | `{ bump: { packages, summary, applied } }` (report in `messages`) |
+| `Rulepack::Bump.run` | `{ bump: { packages: { <pkgname> => { applied_version, version_source, fallback_reason?, written } }, summary, applied } }` (report in `messages`) |
 | `Rulepack::Audit.run` | `{ audit: { meta, packages } }` (report rendered by `TextRenderer.render_audit`) |
 | `Rulepack::Aggregate.run` | `{}` (narration via Emitter events) |
 

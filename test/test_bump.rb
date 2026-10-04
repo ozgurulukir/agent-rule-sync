@@ -216,7 +216,7 @@ class TestBump < Minitest::Test
 
     result = Rulepack::Bump.stub(:discover_git_packages, { testpkg: info }) do
       Rulepack::Bump.stub(:check_upstream, ->(_packages) { upstream }) do
-        Rulepack::Bump.stub(:compute_new_version, '9.9.9') do
+        Rulepack::Bump.stub(:compute_new_version, ['9.9.9', :pkgver_func, nil, nil]) do
           Rulepack::Bump.stub(:update_pkgbuild, nil) do
             Rulepack::Bump.stub(:invalidate_cache, nil) do
               Rulepack::Bump.stub(:invoke_build, rebuild) do
@@ -252,13 +252,17 @@ class TestBump < Minitest::Test
       pkgbuild.write({ 'pkgname' => 'test-pkg', 'pkgver' => '1.0.0', 'pkgrel' => 1 }.to_yaml)
 
       info = { pkgbuild_path: pkgbuild }
-      Rulepack::Bump.update_pkgbuild(info, '2.0.0')
+      written = Rulepack::Bump.update_pkgbuild(info, '2.0.0')
 
       raw = pkgbuild.read
       parsed = YAML.safe_load(raw)
       assert_equal '2.0.0', parsed['pkgver']
       assert_equal 1, parsed['pkgrel']
+      assert_equal true, written, 'a real version change must report written: true'
       refute_match(/^:pkgver:/, raw, 'PKGBUILD must use string keys, not symbol keys')
+
+      skipped = Rulepack::Bump.update_pkgbuild(info, '2.0.0')
+      assert_equal false, skipped, 'an identical version must skip the write and report written: false'
     end
   end
 
@@ -320,5 +324,115 @@ class TestBump < Minitest::Test
     assert dash_index, 'Expected -- separator in git ls-remote call'
     assert dash_index < url_index, 'Expected -- before url'
     assert dash_index < ref_index, 'Expected -- before ref'
+  end
+
+  # ─── Scoped seam (ui:/paths:) ────────────────────────────────────────────────
+
+  def test_run_accepts_ui_and_paths_keywords
+    # The seam contract every backend honors: run(options, paths:, ui:) must
+    # open the given scopes, not raise unknown-keyword (Ruby 4).
+    with_tmpdir do |dir|
+      result = Rulepack::Bump.stub(:discover_git_packages, {}) do
+        Rulepack::Bump.run({}, paths: Rulepack::Paths.for_root(dir), ui: Rulepack::UI::Null.new)
+      end
+
+      assert_instance_of Rulepack::Result, result
+      assert result.success?, 'no git-sourced packages → success'
+    end
+  end
+
+  # ─── Version provenance ──────────────────────────────────────────────────────
+
+  def test_compute_new_version_without_pkgver_func_is_date_default
+    ver, source, reason = Rulepack::Bump.compute_new_version({ pkgver_func: nil })
+
+    assert_match(/\A\d{4}\.\d{2}\.\d{2}\z/, ver)
+    assert_equal :date_default, source
+    assert_nil reason
+  end
+
+  def test_run_pkgver_func_failure_yields_date_fallback_tuple
+    info = { url: 'https://example.git', ref: 'main', path: '.', depth: 1,
+             pkgver_func: 'echo boom >&2; exit 3' }
+
+    Rulepack::Common.stub(:fetch_git_source, nil) do
+      ver, source, reason, detail = Rulepack::Bump.run_pkgver_func(info)
+
+      assert_match(/\A\d{4}\.\d{2}\.\d{2}\z/, ver)
+      assert_equal :date_fallback, source
+      assert_equal :script_failed, reason
+      assert_includes detail, 'boom', 'detail must carry the script stderr, not a harness error'
+    end
+  end
+
+  def test_run_pkgver_func_success_yields_script_version
+    info = { url: 'https://example.git', ref: 'main', path: '.', depth: 1,
+             pkgver_func: 'echo 2.3.4' }
+
+    Rulepack::Common.stub(:fetch_git_source, nil) do
+      result = Rulepack::Bump.run_pkgver_func(info)
+
+      assert_equal ['2.3.4', :pkgver_func, nil, nil], result
+    end
+  end
+
+  def test_run_pkgver_func_empty_output_yields_empty_output_fallback
+    info = { url: 'https://example.git', ref: 'main', path: '.', depth: 1,
+             pkgver_func: 'true' }
+
+    Rulepack::Common.stub(:fetch_git_source, nil) do
+      ver, source, reason = Rulepack::Bump.run_pkgver_func(info)
+
+      assert_match(/\A\d{4}\.\d{2}\.\d{2}\z/, ver)
+      assert_equal :date_fallback, source
+      assert_equal :empty_output, reason
+    end
+  end
+
+  def test_apply_records_pkgver_func_provenance_in_result_data
+    info = { url: 'https://example.git', ref: 'main', path: '.', depth: 1,
+             pkgver: '0.1.0', pkgver_func: 'echo 2.3.4',
+             pkgbuild_path: Pathname.new('dummy'), pkg_data: {} }
+    upstream = { testpkg: { status: :changed, remote: 'a' * 40, cached: 'b' * 40, message: 'changed' } }
+
+    result = run_apply_stubbed(info, upstream, compute: ->(_info) { ['2.3.4', :pkgver_func, nil, nil] })
+
+    entry = result.data[:bump][:packages][:testpkg]
+    assert_equal '2.3.4', entry[:applied_version]
+    assert_equal :pkgver_func, entry[:version_source]
+    assert_equal true, entry[:written]
+    refute entry.key?(:fallback_reason), 'a real script version is not a fallback'
+  end
+
+  def test_apply_records_date_fallback_provenance_in_result_data
+    info = { url: 'https://example.git', ref: 'main', path: '.', depth: 1,
+             pkgver: '0.1.0', pkgver_func: 'exit 1',
+             pkgbuild_path: Pathname.new('dummy'), pkg_data: {} }
+    upstream = { testpkg: { status: :changed, remote: 'a' * 40, cached: 'b' * 40, message: 'changed' } }
+
+    result = run_apply_stubbed(info, upstream,
+                               compute: ->(_info) { ['2026.10.04', :date_fallback, :script_failed, 'git exploded'] })
+
+    entry = result.data[:bump][:packages][:testpkg]
+    assert_equal '2026.10.04', entry[:applied_version]
+    assert_equal :date_fallback, entry[:version_source]
+    assert_equal :script_failed, entry[:fallback_reason]
+    assert_equal true, entry[:written]
+  end
+
+  def run_apply_stubbed(info, upstream, compute:)
+    Rulepack::Bump.stub(:discover_git_packages, { testpkg: info }) do
+      Rulepack::Bump.stub(:check_upstream, ->(_packages) { upstream }) do
+        Rulepack::Bump.stub(:compute_new_version, compute) do
+          Rulepack::Bump.stub(:update_pkgbuild, true) do
+            Rulepack::Bump.stub(:invalidate_cache, nil) do
+              Rulepack::Bump.stub(:invoke_build, Rulepack::Result.new(status: :success)) do
+                Rulepack::Bump.run_unscoped(apply: true)
+              end
+            end
+          end
+        end
+      end
+    end
   end
 end
