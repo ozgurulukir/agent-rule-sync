@@ -86,7 +86,7 @@ module Rulepack
     def installed(platform_id = 'opencode', project_root: nil)
       platform_id = platform_id.to_s
       registry = Rulepack::Common.load_platform_registry
-      platform_cfg = registry[platform_id.to_sym] || registry[platform_id]
+      platform_cfg = Rulepack::Common.lookup(registry, platform_id)
       unless platform_cfg
         return Rulepack::Result.new(
           status: :failure,
@@ -111,7 +111,7 @@ module Rulepack
       raise ArgumentError, 'Missing package name' unless pkgname
 
       index = load_index
-      pkg = index[:packages][pkgname.to_sym] || index[:packages][pkgname]
+      pkg = Rulepack::Common.lookup(index[:packages], pkgname)
       unless pkg
         return Rulepack::Result.new(
           status: :failure,
@@ -176,7 +176,7 @@ module Rulepack
       raise ArgumentError, 'Missing package name' unless pkgname
 
       index = load_index
-      pkg = index[:packages][pkgname.to_sym] || index[:packages][pkgname]
+      pkg = Rulepack::Common.lookup(index[:packages], pkgname)
       unless pkg
         return Rulepack::Result.new(
           status: :failure,

@@ -63,7 +63,7 @@ module Rulepack
       total_ok = 0
 
       targets_to_verify.each do |platform_id|
-        platform_cfg = registry[platform_id.to_sym] || registry[platform_id.to_s]
+        platform_cfg = Rulepack::Common.lookup(registry, platform_id)
         base_path = resolve_base_path(platform_cfg, project_arg)
 
         platform_pkgs = packages.select do |name, pkg|

@@ -160,7 +160,7 @@ module Rulepack
       targets = []
       if target_arg.downcase == 'all'
         if target_package
-          pkg_idx = index[:packages][target_package.to_sym] || index[:packages][target_package.to_s] || {}
+          pkg_idx = Rulepack::Common.lookup(index[:packages], target_package) || {}
           targets = (pkg_idx[:installed] || []).map { |i| i[:platform] }.uniq
         else
           platforms = Set.new
@@ -174,7 +174,7 @@ module Rulepack
       end
 
       targets.each do |p|
-        cfg = registry[p.to_sym] || registry[p.to_s]
+        cfg = Rulepack::Common.lookup(registry, p)
         raise Rulepack::UnknownPlatform, "Unknown target platform '#{p}'." unless cfg
         raise Rulepack::ConfigError, "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>." if cfg[:scope] == 'project' && !project_arg
       end
@@ -191,7 +191,7 @@ module Rulepack
       targets.each do |platform_id|
         Rulepack::Emitter.emit(:progress, message: "\u{1f9f9} Uninstalling from platform: #{platform_id} #{'(dry-run)' if dry_run}")
 
-        platform_cfg = registry[platform_id.to_sym] || registry[platform_id.to_s]
+        platform_cfg = Rulepack::Common.lookup(registry, platform_id)
         project_root = project_arg ? Pathname.new(project_arg).expand_path : nil
         base_path = project_root || Pathname.new(Rulepack::Path.expand_user_path(platform_cfg[:base_path]))
 
@@ -291,14 +291,14 @@ module Rulepack
 
     def uninstall_single_package(pkgname, index, build_index, platform_id,
                                  platform_cfg, base_path, dry_run, ctx = nil)
-      pkg_index = index[:packages][pkgname.to_sym] || index[:packages][pkgname.to_s]
+      pkg_index = Rulepack::Common.lookup(index[:packages], pkgname)
       return nil unless pkg_index
 
       records = pkg_index[:installed] || []
       platform_records = records.select { |r| r[:platform] == platform_id }
       return nil if platform_records.empty?
 
-      pkgdata = build_index[:packages][pkgname.to_sym] || build_index[:packages][pkgname.to_s]
+      pkgdata = Rulepack::Common.lookup(build_index[:packages], pkgname)
       return :missing_from_build_index unless pkgdata
       targets = pkgdata[:targets]&.select { |t| t[:platform] == platform_id } || []
       target_by_output = targets.to_h { |t| [t[:output], t] }

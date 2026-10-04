@@ -131,8 +131,7 @@ module Rulepack
 
     # Find a platform config by name (string or symbol key)
     def platform_config(name, registry)
-      key = name.to_sym
-      cfg = registry[key] || registry[name.to_s]
+      cfg = Rulepack::Common.lookup(registry, name)
       raise Rulepack::ConfigError, "Unknown platform: #{name}" unless cfg
 
       cfg

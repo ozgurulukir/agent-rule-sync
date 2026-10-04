@@ -103,6 +103,17 @@ module Rulepack
       paths.index_yaml_path
     end
 
+    # ─── Map lookup ────────────────────────────────────────────────────────────
+    #
+    # Store maps (index packages, platform registry, format profiles) hold
+    # either symbol or string keys depending on the writer vintage. One
+    # tolerant probe instead of a hand-rolled `map[k.to_sym] || map[k.to_s]`
+    # at every call site — key-normalization policy has one home.
+
+    def lookup(map, key)
+      map[key.to_sym] || map[key.to_s]
+    end
+
     # ─── Platforms delegators ─────────────────────────────────────────────────
 
     def load_platform_registry

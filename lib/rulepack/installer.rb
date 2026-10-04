@@ -364,7 +364,7 @@ module Rulepack
       end
 
       targets.each do |p|
-        cfg = registry[p.to_sym] || registry[p.to_s]
+        cfg = Rulepack::Common.lookup(registry, p)
         raise Rulepack::UnknownPlatform, "Unknown target platform '#{p}'." unless cfg
         raise Rulepack::ConfigError, "Platform '#{cfg[:display_name]}' is project-scoped. You must explicitly specify the project path with --project <path>." if cfg[:scope] == 'project' && !project_arg
       end

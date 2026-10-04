@@ -96,7 +96,7 @@ module Rulepack
       return if profile.nil? || profile.empty?
 
       %w[rules skills].each do |section|
-        section_data = profile[section.to_sym] || profile[section]
+        section_data = Rulepack::Common.lookup(profile, section)
         next unless section_data.is_a?(Hash)
 
         section_data.each_key do |key|

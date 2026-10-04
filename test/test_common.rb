@@ -342,3 +342,27 @@ class TestStripFrontmatter < Minitest::Test
     assert_equal content, result
   end
 end
+
+# ─── lookup ──────────────────────────────────────────────────────────────────
+
+class TestLookup < Minitest::Test
+  def test_finds_symbol_key
+    assert_equal 'a', Rulepack::Common.lookup({ memory: 'a' }, 'memory')
+  end
+
+  def test_falls_back_to_string_key
+    assert_equal 'b', Rulepack::Common.lookup({ 'memory' => 'b' }, 'memory')
+  end
+
+  def test_symbol_key_wins_over_string_key
+    assert_equal 'sym', Rulepack::Common.lookup({ memory: 'sym', 'memory' => 'str' }, 'memory')
+  end
+
+  def test_missing_key_returns_nil
+    assert_nil Rulepack::Common.lookup({ other: 1 }, 'memory')
+  end
+
+  def test_accepts_symbol_query
+    assert_equal 'a', Rulepack::Common.lookup({ memory: 'a' }, :memory)
+  end
+end

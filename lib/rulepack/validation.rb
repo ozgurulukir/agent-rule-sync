@@ -296,7 +296,7 @@ module Rulepack
       targets = []
       if target_arg.to_s.downcase == 'all'
         if target_package
-          pkg_idx = packages[target_package.to_sym] || packages[target_package.to_s] || {}
+          pkg_idx = Rulepack::Common.lookup(packages, target_package) || {}
           targets = (pkg_idx[:installed] || []).map { |i| i[:platform] }.uniq
         else
           platform_set = Set.new
@@ -313,7 +313,7 @@ module Rulepack
 
       # ── Validate targets against registry ────────────────────────────────────────
       targets.each do |p|
-        cfg = registry[p.to_sym] || registry[p.to_s]
+        cfg = Rulepack::Common.lookup(registry, p)
         unless cfg
           msg = "Unknown target platform '#{p}'."
           exit_on_failure ? abort("❌ Error: #{msg}") : raise(Rulepack::UnknownPlatform, msg)
