@@ -9,48 +9,56 @@ module Rulepack
   module InstallHandlers
     module_function
 
+    # Returns false when the target was NOT installed (unknown install type,
+    # collision skipped via --on-collision ignore) so the caller can keep the
+    # package out of the installed set and the index. Any other outcome —
+    # including dry-run previews — returns true.
     def perform_file_install(built_path, install_path, content, content_sha256, install_type, platform_cfg, output,
                              pkgname, ctx)
-      case install_type
-      when 'symlink'
-        if ctx.dry_run
-          Rulepack::Common.log "    [DRY-RUN] Would symlink: #{built_path} → #{install_path}" unless ctx.quiet
-        else
-          do_symlink(built_path, install_path, pkgname, ctx)
-        end
-      when 'copy'
-        if ctx.dry_run
-          Rulepack::Common.log "    [DRY-RUN] Would copy: #{built_path} → #{install_path}" unless ctx.quiet
-        else
-          do_copy(built_path, install_path, content_sha256, pkgname, ctx)
-        end
-      when 'inject', 'append'
-        if ctx.dry_run
-          Rulepack::Common.log "    [DRY-RUN] Would #{install_type}: #{output} → #{install_path}" unless ctx.quiet
-        else
-          do_inject_append(install_path, content, install_type, platform_cfg, output, pkgname, ctx)
-        end
-      when 'json_merge'
-        if ctx.dry_run
-          Rulepack::Common.log "    [DRY-RUN] Would json_merge: #{built_path} → #{install_path}" unless ctx.quiet
-        else
-          do_json_merge(built_path, install_path, pkgname, ctx)
-        end
-      when 'yaml_merge'
-        if ctx.dry_run
-          Rulepack::Common.log "    [DRY-RUN] Would yaml_merge: #{built_path} → #{install_path}" unless ctx.quiet
-        else
-          do_yaml_merge(built_path, install_path, pkgname, ctx)
-        end
-      when 'structured_inject'
-        if ctx.dry_run
-          Rulepack::Common.log "    [DRY-RUN] Would structured_inject: #{output} → #{install_path}" unless ctx.quiet
-        else
-          do_structured_inject(install_path, platform_cfg, output, pkgname, ctx)
-        end
-      else
-        Rulepack::Common.log_error "Unknown install type: #{install_type}. Valid types: symlink, copy, inject, append, json_merge, yaml_merge, structured_inject."
-      end
+      performed = case install_type
+                  when 'symlink'
+                    if ctx.dry_run
+                      Rulepack::Common.log "    [DRY-RUN] Would symlink: #{built_path} → #{install_path}" unless ctx.quiet
+                    else
+                      do_symlink(built_path, install_path, pkgname, ctx)
+                    end
+                  when 'copy'
+                    if ctx.dry_run
+                      Rulepack::Common.log "    [DRY-RUN] Would copy: #{built_path} → #{install_path}" unless ctx.quiet
+                    else
+                      do_copy(built_path, install_path, content_sha256, pkgname, ctx)
+                    end
+                  when 'inject', 'append'
+                    if ctx.dry_run
+                      Rulepack::Common.log "    [DRY-RUN] Would #{install_type}: #{output} → #{install_path}" unless ctx.quiet
+                    else
+                      do_inject_append(install_path, content, install_type, platform_cfg, output, pkgname, ctx)
+                    end
+                  when 'json_merge'
+                    if ctx.dry_run
+                      Rulepack::Common.log "    [DRY-RUN] Would json_merge: #{built_path} → #{install_path}" unless ctx.quiet
+                    else
+                      do_json_merge(built_path, install_path, pkgname, ctx)
+                    end
+                  when 'yaml_merge'
+                    if ctx.dry_run
+                      Rulepack::Common.log "    [DRY-RUN] Would yaml_merge: #{built_path} → #{install_path}" unless ctx.quiet
+                    else
+                      do_yaml_merge(built_path, install_path, pkgname, ctx)
+                    end
+                  when 'structured_inject'
+                    if ctx.dry_run
+                      Rulepack::Common.log "    [DRY-RUN] Would structured_inject: #{output} → #{install_path}" unless ctx.quiet
+                    else
+                      do_structured_inject(install_path, platform_cfg, output, pkgname, ctx)
+                    end
+                  else
+                    msg = "Unknown install type: #{install_type}. Valid types: symlink, copy, inject, append, json_merge, yaml_merge, structured_inject."
+                    Rulepack::Common.log_error msg
+                    Rulepack::InstallExecute.record_failure(ctx, pkgname.to_s, :unknown_install_type, msg)
+                    false
+                  end
+      performed != false
     end
 
     def do_symlink(built_path, install_path, pkgname, ctx)
@@ -77,6 +85,9 @@ module Rulepack
           Rulepack::Common.log "    ✓ Replaced symlink (strategy: #{strategy})"
         when 'ignore'
           Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
+          Rulepack::InstallExecute.record_failure(ctx, pkgname.to_s, :collision_skipped,
+                                                  "Collision at #{install_path}; skipped (--on-collision ignore)")
+          return false
         else # stop
           Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
           raise Rulepack::StateError, "Collision at #{install_path}"
@@ -114,6 +125,9 @@ module Rulepack
           Rulepack::Common.log '    ✓ Updated (with backup)'
         when 'ignore'
           Rulepack::Common.log "    ⚠ Collision: #{install_path} exists, skipping"
+          Rulepack::InstallExecute.record_failure(ctx, pkgname.to_s, :collision_skipped,
+                                                  "Collision at #{install_path}; skipped (--on-collision ignore)")
+          return false
         else # stop
           Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
           raise Rulepack::StateError, "Collision at #{install_path}"

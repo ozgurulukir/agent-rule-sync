@@ -102,6 +102,54 @@ module Rulepack
       end
     end
 
+    # ─── Failure recording ───────────────────────────────────────────────────────
+
+    # Record a requested-but-skipped package so it reaches the install Result
+    # (data[:failed_packages]) instead of living only in stderr narration.
+    # `package` may be nil for platform-level skips (vendor aggregation).
+    def record_failure(ctx, package, reason, message)
+      (ctx.failures ||= []) << { package: package, reason: reason, message: message }
+    end
+
+    # ─── Agent lazy materialization (source-centric build) ───────────────────────
+
+    # ADR-2026-07-29: the build does not materialize agent-format targets —
+    # like skill-bundles, their tree is materialized lazily at install time.
+    # Unlike skill-bundles this is a verbatim copy: the eager-built agent path
+    # never applied Schema Engine or wrote a manifest, so materialization must
+    # not either. The copy comes from the fetched, version-pinned git-sources
+    # snapshot; symlinks are stripped as for any untrusted build source.
+    def agent_source_dir(pkgdata)
+      source_dir = pkgdata[:source_dir]
+      return nil if source_dir.nil? || source_dir.to_s.empty?
+
+      dir = Pathname.new(source_dir)
+      dir = Rulepack::Common.paths.root.join(dir) if !dir.absolute? && !dir.exist?
+      dir.directory? ? dir : nil
+    end
+
+    # Returns true when install may proceed (artifact present or materialized,
+    # or a dry-run with source material available). Records a
+    # :missing_built_artifact failure and returns false when nothing can be
+    # installed. Dry-run never writes.
+    def ensure_agent_artifact(pkgname, pkgdata, platform_id, built_path, ctx, dry_run:)
+      return true if built_path.directory?
+
+      source_dir = agent_source_dir(pkgdata)
+      unless source_dir && pkgdata[:source_sha256]
+        msg = "Built agent artifact missing for #{pkgname}: #{built_path} — no source material to materialize from. Run `rulepack build` first."
+        Rulepack::Common.log_error msg
+        record_failure(ctx, pkgname.to_s, :missing_built_artifact, msg)
+        return false
+      end
+      return true if dry_run
+
+      built_path.mkpath
+      FileUtils.cp_r(File.join(source_dir.to_s, '.'), built_path.to_s)
+      Rulepack::Security.strip_symlinks_in_tree(built_path, log_prefix: '⚠')
+      true
+    end
+
     # ─── Single-file install (directory/import/skill platform types) ───────────────
 
     def install_file_or_skill(pkgname, pkgdata, target, ctx)
@@ -114,14 +162,19 @@ module Rulepack
       installed_this_run = ctx.installed_this_run
       output = target[:output]
       built_path = Rulepack::Common.build_dir.join(platform_id, pkgname.to_s, output)
-      unless built_path.exist?
+      agent_format = target[:format] == 'agent'
+      # agent-format targets materialize lazily (see ensure_agent_artifact);
+      # the generic built-artifact gate below does not apply to them.
+      unless agent_format || built_path.exist?
         Rulepack::Common.log_error "Built artifact missing: #{built_path}. Run `rulepack build` first."
+        record_failure(ctx, pkgname.to_s, :missing_built_artifact,
+                       "Built artifact missing for #{pkgname}: #{built_path}. Run `rulepack build` first.")
         return
       end
 
       # Directory builds (skill-bundle, agent): checksum is not used downstream
       # (verify skips agents; fix handles agent as existence-only). Keep nil.
-      if built_path.directory?
+      if built_path.directory? || agent_format
         content = nil
         content_sha256 = nil
       else
@@ -149,6 +202,7 @@ module Rulepack
         end
         target_dir = install_cfg&.[](:target_dir) || pkgname.to_s
         install_path = base_path.join(agents_dir, target_dir)
+        return unless ensure_agent_artifact(pkgname, pkgdata, platform_id, built_path, ctx, dry_run: dry_run)
         unless dry_run
           install_path.mkpath
           FileUtils.cp_r(built_path.to_s + '/.', install_path.to_s, preserve: false)
@@ -180,10 +234,11 @@ module Rulepack
       install_path.parent.mkpath unless dry_run
 
       Rulepack::Emitter.emit(:progress, message: "  ⤷ #{pkgname} (#{output}) → #{install_path} [#{install_type}]") unless quiet
-      Rulepack::InstallHandlers.perform_file_install(
+      performed = Rulepack::InstallHandlers.perform_file_install(
         built_path, install_path, content, content_sha256, install_type,
         platform_cfg, output, pkgname, ctx
       )
+      return if performed == false
 
       record_installation(index, pkgname, platform_id, pkgdata, output, content_sha256, format: format, install_path: install_path) unless dry_run
       Rulepack::Emitter.emit(:progress, message: "  ✓ Installed: #{pkgname}") unless quiet
@@ -265,6 +320,8 @@ module Rulepack
               Rulepack::Emitter.emit(:progress, message: "  ✓ Overwrote vendor skill to #{install_path} (with backup)")
             when 'ignore'
               Rulepack::Emitter.emit(:progress, message: "  ⚠ Collision: #{install_path} exists, skipping vendor skill install")
+              record_failure(ctx, nil, :vendor_collision_skipped,
+                             "Collision at #{install_path}; vendor skill skipped (--on-collision ignore)")
             else # stop
               Rulepack::Common.log_error "Collision detected: #{install_path} exists. Use --on-collision to proceed."
               Rulepack::Emitter.emit(:progress, message: "  ❌ Collision: #{install_path} exists. Use --on-collision to proceed.")
@@ -277,9 +334,12 @@ module Rulepack
           end
         else
           Rulepack::Common.log_error "Vendor skill not generated: #{vendor_file}"
+          record_failure(ctx, nil, :vendor_skill_not_generated,
+                         "Vendor skill not generated: #{vendor_file}")
         end
       else
         Rulepack::Common.log_error 'Vendor skill aggregation failed'
+        record_failure(ctx, nil, :vendor_aggregation_failed, 'Vendor skill aggregation failed')
       end
     end
   end

@@ -98,8 +98,12 @@ class TestSourceCentricBuild < Minitest::Test
     refute @build_dir.join('opencode', 'anthropics-skills').directory?,
            'Skill-bundle should not exist before install (lazy contract)'
 
-    # Install triggers materialization.
-    assert run_install('opencode'), 'Install should succeed'
+    # Install triggers materialization. Scoped to the bundle under test:
+    # an all-packages install now honestly reports :partial (exit 1) because
+    # agent-format targets (e.g. ruby-update-signatures) have no materialized
+    # artifact under the source-centric build — surfaced by the 2026-10-04
+    # envelope work, previously a silent skip.
+    assert run_install('opencode', 'anthropics-skills'), 'Install should succeed'
 
     # Post-condition: build/opencode/anthropics-skills/ is now present with
     # manifest.json (manifest is derived from the materialized contents).
@@ -158,8 +162,10 @@ class TestSourceCentricBuild < Minitest::Test
 
   def test_skill_bundle_install_uninstall_contract_preserved
     run_build
-    assert run_install('opencode'), 'Install should succeed'
-    assert run_install('opencode'), 'Second install (idempotent) should succeed'
+    # Scoped to the bundle under test (see AC2 note: all-package installs
+    # report :partial while agent targets lack materialized artifacts).
+    assert run_install('opencode', 'anthropics-skills'), 'Install should succeed'
+    assert run_install('opencode', 'anthropics-skills'), 'Second install (idempotent) should succeed'
 
     bundle_dir = @home_dir.join('.config/opencode/skills/anthropics-skills')
     assert bundle_dir.directory?, 'Skill-bundle install path should exist'

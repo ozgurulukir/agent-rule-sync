@@ -6,13 +6,25 @@ module Rulepack
   module Transaction
     module_function
 
+    # Returns the restore outcome so callers can surface it in their Result:
+    # { index_restored: true|false, backup: String|nil }. A failing restore
+    # is caught and reported — it must never raise out of a rollback.
     def transaction_rollback(error, backup_path, journal = nil)
-      if backup_path && Rulepack::InstalledIndex.restore(backup_path)
-        Rulepack::Common.log_error "Transaction failed (#{error.message}). Index restored from backup: #{backup_path.basename}"
-      else
-        Rulepack::Common.log_error "Transaction failed (#{error.message}). No backup available."
+      restored = false
+      if backup_path
+        begin
+          restored = Rulepack::InstalledIndex.restore(backup_path)
+          Rulepack::Common.log_error "Transaction failed (#{error.message}). Index restored from backup: #{backup_path.basename}" if restored
+        rescue StandardError => e
+          Rulepack::Common.log_error "Index restore from #{backup_path} FAILED: #{e.message}"
+        end
+      end
+      unless restored
+        reason = backup_path ? 'restore failed' : 'no backup available'
+        Rulepack::Common.log_error "Transaction failed (#{error.message}). Index NOT restored (#{reason})."
       end
       rollback_journal(journal) if journal
+      { index_restored: restored, backup: backup_path&.to_s }
     end
 
     def record_journal(ctx, entry)

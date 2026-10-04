@@ -148,4 +148,29 @@ class TestTransactionRollback < Minitest::Test
     missing = Rulepack::Common.check_prerequisites(fake_cfg)
     assert_empty missing
   end
+
+  # ─── Restore-outcome return (surfaced in install Result data) ────────────────
+
+  def test_rollback_without_backup_reports_not_restored
+    outcome = Rulepack::Transaction.transaction_rollback(StandardError.new('boom'), nil, nil)
+    assert_equal false, outcome[:index_restored]
+    assert_nil outcome[:backup]
+  end
+
+  def test_rollback_with_backup_reports_restored
+    paths = Rulepack::Paths.for_root(@base)
+    Rulepack::Common.with_paths(paths) do
+      @base.join('data').mkpath
+      (paths.index_yaml_path).write({ version: 3.0, packages: {} }.to_yaml)
+      backup_path = Rulepack::InstalledIndex.backup
+      assert backup_path, 'backup must exist for the restore path'
+
+      outcome = nil
+      capture_io do
+        outcome = Rulepack::Transaction.transaction_rollback(StandardError.new('boom'), backup_path, nil)
+      end
+      assert_equal true, outcome[:index_restored]
+      assert_equal backup_path.to_s, outcome[:backup]
+    end
+  end
 end

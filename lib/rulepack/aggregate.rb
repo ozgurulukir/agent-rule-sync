@@ -87,7 +87,7 @@ module Rulepack
               order = pkgdata[:order] || 0
               rule_skills << { pkgname: pkgname, order: order, path: fragment_path }
             else
-              warn "  ⚠ Built artifact missing: #{fragment_path}"
+              Rulepack::Common.log_warn "Built artifact missing: #{fragment_path}"
             end
           end
         end

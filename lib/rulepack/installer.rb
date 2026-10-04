@@ -29,7 +29,7 @@ module Rulepack
     InstallContext = Struct.new(
       :index, :build_index, :platform_id, :platform_cfg, :base_path, :project_root,
       :dry_run, :force_mode, :needed_mode, :collision_strategy, :rules_to, :quiet,
-      :select_list, :installed_this_run, :journal, :force_packages,
+      :select_list, :installed_this_run, :journal, :force_packages, :failures,
       keyword_init: true
     )
 
@@ -90,7 +90,8 @@ module Rulepack
           force_packages: force_packages,
           project_root: project_arg ? Pathname.new(project_arg).expand_path : nil,
           installed_this_run: [],
-          journal: []
+          journal: [],
+          failures: []
         )
         installed = InstallExecute.install_platform(ctx, specific_package: specific_package).to_a
 
@@ -101,29 +102,43 @@ module Rulepack
           Rulepack::Common.log "📝 Index written: #{Rulepack::Common.paths.index_yaml_path}"
         end
       rescue StandardError => e
-        Rulepack::Transaction.transaction_rollback(e, backup_path, ctx&.journal)
+        rollback = Rulepack::Transaction.transaction_rollback(e, backup_path, ctx&.journal)
         return Rulepack::Result.new(
           status: :failure,
           errors: ["Install failed for #{platform_id}: #{e.message}"],
-          data: { platform_id: platform_id, installed: installed }
+          data: { platform_id: platform_id, installed: installed,
+                  index_restored: rollback[:index_restored], backup: rollback[:backup] }
         )
       ensure
         begin
           Rulepack::InstalledIndex.cleanup_backups
-        rescue StandardError
-          nil
+        rescue StandardError => e
+          # Best-effort cleanup: never let the cleanup failure (or a logging
+          # failure) mask the install outcome this ensure is attached to.
+          begin
+            Rulepack::Common.log_debug "Index backup cleanup failed: #{e.message}"
+          rescue StandardError
+            warn "Index backup cleanup failed: #{e.message}"
+          end
         end
       end
 
-      status = :success
+      # Requested-but-skipped packages (downgrade without --force, missing
+      # artifact, unknown install type, vendor aggregation failure) must be
+      # visible to machine consumers, not just stderr narration.
+      failures = Array(ctx.failures)
+      status = failures.empty? ? :success : :partial
+      messages = install_messages(platform_id, installed, dry_run)
+      messages.concat(failures.map { |f| "   ⚠ #{f[:message]}" }) unless failures.empty?
       Rulepack::Result.new(
         status: status,
         data: {
           platform_id: platform_id,
           installed: installed,
+          failed_packages: failures,
           dry_run: dry_run
         },
-        messages: install_messages(platform_id, installed, dry_run)
+        messages: messages
       )
     end
 
@@ -164,29 +179,39 @@ module Rulepack
 
       all_installed = Set.new
       failed_platforms = []
+      failed_packages = []
       journal = []
       begin
         platforms.each do |platform_id|
           opts = options.merge(journal: journal)
           begin
-            all_installed.merge(install_single_platform(platform_id, index, build_index, opts))
+            installed, pkg_failures = install_single_platform(platform_id, index, build_index, opts)
+            all_installed.merge(installed)
+            Array(pkg_failures).each { |f| failed_packages << f.merge(platform: platform_id) }
           rescue StandardError => e
             failed_platforms << { platform: platform_id, error: e.message }
             Rulepack::Common.log_warn "Failed to install platform #{platform_id}: #{e.message}"
           end
         end
       rescue StandardError => e
-        Rulepack::Transaction.transaction_rollback(e, backup_path, journal)
+        rollback = Rulepack::Transaction.transaction_rollback(e, backup_path, journal)
         return Rulepack::Result.new(
           status: :failure,
           errors: ["Install all failed: #{e.message}"],
-          data: { installed: all_installed.to_a, failed: failed_platforms }
+          data: { installed: all_installed.to_a, failed: failed_platforms,
+                  index_restored: rollback[:index_restored], backup: rollback[:backup] }
         )
       ensure
         begin
           Rulepack::InstalledIndex.cleanup_backups
-        rescue StandardError
-          nil
+        rescue StandardError => e
+          # Best-effort cleanup: never let the cleanup failure (or a logging
+          # failure) mask the install outcome this ensure is attached to.
+          begin
+            Rulepack::Common.log_debug "Index backup cleanup failed: #{e.message}"
+          rescue StandardError
+            warn "Index backup cleanup failed: #{e.message}"
+          end
         end
       end
 
@@ -197,16 +222,19 @@ module Rulepack
         Rulepack::Common.log "\n📝 Index written: #{Rulepack::Common.paths.index_yaml_path}"
       end
 
-      status = failed_platforms.empty? ? :success : :partial
+      status = failed_platforms.empty? && failed_packages.empty? ? :success : :partial
+      messages = install_all_messages(all_installed, failed_platforms, dry_run)
+      messages.concat(failed_packages.map { |f| "   ⚠ #{f[:platform]}: #{f[:message]}" }) unless failed_packages.empty?
       Rulepack::Result.new(
         status: status,
         data: {
           installed: all_installed.to_a,
           failed: failed_platforms,
+          failed_packages: failed_packages,
           platforms: platforms,
           dry_run: dry_run
         },
-        messages: install_all_messages(all_installed, failed_platforms, dry_run)
+        messages: messages
       )
     end
 
@@ -221,9 +249,11 @@ module Rulepack
         select_list: options.fetch(:select_list, nil), quiet: true,
         project_root: options[:project_arg] ? Pathname.new(options[:project_arg]).expand_path : nil,
         installed_this_run: [],
-        journal: options.fetch(:journal, [])
+        journal: options.fetch(:journal, []),
+        failures: []
       )
-      InstallExecute.install_platform(ctx)
+      installed = InstallExecute.install_platform(ctx)
+      [installed, ctx.failures]
     rescue StandardError => e
       Rulepack::Common.log_warn "Failed to install platform #{platform_id}: #{e.message}"
       raise e
@@ -315,6 +345,8 @@ module Rulepack
 
       all_installed = []
       failed = []
+      saw_failure = false
+      saw_partial = false
       targets_to_install.each do |pkg_platform|
         if target_package
           Rulepack::Emitter.emit(:progress, message: "\u{1f4e6} Installing #{target_package} \u{2192} #{pkg_platform}")
@@ -328,12 +360,20 @@ module Rulepack
                        rules_to: rules_to, collision_strategy: collision_strategy })
         if result.success?
           all_installed.concat(result.data[:installed] || [])
+        elsif result.partial?
+          # Skipped packages (downgrade, collision-ignore, missing artifact…)
+          # keep the run honest without escalating to a hard failure.
+          saw_partial = true
+          all_installed.concat(result.data[:installed] || [])
+          Array(result.data[:failed_packages]).each { |f| failed << "⚠ #{f[:message]}" }
         else
+          saw_failure = true
           failed.concat(result.errors)
+          Array(result.data[:failed_packages]).each { |f| failed << f[:message] }
         end
       end
 
-      status = failed.empty? ? :success : :failure
+      status = saw_failure ? :failure : saw_partial ? :partial : :success
       Rulepack::Result.new(
         status: status,
         data: {
@@ -380,7 +420,7 @@ module Rulepack
       Rulepack::Emitter.emit(:info, message: '')
       Rulepack::Emitter.emit(:info, message: "Targets (#{targets.size}):")
       targets.each do |t|
-        status = available.include?(t[:platform]) ? '\u{2713} built' : '\u{2717} not built'
+        status = available.include?(t[:platform]) ? "\u{2713} built" : "\u{2717} not built"
         Rulepack::Emitter.emit(:info, message: "  \u{2022} #{t[:platform]} (#{t[:format]}, #{t[:output]}) [#{status}]")
       end
       Rulepack::Emitter.emit(:info, message: '')

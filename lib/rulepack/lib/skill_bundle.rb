@@ -49,8 +49,9 @@ module Rulepack
         source_dir = pkgdata[:source_dir]
         source_sha = pkgdata[:source_sha256]
         unless source_dir && source_sha
-          Rulepack::Common.log_error \
-            "Skill-bundle #{pkgname} lacks source_dir/source_sha256 in the build index — stale build? Run `rulepack build`."
+          msg = "Skill-bundle #{pkgname} lacks source_dir/source_sha256 in the build index — stale build? Run `rulepack build`."
+          Rulepack::Common.log_error msg
+          Rulepack::InstallExecute.record_failure(ctx, pkgname.to_s, :missing_source_material, msg)
           return false
         end
 
@@ -190,7 +191,9 @@ module Rulepack
       end
       :copied
     rescue StandardError => e
-      Rulepack::Common.log_error "Failed to install skill-bundle: #{e.message}"
+      msg = "Failed to install skill-bundle #{pkgname}: #{e.message}"
+      Rulepack::Common.log_error msg
+      Rulepack::InstallExecute.record_failure(ctx, pkgname.to_s, :skill_bundle_copy_failed, msg)
       false
     end
 

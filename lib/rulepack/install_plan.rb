@@ -107,12 +107,18 @@ module Rulepack
         uninstall_single_package_from_index!(ctx.index, pkgname, ctx.platform_id, project_root: ctx.project_root, ctx: ctx) unless ctx.dry_run
         true
       else
+        old_v = Rulepack::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])
+        new_v = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
         unless ctx.quiet
-          old_v = Rulepack::Common.format_version(existing[:epoch], existing[:version], existing[:pkgrel])
-          new_v = Rulepack::Common.format_version(pkgdata[:epoch], pkgdata[:pkgver], pkgdata[:pkgrel])
           Rulepack::Common.log_error "Downgrade detected for #{pkgname}: installed #{old_v}, candidate #{new_v}"
+          Rulepack::Common.log_error 'Use --force to allow downgrade'
         end
-        Rulepack::Common.log_error 'Use --force to allow downgrade' unless ctx.quiet
+        # Recorded in dry-run too: a preview must not report success for a
+        # package a real install would refuse to touch.
+        Rulepack::InstallExecute.record_failure(
+          ctx, pkgname.to_s, :downgrade_detected,
+          "Downgrade detected for #{pkgname}: installed #{old_v}, candidate #{new_v}; use --force to allow downgrade"
+        )
         false
       end
     end
