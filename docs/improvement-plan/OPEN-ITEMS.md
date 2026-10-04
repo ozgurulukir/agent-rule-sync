@@ -1731,22 +1731,63 @@ Test gate: `rake test` 501 runs / 1534 assertions / 1 pre-existing Windows-only 
 Found by the silent-failure-hunter review of the narration dedup change (dual `puts` removal +
 `Logging.console_silent`). None are regressions of that change — with stderr diagnostics kept
 unconditional, every path below is exactly as visible as before it — but they are Result-envelope
-gaps that predate it and matter for `--format json|yaml|jsonl` consumers:
+gaps that predate it and matter for `--format json|yaml|jsonl` consumers.
+
+**✅ RESOLVED (2026-10-04 envelope pass, same day)** — all four items below were closed by the
+`InstallContext#failures` plumbing (`InstallExecute.record_failure` → `data[:failed_packages]` →
+`:partial` status, exit 1): downgrade skip, vendor aggregation failure, unknown install type
+(also no longer marked installed/indexed), and rollback restore outcome
+(`transaction_rollback` returns `{index_restored:, backup:}`, surfaced by both installer rescue
+blocks). Collision-ignore skips (`--on-collision ignore`, symlink/copy/inject/vendor) are recorded
+as `:collision_skipped`/`:vendor_collision_skipped` and also flip to `:partial`. Additional
+hardening from the second review round: `log_debug` inside the ensure-blocks is itself
+failure-proof (warn fallback), a failed index restore inside `transaction_rollback` is caught and
+reported instead of raising out of the rollback, and skill-bundle copy failures
+(`copy_sub_skills` rescue) reach the envelope as `:skill_bundle_copy_failed`.
 
 - **Downgrade skip reports success**: `install_plan.rb` `handle_downgrade` (else branch) returns
   `false` → caller `next unless` — a skipped downgrade leaves Result `:success`, exit 0; the only
   signal is `log_error` (stderr + logfile). **Act**: fold downgrade skips into `failed` with a
   reason, or emit a typed Emitter event (model: the collision path in `install_execute.rb:270`).
+  → **RESOLVED**: recorded as `:downgrade_detected` (dry-run previews included).
 - **Vendor aggregation failures discarded**: `install_execute.rb:279,282` — `log_error`-only sites
   whose caller ignores the return value; install reports success. **Act**: propagate into the
-  Result `errors`/`failed`.
+  Result `errors`/`failed`. → **RESOLVED**: `:vendor_aggregation_failed` /
+  `:vendor_skill_not_generated` (`package: nil`).
 - **Unknown install type silently skipped**: `lib/install_handlers.rb:52` — `log_error` + skip;
   install reports success. **Act**: same as above; PKGBUILD typos (`install.type`) become invisible
-  to machine consumers otherwise.
+  to machine consumers otherwise. → **RESOLVED**: `:unknown_install_type`; `perform_file_install`
+  returns `false` so the package is neither marked installed nor written to the index.
 - **Rollback restore outcome is narration-only**: `lib/transaction.rb` `transaction_rollback` —
   whether `data/index.yaml` was restored from backup is critical recovery information but lives
   only in `log_error` text. **Act**: add `data: { index_restored:, backup: }` in the failure
-  Results of `installer.rb`'s rescue blocks.
+  Results of `installer.rb`'s rescue blocks. → **RESOLVED**.
+
+### ✅ Surfaced and RESOLVED by the envelope pass (2026-10-04): agent lazy materialization
+
+- **Agent targets had no install path under the source-centric build** (pre-existing, surfaced by
+  the envelope work): the build intentionally does not materialize `build/<plat>/<pkg>/` for
+  agent-format targets (ADR-2026-07-29 header, AC1), and unlike skill-bundles there was no lazy
+  materialization at install time — `install_file_or_skill` found no artifact and silently
+  skipped, so every all-package install left agent packages (e.g. `ruby-update-signatures`)
+  uninstalled with a green exit 0. The envelope pass exposed this as `:missing_built_artifact` +
+  `:partial`; the same-day fix closed it properly:
+  `InstallExecute.ensure_agent_artifact` materializes `build/<plat>/<pkg>/` verbatim from the
+  version-pinned `source_dir` snapshot (cp_r + symlink strip — no Schema Engine, no manifest:
+  the eager-built agent path never applied either) on the first install, and a dry-run validates
+  source-material presence without writing. All-package installs now genuinely succeed.
+
+### Emitter migration notes (2026-10-04, for future archaeologists)
+
+- `--format json|yaml` now wire `Reporter::NullRenderer`: stdout carries the Result envelope
+  only. Event narration that previously leaked into those streams (:progress etc.) is gone from
+  stdout — it still reaches the log file (via `:log`) and stderr (diagnostics). `--format jsonl`
+  streams `:log` events as JSON lines.
+- `--on-collision ignore` installs now exit 1 (`:partial`) when something was skipped. Scripts
+  that relied on exit 0 with silent skips should check `failed_packages` reasons.
+- Remaining accepted warts (unchanged): 15 methods ≥40 lines, `lib/rulepack/lib/` nested
+  directory name, `generate-catalog.rb` hyphenated filename, `interactive` collision prompt
+  declining with the Null UI (tests).
 
 ---
 
