@@ -20,6 +20,7 @@ require_relative 'emitter'
 require_relative 'lib/transaction'
 require_relative 'install_plan'
 require_relative 'install_execute'
+require_relative 'lockfile'
 
 module Rulepack
   module Install
@@ -30,6 +31,7 @@ module Rulepack
       :index, :build_index, :platform_id, :platform_cfg, :base_path, :project_root,
       :dry_run, :force_mode, :needed_mode, :collision_strategy, :rules_to, :quiet,
       :select_list, :installed_this_run, :journal, :force_packages, :failures,
+      :locked_mode, :lockfile,
       keyword_init: true
     )
 
@@ -57,6 +59,8 @@ module Rulepack
       force_packages = options.fetch(:force_packages, nil)
       collision_strategy = options.fetch(:collision_strategy, 'interactive')
       rules_to = options.fetch(:rules_to, nil)
+      locked_mode = options.fetch(:locked_mode, false)
+      lockfile = locked_mode ? (options.fetch(:lockfile, nil) || Rulepack::Lockfile.new) : nil
 
       Rulepack::Logging.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
 
@@ -91,7 +95,9 @@ module Rulepack
           project_root: project_arg ? Pathname.new(project_arg).expand_path : nil,
           installed_this_run: [],
           journal: [],
-          failures: []
+          failures: [],
+          locked_mode: locked_mode,
+          lockfile: lockfile
         )
         installed = InstallExecute.install_platform(ctx, specific_package: specific_package).to_a
 
@@ -250,7 +256,9 @@ module Rulepack
         project_root: options[:project_arg] ? Pathname.new(options[:project_arg]).expand_path : nil,
         installed_this_run: [],
         journal: options.fetch(:journal, []),
-        failures: []
+        failures: [],
+        locked_mode: options.fetch(:locked_mode, false),
+        lockfile: options[:lockfile]
       )
       installed = InstallExecute.install_platform(ctx)
       [installed, ctx.failures]
@@ -290,6 +298,8 @@ module Rulepack
       collision_strategy = options[:on_collision] || 'interactive'
       rules_to         = options[:rules_to]
       targets_mode     = options[:targets_mode]
+      locked_mode      = options.fetch(:locked, false)
+      lockfile         = locked_mode ? (options.fetch(:lockfile, nil) || Rulepack::Lockfile.new) : nil
 
       Rulepack::Logging.log_level = verbose_mode ? :debug : Rulepack::Config.log_level
 
@@ -339,7 +349,8 @@ module Rulepack
         return install_all(
           dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
           verbose_mode: verbose_mode, select_list: select_list,
-          project_arg: project_arg, collision_strategy: collision_strategy, rules_to: rules_to
+          project_arg: project_arg, collision_strategy: collision_strategy, rules_to: rules_to,
+          locked_mode: locked_mode, lockfile: lockfile
         )
       end
 
@@ -357,7 +368,8 @@ module Rulepack
                      { dry_run: dry_run, force_mode: force_mode, needed_mode: needed_mode,
                        verbose_mode: verbose_mode, select_list: select_list,
                        project_arg: project_arg, specific_package: target_package,
-                       rules_to: rules_to, collision_strategy: collision_strategy })
+                       rules_to: rules_to, collision_strategy: collision_strategy,
+                       locked_mode: locked_mode, lockfile: lockfile })
         if result.success?
           all_installed.concat(result.data[:installed] || [])
         elsif result.partial?

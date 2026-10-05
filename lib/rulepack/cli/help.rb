@@ -38,6 +38,7 @@ module Rulepack
           --auto                       Fix: repair without confirmation
           --apply                      Bump: write the new pkgver and rebuild
           --strict                     Audit: strict mode
+          --remove                     Lock: unpin the listed packages
 
         Exit codes: 0 success, 1 partial (drift, some failures, outdated found) or failure.
 

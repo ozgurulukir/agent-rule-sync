@@ -47,7 +47,7 @@ module Rulepack
     def enforce!(pkgname, version:, source_sha256: nil)
       entry = @entries[pkgname.to_s]
       unless entry
-        raise Rulepack::StateError, "Package '#{pkgname}' is not locked. Run `rulepack lock` first."
+        raise Rulepack::StateError, "Package '#{pkgname}' is not pinned. Run `rulepack lock #{pkgname}` first."
       end
 
       if version && entry['version'] != version.to_s

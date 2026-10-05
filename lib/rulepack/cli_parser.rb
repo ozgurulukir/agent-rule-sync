@@ -104,20 +104,16 @@ module Rulepack
         when '--locked'
           options[:locked] = true
           i += 1
+        when '--remove'
+          options[:remove] = true
+          i += 1
         else
           positional << arg
           i += 1
         end
       end
 
-      if positional.size > 1
-        options[:package_name] = positional.first
-        # Keep any secondary positional arguments if needed
-        options[:extra_positional] = positional[1..-1]
-      else
-        options[:package_name] = positional.first
-      end
-
+      options[:package_name] = positional.first
       options[:positional] = positional
       options
     end

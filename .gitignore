@@ -43,6 +43,7 @@ scratch/
 .antigravitycli/
 .ruby-lsp/
 .rulepack.local.yaml
+rulepack.lock
 data/packages/*/PKGBUILD.local
 data/packages/*/local/
 

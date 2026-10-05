@@ -146,10 +146,10 @@ module Rulepack
         ]
       },
       'lock' => {
-        backend: 'Lock', method: :run, max_positional: 0, group: :other,
-        synopsis: 'lock',
-        usage: 'rulepack lock',
-        description: 'Show lockfile status'
+        backend: 'Lock', method: :run, max_positional: 16, group: :other,
+        synopsis: 'lock [pkg] [--remove]',
+        usage: 'rulepack lock [<pkg>...] [--remove]',
+        description: 'Pin/unpin packages (bare: show lockfile status)'
       },
       'init-hooks' => {
         backend: 'InitHooks', method: :run, max_positional: 0, group: :other,

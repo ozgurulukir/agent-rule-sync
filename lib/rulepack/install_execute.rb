@@ -42,6 +42,19 @@ module Rulepack
           next
         end
 
+        # install --locked: the pinned (version, source_sha256) tuple must
+        # match the build-index candidate, or the package is skipped as a
+        # failed_packages entry (:partial) — previews included.
+        if ctx.locked_mode
+          begin
+            ctx.lockfile.enforce!(pkgname.to_s, version: pkgdata[:pkgver], source_sha256: pkgdata[:source_sha256])
+          rescue Rulepack::StateError => e
+            Rulepack::Common.log_warn e.message
+            record_failure(ctx, pkgname.to_s, :lock_mismatch, e.message)
+            next
+          end
+        end
+
         next unless InstallPlan.should_install_or_upgrade?(pkgname, pkgdata, ctx)
 
         InstallPlan.ensure_package_in_index(ctx.index, pkgname, pkgdata, dry_run: ctx.dry_run)
