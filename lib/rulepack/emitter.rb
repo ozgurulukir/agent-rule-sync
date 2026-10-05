@@ -6,19 +6,17 @@
 # Events are fire-and-forget: subscribers must not raise.
 #
 # Usage:
-#   Rulepack::Emitter.emit(:stage_start, stage: 'build', platform: 'opencode')
-#   Rulepack::Emitter.subscribe(:stage_start) { |payload| ... }
+#   Rulepack::Emitter.emit(:log, message: 'fetching', level: 'info', time: '...')
+#   Rulepack::Emitter.subscribe(:log) { |payload| ... }
 #
-# Built-in event types:
+# Built-in event types (the vocabulary renderers and the jsonl stream carry):
 #   :log           — a narration line from Common.log* (payload: {message:, level:, time:})
-#   :stage_start   — a pipeline stage begins (payload: {stage:, platform:})
-#   :stage_done    — a pipeline stage completes (payload: {stage:, platform:})
-#   :package_built — a package finished building (payload: {pkgname:, status:})
-#   :target_built  — a target artifact was written (payload: {pkgname:, platform:, output:, checksum:})
-#   :warn          — a warning occurred (payload: {message:})
-#   :error         — an error occurred (payload: {message:})
+#   :warn          — a warning (payload: {message:}) — emitted by Logging.log_warn
+#   :error         — an error (payload: {message:}) — emitted by Logging.log_error
 #   :info          — informational message (payload: {message:})
 #   :progress      — progress indicator (payload: {message:})
+#   :result        — the final Result snapshot of a --format jsonl run (payload: {payload:})
+# Custom event types may be emitted freely; renderers simply ignore unknown ones.
 module Rulepack
   module Emitter
     @subscribers = {}.tap { |h| h.compare_by_identity }

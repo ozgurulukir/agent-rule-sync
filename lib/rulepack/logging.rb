@@ -64,11 +64,13 @@ module Rulepack
 
     def log_error(msg, log_file: nil)
       warn "❌ #{msg}"
+      Emitter.emit(:error, message: msg)
       log("ERROR: #{msg}", level: :error, log_file: log_file)
     end
 
     def log_warn(msg, log_file: nil)
       warn "⚠️  #{msg}"
+      Emitter.emit(:warn, message: msg)
       log("WARN: #{msg}", level: :warn, log_file: log_file)
     end
 

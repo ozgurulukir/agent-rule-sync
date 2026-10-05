@@ -2,7 +2,8 @@
 
 # Logging contract after the Emitter migration: every log line is emitted as
 # a :log Emitter event (level-filtered) and appended to the log file
-# unconditionally. log_error/log_warn keep their stderr echo at the source.
+# unconditionally. log_error/log_warn keep their stderr echo at the source
+# and additionally emit structured :error/:warn events for machine formats.
 # Console rendering of :log events is the renderers' job (test_reporter).
 
 require_relative 'helper'
@@ -79,5 +80,22 @@ class TestLogging < Minitest::Test
       assert_empty events, 'debug must not surface at the default info level'
     end
     assert_includes File.read(@log_file), 'DEBUG: quiet'
+  end
+
+  def test_log_warn_and_log_error_also_emit_structured_warn_and_error_events
+    Rulepack::Logging.log_file = @log_file
+    structured = []
+    subs = %i[warn error].map do |type|
+      Rulepack::Emitter.subscribe(type) { |payload| structured << [type, payload[:message]] }
+    end
+    begin
+      capture_io do
+        Rulepack::Logging.log_warn 'careful'
+        Rulepack::Logging.log_error 'boom'
+      end
+    ensure
+      subs.each { |sub| Rulepack::Emitter.unsubscribe(sub) }
+    end
+    assert_equal [[:warn, 'careful'], [:error, 'boom']], structured
   end
 end
