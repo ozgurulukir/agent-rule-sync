@@ -39,8 +39,10 @@ bin/rulepack install --target goose
 bin/rulepack install --target droid
 
 # Import agents (inject @import lines)
-bin/rulepack install --target gemini-cli
 bin/rulepack install --target qwen-code
+
+# Gemini CLI (rules appended to GEMINI.md)
+bin/rulepack install --target gemini-cli
 
 # Antigravity (skill-bundle)
 bin/rulepack install --target antigravity
@@ -86,7 +88,7 @@ bin/rulepack install --target opencode
 
 ```bash
 # 1. Edit package source
-vim data/packages/memory/src/00-memory.md
+vim data/packages/<namespace>/<pkgname>/src/00-memory.md
 
 # 2. Rebuild (only changed packages)
 bin/rulepack build
@@ -120,11 +122,14 @@ bin/rulepack uninstall --target cursor --project . --dry-run
 
 ### Install with --rules-to
 
-Redirect rules to a single file instead of the `rules_dir`:
+Choose how rules land on the platform (`--rules-to` accepts `rules_dir` or `rules_file`):
 
 ```bash
-# Append rules to AGENTS.md instead of creating individual symlinks
-bin/rulepack install --target oh-my-pi --rules-to AGENTS.md
+# (Default) rules_dir — individual symlinked/copied files in the rules directory
+bin/rulepack install --target oh-my-pi --rules-to rules_dir
+
+# rules_file — append rules into the platform's single rules file (e.g. AGENTS.md)
+bin/rulepack install --target oh-my-pi --rules-to rules_file
 ```
 
 ### Appending to AGENTS.md / GEMINI.md without overwriting
@@ -216,7 +221,7 @@ bin/rulepack build --timing     # Build with timing output
 Install packages to a target platform.
 
 ```bash
-bin/rulepack install <platform> [options]
+bin/rulepack install [package] --target <platform|all> [options]
 
 Options:
   --dry-run                Show what would be installed (no changes)
@@ -226,7 +231,8 @@ Options:
   --needed                 Skip already-installed packages
   --select <names>         Comma-separated sub-skill names for skill-bundle
   --on-collision <mode>    Collision handling: stop|ignore|overwrite|append
-  --rules-to <path>        Redirect rules to single file (e.g., AGENTS.md)
+  --rules-to <rules_dir|rules_file>  Rules install mode (files dir, or append)
+  --locked                 Enforce the lockfile (fail on unpinned versions)
 ```
 
 **Examples**:
@@ -257,7 +263,7 @@ bin/rulepack install --target opencode --force
 Remove packages from a platform.
 
 ```bash
-bin/rulepack uninstall <platform> [options]
+bin/rulepack uninstall [package] --target <platform|all> [options]
 
 Options:
   --dry-run        Show what would be removed (no changes)
@@ -266,12 +272,14 @@ Options:
 
 ### Pacman-Style Shortcuts
 
+The aliases replace the command word (`-S` install · `-R` uninstall · `-Qk` verify · `-F` fix · `-Q` query):
+
 ```bash
-bin/rulepack install -S --target opencode      # Install (pacman-style alias)
-bin/rulepack uninstall -R --target opencode    # Uninstall (pacman-style alias)
-bin/rulepack verify -Qk --target opencode      # Verify (pacman-style alias)
-bin/rulepack fix -F --target opencode          # Fix (pacman-style alias)
-bin/rulepack query -Q ls                       # Query (pacman-style alias)
+bin/rulepack -S --target opencode              # Install (same as: install --target opencode)
+bin/rulepack -R --target opencode              # Uninstall (same as: uninstall --target opencode)
+bin/rulepack -Qk --target opencode             # Verify (same as: verify --target opencode)
+bin/rulepack -F --target opencode              # Fix (same as: fix --target opencode)
+bin/rulepack -Q ls                             # Query (same as: query ls)
 ```
 
 ### query / list / show / search
@@ -302,7 +310,7 @@ Comprehensive index-disk reconciliation:
 
 ```bash
 bin/rulepack verify --target opencode
-bin/rulepack verify -Qk --target opencode
+bin/rulepack -Qk --target opencode
 ```
 
 Detects drift between index and actual disk state, reports orphans and mismatches.
@@ -313,7 +321,7 @@ Automated repair of drift:
 
 ```bash
 bin/rulepack fix --target opencode
-bin/rulepack fix -F --target opencode
+bin/rulepack -F --target opencode
 bin/rulepack fix --target opencode --auto    # Non-interactive
 ```
 
@@ -396,7 +404,7 @@ targets:
       type: symlink
 ```
 
-> **Note**: Include targets for all 14 supported platforms. See [Reference](REFERENCE.md) for the full target schema.
+> **Note**: `targets:` is optional — omitted or partial entries are auto-expanded to all 14 platforms from the registry and `pkg_type`. See [Reference](REFERENCE.md) for the full target schema.
 
 ### 4. Build
 
@@ -455,7 +463,7 @@ The package has no target defined for the requested platform. Check the PKGBUILD
 
 ## Logs
 
-All operations log to `build/build.log`. Check logs for detailed error messages.
+All operations log to `build/install.log`. Check logs for detailed error messages.
 
 ---
 

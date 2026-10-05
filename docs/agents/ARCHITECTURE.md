@@ -38,14 +38,15 @@ your-project/
 │   ├── platforms/                   # Platform format profiles (informational)
 │   │   ├── opencode.yaml, crush.yaml, goose.yaml ...
 │   ├── index.yaml                   # Master package DB (installed state + metadata)
-│   └── build/                       # Build artifacts (generated)
-│       ├── index.yaml               # Build metadata (intermediate)
-│       ├── catalog.json             # Package catalog (auto-generated)
-│       ├── <platform>/              # Built artifacts per platform
-│       │   └── ...
+├── build/                           # Build artifacts (generated)
+│   ├── index.yaml               # Build metadata (intermediate)
+│   ├── catalog.json             # Package catalog (auto-generated)
+│   ├── <platform>/              # Built artifacts per platform
+│   │   └── ...
+├── cache/                           # Source cache (content-addressed)
 ├── lib/
 │   └── rulepack/                    # Library modules
-│       ├── common.rb                # Constants, Config, basic IO, shared validation
+│       ├── common.rb                # Composition root: scoped Paths/UI contexts, config, shared helpers
 │       ├── cli_parser.rb            # Unified CLI argument parsing
 │       ├── logging.rb               # Centralized logging
 │       ├── cache.rb                 # HTTP/Git caching
@@ -55,7 +56,7 @@ your-project/
 │       ├── translate.rb             # Translator loading/dispatch
 │       ├── transform.rb             # Transformer loading/dispatch
 │       ├── schema_engine.rb         # Centralized Dynamic Schema Engine
-│       ├── build_pipeline.rb        # 4-stage build pipeline orchestrator
+│       ├── build_per_pkg.rb         # Per-package pipeline (translate → schema engine → transform)
 │       ├── validation.rb            # PKGBUILD schema validation
 │       ├── platform.rb              # Platform registry + path resolution
 │       ├── installer.rb             # Installation engine (symlink/copy/inject/append)
@@ -83,7 +84,8 @@ your-project/
 │       ├── REFERENCE.md             # PKGBUILD/API reference
 │       ├── TRANSFORMS.md            # Transformer docs
 │       ├── UPSTREAM.md              # Upstream source tracking
-│       └── agents/                  # Per-agent guides
+│       ├── API.md                   # Library/API reference
+│       └── platforms/               # Per-agent guides
 │           ├── opencode.md
 │           ├── cursor.md
 │           └── ...
@@ -107,11 +109,11 @@ Global configuration stored in the user's home directory, applies across all pro
 | OpenCode | directory | `~/.config/opencode/` | Symlinked rule files |
 | Oh My Pi | directory | `~/.omp/agent/` | Symlinked rule files |
 | Crush | skill | `~/.config/crush/` | Single skill file |
-| Goose | skill | `~/.local/share/goose/` | Single skill file (guardrails.md) |
+| Goose | skill | `~/.local/share/goose/` | Single skill file (goose.md) |
 | Droid | skill | `~/.factory/` | Single skill file (AGENTS.md) |
-| Gemini CLI | import | `~/.config/gemini/` | `@import` lines in `cli_config.yaml` |
+| Gemini CLI | directory | `~/.gemini/` | Rules appended to `GEMINI.md` (marker blocks) |
 | Qwen Code | import | `~/.config/qwen/` | `@import` lines in `config.yaml` |
-| Antigravity | directory | `~/.gemini/antigravity/` | Skill-bundle directory |
+| Antigravity | directory | `~/.gemini/` | Skills in `.agent/skills/`; rules appended to `GEMINI.md` |
 | Agents | directory | `~/.agents/` | Symlinked rule files |
 
 ### Project-Level Platforms
@@ -151,7 +153,7 @@ Configuration stored in the project repository, version-controlled alongside cod
           │
           ▼
 ┌─────────────────────┐
-│   Aggregate Phase   │  bin/rulepack aggregate
+│   Aggregate Phase   │  part of bin/rulepack build (BuildAll composite)
 │   (skill agents)    │  • Collect rule fragments (format=skill)
 │   - Header          │  • Add agent-specific skills
 │   - Rules (ordered) │  • Add common skills
@@ -161,7 +163,8 @@ Configuration stored in the project repository, version-controlled alongside cod
           │
           ▼
 ┌─────────────────────┐
-│   Install Phase     │  bin/rulepack install <platform> [--project PATH]
+│   Install Phase     │  bin/rulepack install [package] --target <platform|all>
+│   │                 │  [--project PATH]
 │   - Resolve paths   │  • Lookup platform config (registry)
 │   - Create dirs     │  • Compute install paths (rules, skills, agents)
 │   - Symlink/copy    │  • Perform install (symlink/copy/inject/append)
@@ -171,7 +174,7 @@ Configuration stored in the project repository, version-controlled alongside cod
           │
           ▼
 ┌─────────────────────┐
-│   Query / Verify    │  bin/rulepack query, bin/rulepack verify <platform>
+│   Query / Verify    │  bin/rulepack query, bin/rulepack verify --target <platform|all>
 │   - List packages   │  • Inspect data/index.yaml
 │   - Show details    │  • Verify installed checksums
 │   - Search          │  • Validate sync state
@@ -184,7 +187,7 @@ Configuration stored in the project repository, version-controlled alongside cod
 ## Data Flow
 
 **Build** (`lib/rulepack/build.rb`):
-1. Load all `PKGBUILD` files from `data/packages/*/` as immutable `Package` models (targets expanded to `Target` models)
+1. Load all `PKGBUILD` files from `data/packages/` (`upstream/` tracked, `local/` personal, legacy flat) as immutable `Package` models (targets expanded to `Target` models)
 2. For each source entry: read local file or fetch URL/git (with SHA256 verification)
 3. 4-stage pipeline per file-based target:
    - **Fetch**: read/cached source
@@ -226,7 +229,7 @@ Configuration stored in the project repository, version-controlled alongside cod
 5. Write index atomically
 
 **Query** (`lib/rulepack/query.rb`):
-- Commands: `list-packages`, `list-platforms`, `installed <platform>`, `show <pkg>`, `search <tag>`, `check`
+- Commands: `list-packages`, `list-platforms`, `installed <platform>` (default: opencode), `show <pkg>`, `search <term>`, `check`, `orphans`, `depends <pkg>`, `provides <capability>` (each with a single-letter alias)
 - Sources data from `data/index.yaml` and `build/index.yaml`
 
 ---
@@ -428,5 +431,5 @@ Downgrade: Blocked by default; use `--force` to allow.
 
 - **Path traversal protection**: All file paths validated with `realpath` to ensure they stay within repo
 - **Safe YAML loading**: `YAML.safe_load` used everywhere
-- **Command injection prevention**: All `system()` calls use array form
+- **Minimal shell surface**: subprocesses are limited to `git`, `tar`, and `pkgver_func` (invoked via `Open3`/array form); the git HTTP fallback is pure Ruby
 - **Checksum verification**: All sources verified against expected SHA256

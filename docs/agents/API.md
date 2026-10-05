@@ -137,9 +137,10 @@ Rulepack::Logging.log_error("Failed to fetch #{url}: #{e.message}")
 Rulepack::Logging.log_warn("Cache miss for #{key}")
 ```
 
-Backend narration is Emitter events (`:progress`, `:info`, `:warn`, `:error`,
-`:stage_start`, `:stage_done`, `:package_built`, `:target_built`) — never raw
-`puts`. `Logging.log` is for operation logs.
+Backend narration is Emitter events — `:log` (the `Common.log*` channel, payload
+`{message:, level:, time:}`) plus `:progress`, `:info`, `:warn`, `:error`,
+`:stage_start`, `:stage_done`, `:package_built`, `:target_built`; `--format jsonl`
+adds a final `:result` event — never raw `puts`. `Logging.log` is the file sink.
 
 ### YAML/JSON I/O
 
@@ -285,7 +286,7 @@ carry the query help text.
 - `cached_fetch_git_file(url, ref, git_path, depth:)` — single-file git fetch
 - `cached_fetch_git_dir(url, ref, git_path, depth:, on_clone:)` — directory fetch
 - `cache_source(key, content_or_path, source_type:)` / `get_cached_source(key)`
-- Cache location: `<build>/cache` (naming via `Config.cache_dir_name`)
+- Cache location: `<root>/cache` (name via `Config.cache_dir_name`, `RULEPACK_CACHE_DIR`)
 
 Git is optional: when the `git` binary is unavailable, tarball fallback via
 `source.rb` (`translate_git_to_tarball`, hardened against path traversal).

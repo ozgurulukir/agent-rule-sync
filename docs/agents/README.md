@@ -27,7 +27,7 @@ This is the PKGBUILD-based system for managing AI agent rules, skills, and docum
 | GitHub Copilot | import | project | `.github/copilot-instructions.md` | [GitHub Copilot](platforms/github-copilot.md) |
 | Claude Code | directory | project | `.claude/rules/` | [Claude Code](platforms/claude-code.md) |
 | Codex CLI | skill | project | `AGENTS.md` | [Codex CLI](platforms/codex.md) |
-| Antigravity | directory | user | `~/.gemini/antigravity/.agent/skills/` | [Antigravity](platforms/antigravity.md) |
+| Antigravity | directory | user | `~/.gemini/.agent/skills/` | [Antigravity](platforms/antigravity.md) |
 | Agents | directory | user | `~/.agents/rules/` | [Agents](platforms/agents.md) |
 
 ## Overview
@@ -42,7 +42,7 @@ This repository maintains a **single source of truth** for agent behavior defini
 
 **Additional features**:
 - **Agent packages** (`pkg_type: agent`) with platform-specific format translators
-- **`--rules-to`** flag to redirect rule installation to a single file (e.g., `AGENTS.md`)
+- **`--rules-to`** flag (`rules_dir` = individual files; `rules_file` = append into the platform's single rules file, e.g. `AGENTS.md`)
 - **Pacman-style shortcuts**: `-S` (install), `-R` (uninstall), `-Qk` (verify), `-F` (fix), `-Q` (query)
 
 **Core modules**: `build.rb` → `aggregate.rb` → `installer.rb` / `uninstaller.rb` / `query.rb` — all driven by the single CLI entry point `bin/rulepack`

@@ -7,7 +7,7 @@ Complete reference for all supported agent platforms, their configuration locati
 | Platform | Scope | Type | Config Location | Install Command |
 |----------|-------|------|-----------------|-----------------|
 | [OpenCode](#opencode) | user | directory | `~/.config/opencode/rules/` | `bin/rulepack install --target opencode` |
-| [Oh My Pi](#oh-my-pi) | user | directory | `~/.omp/agent/rules/` | `bin/rulepack install --target oh-my-pi` |
+| [Oh My Pi](#oh-my-pi-omp) | user | directory | `~/.omp/agent/rules/` | `bin/rulepack install --target oh-my-pi` |
 | [Crush](#crush) | user | skill | `~/.config/crush/crush.md` | `bin/rulepack install --target crush` |
 | [Goose](#goose) | user | skill | `~/.local/share/goose/goose.md` | `bin/rulepack install --target goose` |
 | [Droid](#droid) | user | skill | `~/.factory/AGENTS.md` | `bin/rulepack install --target droid` |
@@ -18,7 +18,7 @@ Complete reference for all supported agent platforms, their configuration locati
 | [GitHub Copilot](#github-copilot) | project | import | `.github/copilot-instructions.md` | `bin/rulepack install --target github-copilot --project .` |
 | [Claude Code](#claude-code) | project | directory | `.claude/rules/` | `bin/rulepack install --target claude-code --project .` |
 | [Codex CLI](#codex-cli) | project | skill | `AGENTS.md` | `bin/rulepack install --target codex --project .` |
-| [Antigravity](#antigravity) | user | directory | `~/.gemini/antigravity/.agent/skills/` | `bin/rulepack install --target antigravity` |
+| [Antigravity](#antigravity) | user | directory | `~/.gemini/.agent/skills/` | `bin/rulepack install --target antigravity` |
 | [Agents](#agents) | user | directory | `~/.agents/rules/` | `bin/rulepack install --target agents` |
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
@@ -36,7 +36,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Skills dir**: `skills/`
 - **Agents dir**: `agents/`
 - **Install method**: symlink for rules, copy for skills/agents
-- **Rules file**: `AGENTS.md` (rules can be appended via `--rules-to AGENTS.md`)
+- **Rules file**: `AGENTS.md` (rules can be appended via `--rules-to rules_file`)
 - **Config file**: `~/.config/opencode/opencode.jsonc`
 - **Rules loading**: All `rules/*.md` files injected at session start via `AGENTS.md`
 - **Update**: `opencode upgrade` (self-updater, multiple backends)
@@ -53,7 +53,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Rules dir**: `rules/`
 - **Skills dir**: `skills/`
 - **Agents dir**: `agents/`
-- **Rules file**: `AGENTS.md` (rules can be appended via `--rules-to AGENTS.md`)
+- **Rules file**: `AGENTS.md` (rules can be appended via `--rules-to rules_file`)
 - **Install method**: symlink for rules, copy for skills/agents
 - **Config file**: `~/.omp/agent/config.yml`
 - **Features**: Hash-anchored edits, TTSR rules (zero context until triggered), IPython kernel
@@ -114,7 +114,7 @@ Complete reference for all supported agent platforms, their configuration locati
 - **Base path**: `~/.gemini/`
 - **Rules dir**: `rules/`
 - **Skills dir**: `skills/`
-- **Rules file**: `GEMINI.md` (rules can be appended via `--rules-to GEMINI.md`)
+- **Rules file**: `GEMINI.md` (rules can be appended via `--rules-to rules_file`)
 - **Install method**: append for rules, copy for skills
 - **Auth**: OAuth personal
 - **Update**: `gemini extensions update --all` (CLI via npm; extensions separate)
@@ -220,13 +220,13 @@ Complete reference for all supported agent platforms, their configuration locati
 
 - **Type**: directory
 - **Scope**: user
-- **Base path**: `~/.gemini/antigravity/`
+- **Base path**: `~/.gemini/`
 - **Skills dir**: `.agent/skills/`
 - **Rules file**: `GEMINI.md`
 - **Install method**: copy (skill-bundle), append (rules)
 - **Skills**: antigravity-skills (300+ sub-skills from upstream)
 
-**Rulepack integration**: `bin/rulepack install --target antigravity` → copies skill-bundle to `~/.gemini/antigravity/.agent/skills/`
+**Rulepack integration**: `bin/rulepack install --target antigravity` → copies skill-bundle to `~/.gemini/.agent/skills/`
 
 ---
 
@@ -307,7 +307,7 @@ bin/rulepack install --target opencode    # → ~/.config/opencode/rules/
 bin/rulepack install --target oh-my-pi    # → ~/.omp/agent/rules/
 bin/rulepack install --target crush       # → ~/.config/crush/crush.md
 bin/rulepack install --target goose       # → ~/.local/share/goose/goose.md
-bin/rulepack install --target antigravity # → ~/.gemini/antigravity/.agent/skills/
+bin/rulepack install --target antigravity # → ~/.gemini/.agent/skills/
 ```
 
 No `--project` flag needed. `base_path` is absolute (tilde-expanded).
@@ -354,14 +354,14 @@ Copies the built artifact to the target location. Only copies if checksum differ
 
 Prepends an `@import` directive line to the platform's config file. Deduplicates on re-install.
 
-- Used by: Gemini CLI, Qwen Code
+- Used by: Qwen Code
 - Appends to top of file (after frontmatter if present)
 
 ### Append (`append`)
 
 Appends content to the target file using marker-boundary blocks. Used for vendor skill aggregation, rules-file injection into single-file platforms, or multi-rule platforms that consolidate into one file.
 
-- Used by: Antigravity (`GEMINI.md`), platforms using `--rules-to rules_file` (e.g., OpenCode, Oh My Pi, Claude Code injecting into `AGENTS.md`)
+- Used by: Antigravity (`GEMINI.md`), and platforms using `--rules-to rules_file` whose registry entry defines `rules_file` (e.g., OpenCode, Oh My Pi)
 - Supports marker-aware replace: re-install updates the block between `<!-- rulepack:<pkg> start -->` / `<!-- rulepack:<pkg> end -->` instead of duplicating
 - Concatenates with `---\n\n` separator when no prior marker exists
 
@@ -385,10 +385,10 @@ Single skill file consumed by the agent. Content is typically aggregated from mu
 
 ### `import`
 
-Config file with `@import` directives. The SSoT system injects import lines pointing to built artifacts.
+The artifact becomes an entry in the platform's config file rather than a file in `rules_dir`.
 
-- Examples: Gemini CLI, Qwen Code
-- Output: `@import` lines added to config
+- Examples: Qwen Code, GitHub Copilot
+- Output: Qwen Code gets `@import` lines injected into `config.yaml`; GitHub Copilot gets a copied instruction file (`.github/copilot-instructions.md`)
 
 ### `skill-bundle`
 

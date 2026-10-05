@@ -40,7 +40,7 @@ Technical reference for PKGBUILD format, transformer API, index schema, and vali
 
 Exclusion filtering is applied after discovery: a sub-skill whose relative path (from the source root) starts with any `skill_exclude` prefix (matched exactly or as a parent prefix, e.g. `rel == p` or `rel.start_with?(p + '/')`) is omitted from the manifest entirely. An excluded `SKILL.md` never creates a sub-skill.
 
-**Backward Compatibility**: The 5 flat upstream packages (anthropics-skills, antigravity-skills, cc-skills-golang, ruby-agent-skills, vibe-security) each have their `SKILL.md` at `<topdir>/SKILL.md` with no deeper `SKILL.md`. The recursive detector yields identical `path`/`name`/`files` to the previous top-level-dir grouping, so these packages are unaffected.
+**Backward Compatibility**: The 5 upstream packages (anthropics-skills, antigravity-skills, cc-skills-golang, ruby-agent-skills, vibe-security) each have their `SKILL.md` at `<topdir>/SKILL.md` with no deeper `SKILL.md`. The recursive detector yields identical `path`/`name`/`files` to the previous top-level-dir grouping, so these packages are unaffected.
 
 **build/index.yaml Schema Note**: The `skill_exclude` field is stored in the `Package` model and threaded through to the `BuildRecord` (via `from_package` / conditional `to_h`). It appears in `build/index.yaml` when non-empty, and is passed through `pkg_index` at install/materialization time so `generate_skill_bundle_manifest` can filter sub-skills accordingly. The `materialization_up_to_date?` check also compares `manifest['skill_exclude']` with `pkg_index[:skill_exclude]` (nil-safe), so editing `skill_exclude` in the PKGBUILD at an unchanged source commit triggers re-materialization.
 
@@ -413,42 +413,61 @@ Platforms are defined in `data/registry/platforms.yaml`:
 ```
 bin/rulepack <command> [options]
 
-Commands:
-  build                  Build all packages
-  install <platform>     Install to platform
-  uninstall <platform>   Remove from platform
+Pacman-style commands:
+  install [package]      Install packages to a platform (--target required)
+  uninstall [package]    Remove packages from a platform
   query <cmd>            Query package database
+  fix [pkg]              Repair drift (index-disk reconciliation)
+
+Makepkg-style commands:
+  build                  Build all packages (fetch → transform → artifacts)
+  bump [pkg] [--apply]   Check upstream for new versions; --apply auto-updates
+
+Other commands:
   list                   List all packages
   show <pkgname>         Show package details
-  search <tag>           Search by tag
-  status                 Show system status
+  search <tag>           Search packages by tag
+  status                 Show overall system status
   audit [options]        Audit PKGBUILD descriptors
-  verify [platform]      Index-disk reconciliation (pacman -Qk)
-  fix [platform]         Repair drift (pacman -F)
+  check <platform>       Verify installed state matches index
+  verify [package]       Comprehensive index vs disk reconciliation
+  outdated [platform]    Show installed packages older than the build
   catalog                Show package catalog (JSON)
-  platforms              List available platforms
+  platforms              List all platforms
+  remote search <term>   Search remote package index
+  remote list            List remote packages
+  lock                   Show lockfile status
+  init-hooks             Install git pre-commit hook
   help                   Show this help
 
-Pacman-style shortcuts:
-  -S <platform>          Install (same as: install)
-  -R <platform>          Uninstall (same as: uninstall)
-  -Qk <platform>         Verify (same as: verify)
-  -F <platform>          Fix (same as: fix)
-  -Q <command>           Query (same as: query)
+Pacman-style shortcuts (command aliases):
+  -S                     Install (same as: install …)
+  -R                     Uninstall (same as: uninstall …)
+  -Qk                    Verify (same as: verify …)
+  -F                     Fix (same as: fix …)
+  -Q                     Query (same as: query …)
 
 Global Flags:
   --timing               Show operation timing
   --verbose, -v          Show debug output
+  --format text|json|yaml|jsonl  Output format (jsonl = event stream)
 
-Install Flags:
-  --target PLATFORM      Target platform (alternative to positional arg)
+Install / Uninstall Flags:
+  --target PLATFORM      Target platform(s): <plat> or all (required)
   --project PATH         Project root for project-level platforms
   --dry-run              Preview without changes
-  --force                Allow downgrades
+  --force, -f            Allow downgrades
   --needed               Skip already-installed packages
   --select <names>       Comma-separated sub-skill names for skill-bundle
   --on-collision <mode>  Collision handling: stop|ignore|overwrite|append
-  --rules-to <path>      Redirect rules to single file (e.g., AGENTS.md)
+  --rules-to <rules_dir|rules_file>  Rules install mode (files dir, or append)
+  --locked               Enforce the lockfile
+  --check                Verify installed state matches index
+
+Other Flags:
+  --auto                 Fix: repair without confirmation
+  --apply                Bump: write the new pkgver and rebuild
+  --strict               Audit: strict mode
 ```
 
 ---
@@ -485,7 +504,7 @@ Downgrades are blocked by default; use `--force` to allow.
 
 ### Platform Registry Validation
 
-`lib/rulepack/common.rb` validates:
+`lib/rulepack/platforms.rb` (`validate_platform_config`) validates:
 - `type` is one of: `directory`, `import`, `skill`
 - `scope` is one of: `user`, `project`
 - Required fields present per type
@@ -493,7 +512,7 @@ Downgrades are blocked by default; use `--force` to allow.
 
 ### Output Filename Validation
 
-`lib/rulepack/common.rb` validates:
+`lib/rulepack/validation.rb` (`validate_output_filename`) validates:
 - Filename only (no directory separators)
 - No `..` traversal
 - No absolute paths
@@ -501,28 +520,25 @@ Downgrades are blocked by default; use `--force` to allow.
 
 ---
 
-## Build Cache
+## Source Cache
 
 ### Cache Structure
 
+The cache lives at the project root (name from `RULEPACK_CACHE_DIR`, default `cache`) — not under `build/`:
+
 ```
-build/
-├── cache/
-│   ├── <key>/
-│   │   ├── extracted/       # Extracted/fetched source
-│   │   └── metadata.json    # Cache metadata
-│   └── ...
-├── catalog.json
-├── index.yaml
-└── <platform>/
-    └── ...
+cache/
+├── <key>/
+│   ├── extracted/       # Extracted/fetched source
+│   └── metadata.json    # Cache metadata
+└── ...
 ```
 
 ### Cache Operations
 
 - `bin/rulepack build` checks cache before fetching
 - Cache hits show: `"Fetching git repo (cached)"`
-- Manual cache clear: `rm -rf build/cache/`
+- Manual cache clear: `rm -rf cache/`
 
 ---
 
@@ -536,9 +552,9 @@ All file paths are validated with `realpath` to ensure they resolve within the r
 
 All YAML parsing uses `YAML.safe_load` with permitted classes.
 
-### Command Injection Prevention
+### Minimal Shell Surface
 
-All `system()` calls use array form (`system('cmd', arg1, arg2)`).
+Subprocesses are limited to `git`, `tar`, and `pkgver_func` (invoked via `Open3`/array form); the git HTTP fallback is pure Ruby.
 
 ### Checksum Verification
 

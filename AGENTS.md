@@ -33,12 +33,12 @@ Core purpose: maintain one canonical source of agent instructions and propagate 
 ```mermaid
 graph TD
     subgraph PKG [Declarative Packages: data/packages/]
-        M[memory/PKGBUILD]
-        S[shell/PKGBUILD]
-        V[vibe-security/PKGBUILD]
+        M[upstream/anthropics-skills/PKGBUILD]
+        S[upstream/mattpocock-skills/PKGBUILD]
+        V[upstream/vibe-security/PKGBUILD]
     end
 
-    subgraph BLD [Build Pipeline: BuildPipeline.run]
+    subgraph BLD [Build Pipeline: Build.run (BuildAll composite)]
         F[Fetch Sources & Verify SHA256] --> C[Build Cache]
         C --> SE[SchemaEngine.apply]
         SE --> W[Write Target-Specific Artifacts]
@@ -70,7 +70,7 @@ graph TD
 
 ## Modular Architecture
 
-The implementation is split across 77 Ruby files under `lib/` (76 under `lib/rulepack/` plus the `lib/rulepack.rb` entry point). Key modules:
+The implementation is split across 78 Ruby files under `lib/` (77 under `lib/rulepack/` plus the `lib/rulepack.rb` entry point). Key modules:
 
 - `common.rb` — explicit composition root: owns `RULEPACK_ROOT`, the scoped Paths/UI contexts (`with_paths` / `with_ui`), and the remaining stateless Logging re-exports. The stateful delegators (IO/Path/Validation/InstallHelpers) were deleted — callers use the owning modules directly. No metaprogrammed flattening.
 - `paths.rb` — `Rulepack::Paths` frozen value object (root, build_dir, build_index_path, index_yaml_path); every backend entry point accepts `paths:`, tests build sandbox instances.
@@ -80,7 +80,7 @@ The implementation is split across 77 Ruby files under `lib/` (76 under `lib/rul
 - `installed_state.rb` — `Rulepack::InstalledState.check`: the single "is this installed record intact on disk?" dispatch (pure; returns a typed `Verdict` consumed by Verify, Fix and the check command).
 - `ui.rb` — `Rulepack::UI` class (injectable stdin/stdout; `spin`, `confirm`, `collision_prompt`); `UI::Null` for tests. Replaces the old `ENV['RULEPACK_TEST']` branching.
 - `encoding_defaults.rb` — sets `Encoding.default_external = UTF-8` early for all entry points and tests.
-- `errors.rb` — typed error hierarchy (`Rulepack::Error` + 12 subclasses: `MissingOptionValue`, `InvalidOptionValue`, `InvalidPkgbuild`, `PkgbuildNotFound`, `StateError`, `ConfigError`, `SecurityError`, `UnknownPlatform`, `BuildIndexNotFound`, `IndexNotFound`, `PathTraversalError`).
+- `errors.rb` — typed error hierarchy: `Rulepack::Error` + 15 subclasses in three families — `ConfigError` (→ `CliError` → `MissingOptionValue`/`InvalidOptionValue`; → `PkgbuildError` → `PkgbuildNotFound`/`InvalidPkgbuild`), `SecurityError` (→ `PathTraversalError`), and `StateError` (→ `IndexNotFound`, `BuildIndexNotFound`, `IndexCorrupt`, `BuildIndexCorrupt`, `UnknownPlatform`).
 - `emitter.rb` — lightweight event emitter with subscribe/emit/unsubscribe; supports multiple subscribers per event type.
 - `security.rb` — `Rulepack::Security.strip_symlinks_in_tree` as the single source of truth for symlink stripping across build, install, and lazy materialization.
 - `lockfile.rb` — `Rulepack::Lockfile` pins `(pkgname, version, source_sha256)` tuples for reproducible installs; supports `enforce!` for `install --locked`.
@@ -90,7 +90,7 @@ The implementation is split across 77 Ruby files under `lib/` (76 under `lib/rul
 - `catalog/remote_catalog.rb` — reads a remote package index over HTTP; supports `search`, `list`, `fetch_package`.
 - `reporter/console_renderer.rb` — subscribes to Emitter and reproduces console output.
 - `reporter/jsonl_renderer.rb` — emits one JSON object per event (`--format jsonl`).
-- `build_loader.rb`, `build_per_pkg.rb`, `build_writer.rb`, `build_pipeline.rb` — build orchestration. The loader returns immutable `Package` models (with `Target` models); `BuildRecord` (`models/build_record.rb`) owns the build-index entry schema and the pipeline threads it value-style.
+- `build_loader.rb`, `build_per_pkg.rb`, `build_writer.rb` — build orchestration (the former `BuildPipeline` stage machine is inlined as `BuildPerPkg.run_content_passes`). The loader returns immutable `Package` models (with `Target` models); `BuildRecord` (`models/build_record.rb`) owns the build-index entry schema and the pipeline threads it value-style.
 - `schema_engine.rb` — normalizes frontmatter, emoji, headings, and bullets per platform schema.
 - `schema_migration.rb` — migrates legacy `data/index.yaml` schemas.
 - `validation.rb` — PKGBUILD structure and field validation (pkgname, versions, sources, targets, transformers, install types, path-traversal guards).
@@ -100,7 +100,7 @@ The implementation is split across 77 Ruby files under `lib/` (76 under `lib/rul
 - `cache.rb` — content-addressed source cache with optional size limit.
 - `bump.rb` — checks upstream git repos for new commits and optionally auto-updates PKGBUILD versions.
 - `outdated.rb` — compares installed versions in `data/index.yaml` against `build/index.yaml` and reports outdated or available-but-not-installed packages.
-- `cli_parser.rb` — unified ARGV parser handling pacman-style aliases (`-S`, `-R`, `-Qk`, `-F`, `-Q`) and flags such as `--target`, `--project`, `--on-collision`, `--select`, `--format`, and `--rules-to`.
+- `cli_parser.rb` — unified ARGV parser for flags such as `--target`, `--project`, `--on-collision`, `--select`, `--format`, `--rules-to`, `--needed`, `--locked`, and `--check`. Pacman aliases are remapped by the CLI dispatch table before parsing; `CliParser` never sees them.
 - `query.rb` — query dispatch for installed packages and manual/orphan items.
 - `io.rb` — shared file utilities (`read_text` / `read_binary`).
 - `result.rb` — structured `Rulepack::Result` object returned by backend operations.
@@ -131,11 +131,12 @@ bin/rulepack bump --apply [pkg]
 # Install / uninstall
 bin/rulepack install [pkg] -t <plat|all>
 bin/rulepack install [pkg] -t <plat|all> --dry-run --force --select <names>
-bin/rulepack install -S [pkg] -t <plat|all>          # pacman-style alias
+bin/rulepack -S [pkg] -t <plat|all>                  # pacman-style shortcut (alias = the command)
 
 bin/rulepack uninstall [pkg] -t <plat|all>
 bin/rulepack uninstall [pkg] -t <plat|all> --dry-run
-bin/rulepack uninstall -R [pkg] -t <plat|all>        # pacman-style alias
+bin/rulepack -R [pkg] -t <plat|all>                  # pacman-style shortcut
+```
 
 ### Surgical install / uninstall
 
@@ -152,6 +153,8 @@ bin/rulepack uninstall memory -t cursor --project .
 ```
 
 ### Collision strategies
+
+```bash
 bin/rulepack install -t <plat> --on-collision stop|ignore|overwrite|append
 
 # Rules installation mode
@@ -164,9 +167,9 @@ bin/rulepack install -t opencode --rules-to rules_file  # append to AGENTS.md / 
 
 # Drift detection and repair
 bin/rulepack verify [pkg] -t <plat|all>
-bin/rulepack verify -Qk [pkg] -t <plat|all>          # pacman-style alias
+bin/rulepack -Qk [pkg] -t <plat|all>                 # pacman-style shortcut
 bin/rulepack fix [pkg] -t <plat|all> [--auto]
-bin/rulepack fix -F [pkg] -t <plat|all> [--auto]     # pacman-style alias
+bin/rulepack -F [pkg] -t <plat|all> [--auto]         # pacman-style shortcut
 bin/rulepack outdated -t <plat|all> [--format json|yaml]
 
 # Audit / query
@@ -351,7 +354,7 @@ targets:
 
 ### Package Directory Structure
 
-Shared/tracked packages live in the flat layout or `upstream/` namespace. Personal packages go under `local/` (git-ignored). A fresh clone ships with an empty `local/` directory.
+Shared/tracked packages live in the `upstream/` namespace; the legacy flat layout is still resolved (search precedence `local` → `upstream` → flat) but currently hosts no tracked packages. Personal packages go under `local/` (git-ignored); a fresh clone ships with an empty `local/` directory.
 
 ```
 data/packages/
@@ -433,7 +436,7 @@ For detailed improvement notes, see [`docs/improvement-plan/OPEN-ITEMS.md`](docs
 - **The build-index entry schema is owned by `Rulepack::BuildRecord`** (`models/build_record.rb`): `from_package` seeds it, the pipeline accumulates runtime fields via `Data#with`, `to_h` serializes and enforces invariants (materializable packages must carry `source_sha256`; legacy `:status`/`:installed` keys are gone; `:pkg_type` is always present). Don't write build-index keys anywhere else.
 - **Platform registry is memoized per root**: `Rulepack::Platforms.load(root)` caches in a hash keyed by the expanded root path. `Common.load_platform_registry` resolves the **scoped** root: a sandbox that relocates paths via `with_paths` gets its own registry if it ships `data/registry/platforms.yaml`, and inherits the repo registry otherwise (relocation, not isolation). Tests that mutate the *repo* registry must still call `Rulepack::Platforms.clear_cache!`. Scope via `Rulepack::Common.with_paths(...)` or pass `paths:` to any backend entry point.
 - **Cross-package union cache deferred (YAGNI)**: empirical inspection shows distinct `source_sha256` per package, so a content-addressed union cache across packages has no hits in the current dataset. The per-package `union_key` cache in `build_per_pkg.rb` already collapses the 14 platforms per package into 1 store file (52 files, ~272 KB). Re-open only if future packages share source content (e.g. monorepo forks).
-- **Build dir is now near-empty for skill-bundles**: post-refactor, `build/<plat>/<pkg>/` is created **only at install time** for skill-bundles. If you see a skill-bundle with no `build/<plat>/<pkg>/` directory, that is expected — running `bin/rulepack install <pkg> -t <plat>` will populate it. `bin/rulepack verify` also triggers materialization.
+- **Build dir is now near-empty for materializable packages**: post-refactor, `build/<plat>/<pkg>/` is created **only at install time** for skill-bundles (and agent-format packages, via `ensure_agent_artifact` — verbatim copy from `source_dir`, no manifest). If you see a skill-bundle or agent package with no `build/<plat>/<pkg>/` directory, that is expected — running `bin/rulepack install <pkg> -t <plat>` will populate it. `bin/rulepack verify` also triggers materialization.
 - **Standalone script entry points were removed (2026-09-15)**: `lib/rulepack/*.rb` files cannot be run as CLI scripts anymore (`ruby lib/rulepack/build.rb` fails). Use `bin/rulepack` (or `ruby bin/rulepack` on Windows). Pacman aliases (`-S`, `-R`, `-Qk`, `-F`, `-Q`) are handled solely by the CLI dispatch table (`lib/rulepack/cli/commands.rb`); `CliParser` and backends never see them. E2E/integration tests copy `bin/` plus `lib/` and `data/` into sandboxes and drive `bin/rulepack` subprocesses.
 - **`encoding_defaults.rb` must be loaded before any other `lib/rulepack/` file**: it sets `Encoding.default_external = Encoding::UTF_8` early. If it is accidentally dropped from an entry point (e.g. `bin/rulepack`), markdown files with non-ASCII characters will raise `Encoding::UndefinedConversionError`. Always verify it is required before `require "lib/rulepack"`.
 - **`Rulepack::Security.strip_symlinks_in_tree` is the single source of truth**: three files (`build_per_pkg.rb`, `skill_bundle_lazy.rb`, `install_execute.rb`) previously had inline symlink-stripping logic. All now delegate to `lib/rulepack/security.rb`. Any new code that needs to strip symlinks from a directory tree must call this method, not reimplement it.

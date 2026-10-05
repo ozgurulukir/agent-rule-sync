@@ -231,7 +231,7 @@ During build (`lib/rulepack/build.rb`), for each target:
 
 ## Debugging Transformers
 
-**Log inspection**: Check `build/build.log` for transformer application errors.
+**Log inspection**: Check `build/install.log` for transformer application errors.
 
 **Manual test**:
 ```ruby

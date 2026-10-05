@@ -1275,35 +1275,38 @@ end
 
 ## Summary Table — All Open Items
 
+> Historical snapshot (2026-05). The authoritative status table is the one at the
+> bottom of this file; every item below is closed there as well.
+
 | ID | Priority | Description | Status |
 |---|---|---|---|
-| P-J | 🔴 CRITICAL | `pkgver_func` shell execution broken | OPEN |
-| P-K | 🔴 CRITICAL | `cached_fetch_url` no 30x redirect handling | OPEN |
-| P-L | 🔴 CRITICAL | `strip-frontmatter` not enforced as deprecated | OPEN |
-| P-M | 🔴 CRITICAL | `verify_checksum` regex breaks on multi-package files | OPEN |
-| P-N | 🟠 HIGH | `extract_tar_gz` symlink path traversal | OPEN |
-| P-O | 🟠 HIGH | `platform_cfg_for` calls `exit 1` in library | OPEN |
-| P-P | 🟠 MEDIUM | `fix_drift` reloads index from disk | OPEN |
-| P-Q | 🟠 MEDIUM | `atomic_append` misleading name | OPEN |
-| P-R | 🟠 MEDIUM | `install_all` dry-run mutates index in memory | OPEN |
-| P-S | 🟠 MEDIUM | `bump.rb:invoke_build` uses fragile `load` | OPEN |
-| P-T | 🟠 MEDIUM | TUI selector no timeout / SIGKILL safety | OPEN |
-| P-U | 🟡 MEDIUM | Emoji strip leaves double spaces | OPEN |
-| P-V | 🟡 MEDIUM | `backup.rb` counter not thread-safe | OPEN |
-| P-W | 🟡 MEDIUM | `BuildPipeline#transformer` dead parameter | OPEN |
-| P-X | 🟡 MEDIUM | `validate_target_entry_output` swallows bugs | OPEN |
-| P-Y | 🟡 MEDIUM | `query installed` undocumented opencode default | OPEN |
-| P-Z | 🟡 MEDIUM | `Rakefile` stale test counts | OPEN |
-| P-AA | 🟡 MEDIUM | `.rulepack.local.yaml` priority broken (elsif) | OPEN |
+| P-J | 🔴 CRITICAL | `pkgver_func` shell execution broken | ✅ COMPLETED |
+| P-K | 🔴 CRITICAL | `cached_fetch_url` no 30x redirect handling | ✅ COMPLETED |
+| P-L | 🔴 CRITICAL | `strip-frontmatter` not enforced as deprecated | ✅ COMPLETED |
+| P-M | 🔴 CRITICAL | `verify_checksum` regex breaks on multi-package files | ✅ COMPLETED |
+| P-N | 🟠 HIGH | `extract_tar_gz` symlink path traversal | ✅ COMPLETED |
+| P-O | 🟠 HIGH | `platform_cfg_for` calls `exit 1` in library | ✅ COMPLETED |
+| P-P | 🟠 MEDIUM | `fix_drift` reloads index from disk | ✅ COMPLETED |
+| P-Q | 🟠 MEDIUM | `atomic_append` misleading name | ✅ COMPLETED |
+| P-R | 🟠 MEDIUM | `install_all` dry-run mutates index in memory | ✅ COMPLETED |
+| P-S | 🟠 MEDIUM | `bump.rb:invoke_build` uses fragile `load` | ✅ COMPLETED |
+| P-T | 🟠 MEDIUM | TUI selector no timeout / SIGKILL safety | ✅ COMPLETED |
+| P-U | 🟡 MEDIUM | Emoji strip leaves double spaces | ✅ COMPLETED |
+| P-V | 🟡 MEDIUM | `backup.rb` counter not thread-safe | ✅ COMPLETED |
+| P-W | 🟡 MEDIUM | `BuildPipeline#transformer` dead parameter | ✅ COMPLETED |
+| P-X | 🟡 MEDIUM | `validate_target_entry_output` swallows bugs | ✅ COMPLETED |
+| P-Y | 🟡 MEDIUM | `query installed` undocumented opencode default | ✅ COMPLETED |
+| P-Z | 🟡 MEDIUM | `Rakefile` stale test counts | ✅ COMPLETED |
+| P-AA | 🟡 MEDIUM | `.rulepack.local.yaml` priority broken (elsif) | ✅ COMPLETED |
 | P-AB | 🟢 LOW | `build_schema.yaml` duplicate header comments | SUPERSEDED |
-| P-AC | 🟢 LOW | `audit.rb` custom ARGV parser (inconsistent) | OPEN |
-| P-AD | 🟢 LOW | Double pacman flag shift (`install.rb` + `cli_parser.rb`) | OPEN |
+| P-AC | 🟢 LOW | `audit.rb` custom ARGV parser (inconsistent) | ✅ COMPLETED |
+| P-AD | 🟢 LOW | Double pacman flag shift (`install.rb` + `cli_parser.rb`) | ✅ COMPLETED |
 | P-AE | ⚪ LOW | Duplicate preamble (same root cause as P-AB) | SUPERSEDED |
-| P-AF | ⚪ LOW | `common.rb` facade captures methods at load time | OPEN |
-| P-AG | ⚪ LOW | `query.rb` aliases silently ignore args | OPEN |
-| P-AH | ⚪ LOW | `resolve_directory_path` missing type guard | OPEN |
-| P-AI | ⚪ LOW | `install_helpers.rb` pure pass-through | OPEN |
-| P-AJ | ⚪ LOW | `build_index_path=` no type validation | OPEN |
+| P-AF | ⚪ LOW | `common.rb` facade captures methods at load time | ✅ COMPLETED |
+| P-AG | ⚪ LOW | `query.rb` aliases silently ignore args | ✅ COMPLETED |
+| P-AH | ⚪ LOW | `resolve_directory_path` missing type guard | ✅ COMPLETED |
+| P-AI | ⚪ LOW | `install_helpers.rb` pure pass-through | ✅ COMPLETED |
+| P-AJ | ⚪ LOW | `build_index_path=` no type validation | ✅ COMPLETED |
 
 ---
 

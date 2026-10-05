@@ -37,9 +37,9 @@ bin/rulepack install memory -t opencode --dry-run   # Dry run preview
 bin/rulepack install vibe-security -t opencode --select # Interactive sub-skill selection
 bin/rulepack install -t opencode --on-collision overwrite # Handle existing target file collisions
 
-# Pacman flag shortcut equivalents
-bin/rulepack install -S --target opencode            # Alias for install --target opencode
-bin/rulepack install -S memory -t opencode           # Alias for install memory -t opencode
+# Pacman command shortcuts (-S install · -R uninstall · -Qk verify · -F fix · -Q query)
+bin/rulepack -S --target opencode                    # Same as: install --target opencode
+bin/rulepack -S memory -t opencode                   # Same as: install memory -t opencode
 
 # Install to a project-level platform
 bin/rulepack install --target cursor --project .    # Install to current project directory
@@ -54,11 +54,11 @@ bin/rulepack install -t opencode --rules-to rules_file   # Appends rules into AG
 
 # Verify installed packages and integrity (verify or -Qk)
 bin/rulepack verify --target opencode               # Verify all packages on opencode
-bin/rulepack verify -Qk memory -t opencode           # Verify single package on opencode
+bin/rulepack -Qk memory -t opencode                  # Same as: verify memory -t opencode
 
 # Repair drift (fix or -F)
 bin/rulepack fix --target opencode                  # Repair any modified/missing files
-bin/rulepack fix -F memory -t opencode               # Repair single package
+bin/rulepack -F memory -t opencode                   # Same as: fix memory -t opencode
 
 # Check for outdated installs or available upgrades
 bin/rulepack outdated -t opencode                   # Compare installed versions to build index
@@ -72,7 +72,7 @@ bin/rulepack audit --format json                    # Machine-readable JSON outp
 
 # Uninstall from platforms (uninstall or -R)
 bin/rulepack uninstall --target opencode            # Uninstall all packages from opencode
-bin/rulepack uninstall -R memory -t cursor --project . # Uninstall single package from cursor project
+bin/rulepack -R memory -t cursor --project .           # Same as: uninstall memory -t cursor --project .
 
 # Query database
 bin/rulepack query show memory                      # Show package details
@@ -178,15 +178,14 @@ Create your own private packages under `data/packages/local/`. This directory is
 ```
 rulepack/
 ├── bin/rulepack              # CLI entry point
-├── lib/rulepack/             # Library modules (47 .rb files)
-│   ├── common.rb             # Facade — delegates to submodules (70 LOC)
+├── lib/rulepack/             # Library modules (77 .rb files)
+│   ├── common.rb             # Explicit composition root (scoped Paths/UI contexts; no facade)
 │   ├── installer.rb          # Installer orchestrator (split via InstallPlan + InstallExecute)
 │   ├── cli_parser.rb         # Unified command-line argument parser
-│   ├── build.rb              # Build orchestrator (~100 LOC → delegates to 3 submodules)
+│   ├── build.rb              # Build orchestrator (delegates to loader/per-pkg/writer)
 │   ├── build_loader.rb       # PKGBUILD discovery, loading, and validation
 │   ├── build_per_pkg.rb      # Per-package fetch + pipeline + checksum loop
 │   ├── build_writer.rb       # Writes build/index.yaml and build/catalog.json
-│   ├── build_pipeline.rb     # 4-stage sequential build pipeline state machine
 │   ├── schema_engine.rb      # Centralized dynamic formatting and emoji/bullet normalizer
 │   ├── schema_migration.rb   # data/index.yaml version-migration (idempotent while-loop, v1→v2→v3)
 │   ├── cache.rb              # Build cache with LRU eviction and configurable MB limit
@@ -203,14 +202,14 @@ rulepack/
 │             platform, aggregate, translate, generate-catalog,
 │             install CLI, uninstall CLI, fix CLI, outdated, reporter)
 ├── data/                     # Single Source of Truth (SSOT)
-│   ├── packages/             # Package definitions (19 packages)
+│   ├── packages/             # Package definitions (upstream/ = tracked shared · local/ = git-ignored personal)
 │   ├── registry/platforms.yaml  # 14 platform configurations
 │   ├── platforms/            # Format profiles (informational)
 │   ├── translators/          # Custom translation layers (6 translators)
 │   ├── transformers/         # Custom transform filters
 │   └── index.yaml            # Master package database (schema v3.0)
 ├── build/                    # Build artifacts (generated)
-├── test/                     # Test suite (357 runs, 1097 assertions, 0 failures, 0 errors, 2 skips)
+├── test/                     # Test suite (minitest — `bundle exec rake summary` for live counts)
 ├── docs/agents/              # Developer reference (ARCHITECTURE, PLATFORMS, REFERENCE, TRANSFORMS)
 ├── Rakefile
 ├── README.md
@@ -238,7 +237,7 @@ rulepack/
 
 **Scope**: `user` = global (home directory), `project` = per-project (requires `--project` flag)
 
-**Agent support**: 5 platforms support `format: agent` packages via their `agents_dir` — OpenCode, Oh My Pi, Cursor, Windsurf, Claude Code. See [AGENTS.md](AGENTS.md#agent-format) for details.
+**Agent support**: 5 platforms support `format: agent` packages via their `agents_dir` — OpenCode, Oh My Pi, Cursor, Windsurf, Claude Code. See [AGENTS.md](AGENTS.md) and [docs/agents/REFERENCE.md](docs/agents/REFERENCE.md) for details.
 
 ## Agent Packages
 
@@ -299,7 +298,7 @@ bin/rulepack platforms         # List available platforms
 bin/rulepack query list-packages              # List all packages with metadata
 bin/rulepack query show <pkgname>             # Show detailed package info
 bin/rulepack query search <keyword>           # Search packages by name/description/tags
-bin/rulepack query installed --platform crush # Show installed packages for a platform
+bin/rulepack query installed crush                  # Show installed packages for a platform
 bin/rulepack query orphans                    # List orphaned packages
 bin/rulepack query provides <capability>      # Show packages providing a capability
 ```
@@ -363,6 +362,7 @@ If `git` is not installed on the system, or if a `git clone` fails due to networ
 | `RULEPACK_CACHE_DIR` | `cache` | Cache directory name under project root |
 | `RULEPACK_GIT_DEPTH` | `1` | Git shallow clone depth |
 | `RULEPACK_LOG_LEVEL` | `info` | Log level filtering (`error`, `warn`, `info`, `debug`) |
+| `RULEPACK_CACHE_MAX_MB` | `500` | Source-cache size limit in MB (LRU eviction) |
 
 ## License
 

@@ -38,7 +38,7 @@ bin/rulepack install --target opencode
 
 ### What are the prerequisites?
 
-- **Ruby 2.7+** (for build system — stdlib only, no gems)
+- **Ruby 4.0+** (see `.ruby-version`; stdlib only, no gems)
 - **Git** (for fetching remote sources)
 
 ---
@@ -63,10 +63,10 @@ bin/rulepack install --target opencode
 bin/rulepack install --target cursor --project .
 
 # Install specific package to a platform
-bin/rulepack install --target memory --target opencode
+bin/rulepack install memory --target opencode
 
-# Install with pacman-style flag
-bin/rulepack install -S opencode
+# Pacman-style shortcut (-S = install)
+bin/rulepack -S memory --target opencode
 ```
 
 ### How do I check what's installed?
@@ -224,7 +224,7 @@ It's separate from `data/index.yaml` (the master package database) to allow rebu
 ### What's the difference between `build/` and `data/`?
 
 - **`data/`**: Source of truth — package definitions, registry, master index
-- **`build/`**: Generated artifacts — built rules, intermediate index, cache
+- **`build/`**: Generated artifacts — built rules and the intermediate index (the source cache lives separately in `cache/`)
 
 Never edit files in `build/` directly; they're overwritten on each build.
 
@@ -241,7 +241,7 @@ For skill-based platforms (Crush, Goose, Droid, Codex), Rulepack aggregates mult
 ### How do I run tests?
 
 ```bash
-rake test                    # All tests (357 tests, 1097 assertions)
+bundle exec rake test        # All tests (bundle exec rake summary for live counts)
 ```
 
 ### How do I debug a build?
