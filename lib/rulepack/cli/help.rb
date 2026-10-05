@@ -22,23 +22,34 @@ module Rulepack
           --verbose, -v                Show debug output
           --format text|json|yaml|jsonl  Output format (jsonl = event stream)
 
-        Install Flags (pacman-style):
-          --target PLATFORM            Install single package to specific platform
+        Install / Uninstall Flags:
+          --target PLATFORM            Target platform(s): <plat> or all (required)
+          --project PATH               Project root for project-level platforms
           --needed                     Skip already-installed packages
           --dry-run                    Preview without changes
           --force, -f                  Allow downgrades (pacman -f/--force)
+          --select <names>             Comma-separated sub-skill names (skill-bundles)
+          --on-collision <mode>        Collision handling: stop|ignore|overwrite|append
+          --rules-to <rules_dir|rules_file>  Rules install mode (files dir, or append)
+          --locked                     Enforce the lockfile
+          --check                      Verify installed state matches index
+
+        Other Flags:
+          --auto                       Fix: repair without confirmation
+          --apply                      Bump: write the new pkgver and rebuild
+          --strict                     Audit: strict mode
 
         Exit codes: 0 success, 1 partial (drift, some failures, outdated found) or failure.
 
         Examples:
-          rulepack build && rulepack install opencode
+          rulepack build && rulepack install --target opencode
           rulepack install rulepkg --target opencode --needed
-          rulepack install opencode --dry-run       # dry-run preview
-          rulepack uninstall opencode
+          rulepack install --target opencode --dry-run   # dry-run preview
+          rulepack uninstall --target opencode
           rulepack status
           rulepack search security
-          rulepack verify opencode
-          rulepack fix opencode
+          rulepack verify --target opencode
+          rulepack fix --target opencode
           rulepack outdated --target opencode
           rulepack audit --strict
       TAIL

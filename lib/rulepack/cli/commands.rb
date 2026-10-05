@@ -38,13 +38,13 @@ module Rulepack
       # ── Pacman-style ──────────────────────────────────────────────────────────
       'install' => {
         backend: 'Install', method: :dispatch, max_positional: 1, group: :pacman,
-        synopsis: 'install <platform|package>',
+        synopsis: 'install [package]',
         usage: 'rulepack install [package] --target <platform|all>',
         description: 'Install packages to a platform'
       },
       'uninstall' => {
         backend: 'Uninstaller', method: :dispatch, max_positional: 1, group: :pacman,
-        synopsis: 'uninstall <platform>',
+        synopsis: 'uninstall [package]',
         usage: 'rulepack uninstall [package] --target <platform|all>',
         description: 'Remove packages from a platform'
       },
@@ -56,7 +56,7 @@ module Rulepack
       },
       'fix' => {
         backend: 'Fix', method: :run, group: :pacman,
-        synopsis: 'fix [platform]',
+        synopsis: 'fix [pkg]',
         usage: 'rulepack fix [pkg] --target <platform|all> [--auto]',
         description: 'Repair drift (index-disk reconciliation)'
       },
@@ -115,7 +115,7 @@ module Rulepack
       },
       'verify' => {
         backend: 'Verify', method: :check, max_positional: 1, group: :other,
-        synopsis: 'verify [platform]',
+        synopsis: 'verify [package]',
         usage: 'rulepack verify [package] --target <platform|all>',
         description: 'Comprehensive index vs disk reconciliation'
       },
