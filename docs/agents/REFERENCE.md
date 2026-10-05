@@ -436,7 +436,7 @@ Other commands:
   platforms              List all platforms
   remote search <term>   Search remote package index
   remote list            List remote packages
-  lock                   Show lockfile status
+  lock [pkg] [--remove]  Pin/unpin packages (bare: show lockfile status)
   init-hooks             Install git pre-commit hook
   help                   Show this help
 
@@ -468,6 +468,7 @@ Other Flags:
   --auto                 Fix: repair without confirmation
   --apply                Bump: write the new pkgver and rebuild
   --strict               Audit: strict mode
+  --remove               Lock: unpin the listed packages
 ```
 
 ---

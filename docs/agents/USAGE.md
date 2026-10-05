@@ -333,9 +333,22 @@ Audit PKGBUILD descriptors for schema compliance:
 
 ```bash
 bin/rulepack audit               # Basic audit
-bin/rulepack audit --strict       # Strict mode
+bin/rulepack audit --strict       # Strict mode (partial platform coverage fails)
 bin/rulepack audit --format json  # Machine-readable output
 ```
+
+### lock
+
+Pin packages for reproducible installs. The lockfile (`rulepack.lock`) anchors to the working directory:
+
+```bash
+bin/rulepack lock                          # Show lockfile status
+bin/rulepack lock memory shell             # Pin packages (version + source hash from build/index.yaml)
+bin/rulepack lock --remove memory          # Unpin a package
+bin/rulepack install --locked -t opencode  # Only install pinned, matching versions
+```
+
+With `--locked`, a package whose version or source hash does not match its pin — or that is not pinned at all — is skipped and reported as a failure (`exit 1`), dry-runs included.
 
 ---
 
