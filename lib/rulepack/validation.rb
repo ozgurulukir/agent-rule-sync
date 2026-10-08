@@ -287,7 +287,11 @@ module Rulepack
       end
 
       # ── Target arg required ──────────────────────────────────────────────────────
-      unless target_arg
+      if (target_arg.nil? || target_arg.empty?) && Rulepack::Common.ui.interactive?
+        target_arg = Rulepack::Common.ui.ask("Please specify target platform(s) (e.g., opencode, all):")
+      end
+
+      unless target_arg && !target_arg.empty?
         msg = "Please specify target platform(s) with --target <platform> (or --target all)."
         exit_on_failure ? abort("❌ Error: #{msg}") : raise(Rulepack::ConfigError, msg)
       end
