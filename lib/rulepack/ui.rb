@@ -72,6 +72,19 @@ module Rulepack
       result
     end
 
+    # Prompts for input; returns the string or nil on EOF.
+    def ask(prompt)
+      return nil unless interactive?
+
+      @stdout.print "\n  \e[33m?\e[0m #{prompt} "
+      input = @stdin.gets
+      if input.nil?
+        @stdout.puts
+        return nil
+      end
+      input.strip
+    end
+
     # Yes/no confirmation; returns true only on explicit yes. EOF => false.
     def confirm(prompt)
       return false unless interactive?
